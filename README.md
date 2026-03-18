@@ -27,16 +27,14 @@ MAICRAFTS is used as the sample business to demonstrate how an online platform c
 
 ---
 
----
 
---
 ## Contributing
 
-MIAH 
-JAL 
-KAIZEN 
-LYNN 
-NEIL
+* MIAH 
+* JAL 
+* KAIZEN
+* LYNN
+* NEIL
 
 ---
 
