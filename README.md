@@ -1,10 +1,10 @@
 # MAICRAFTS — Handcrafted Floral & Creative Boutique
 
-Welcome to **MAICRAFTS**, a unique flower‑inspired craft shop specializing in handcrafted pieces made from crochet, fuzzy wire satin, and other artisanal materials. This README provides an overview of the project, purpose, structure, and instructions for contributing or deploying the website.
+Welcome to MAICRAFTS, a unique flower-inspired craft shop specializing in handcrafted pieces made from crochet, fuzzy wire satin, and other artisanal materials. This README provides an overview of the project, purpose, and structure.
 
 ---
 
-## 🌸 About MAICRAFTS
+## About MAICRAFTS
 
 MAICRAFTS is a creative boutique that blends the beauty of floral arrangements with the charm of handmade crafts. Instead of using real flowers, MAICRAFTS designs realistic and artistic floral pieces using a variety of handcrafted materials.
 
@@ -20,39 +20,26 @@ Every item is crafted with care, precision, and artistic passion.
 
 ---
 
-## 🌼 Website Purpose
+## Website Purpose
 
-The MAICRAFTS website aims to:
-
-* Showcase the full range of handcrafted products
-* Allow customers to explore collections and custom orders
-* Provide information about the craft process and materials
-* Enable users to contact or place inquiries easily
+This project is developed as part of a system requirement to create an E-Commerce Website.
+MAICRAFTS is used as the sample business to demonstrate how an online platform can showcase products, manage user interaction, and simulate real-world online selling functionality.
 
 ---
-
-## 🧶 Features
-
-* **Product Gallery** with categories (Flowers, Dolls, Bags, Custom Pieces)
-* **About the Artist** section
-* **Craft Materials Overview** including crochet, fuzzy wire satin, and textile arts
-* **Contact & Inquiry Form**
-* (Optional) **Online Store / Checkout System**
 
 ---
 
 --
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Whether you want to improve the design, enhance functionality, or optimize the structure, feel free to submit a pull request.
-
-Please ensure your code follows clean and consistent formatting.
+MIAH 
+JAL 
+KAIZEN 
+LYNN 
+NEIL
 
 ---
 
-## 📬 Contact
-
-For custom orders, inquiries, or collaboration requests, please reach out via the website’s contact form or email.
 
 ---
 
