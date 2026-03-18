@@ -34,7 +34,7 @@ MAICRAFTS is used as the sample business to demonstrate how an online platform c
 - **[JAL](https://github.com/jalzoren)** 
 - **[KAIZEN](https://github.com/ka1zen3)**
 - **[LYNN](https://github.com/LynnCzyla)**  
-- **[NEIL](https://github.com/mortred-crtcl))**
+- **[NEIL](https://github.com/mortred-crtcl)**
 
 ---
 
