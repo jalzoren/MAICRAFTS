@@ -192,7 +192,9 @@ const handleCheckoutSubmit = async (orderData) => {
 };
 
   return (
+    
     <div className="product-detail-page">
+
       <div className="container">
         {/* Breadcrumb */}
         <div className="breadcrumb">

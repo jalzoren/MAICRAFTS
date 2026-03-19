@@ -81,6 +81,7 @@ const ProductDetail2 = () => {
 
   return (
     <div className="pd-page">
+
       <div className="pd-container">
         <div className="pd-breadcrumb">
           Crochet &gt; {product.title}

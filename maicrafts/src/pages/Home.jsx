@@ -31,7 +31,9 @@ const Home = () => {
 
   return (
     <>
+    
       <section className="hero-section">
+
         <video autoPlay muted loop playsInline className="bg-video" src="/counter1.mp4" />
         <div className="circular-gradient-bg"></div>
         <div className="container hero-content py-5">

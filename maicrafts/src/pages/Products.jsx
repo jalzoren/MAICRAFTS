@@ -81,6 +81,7 @@ const Products = () => {
   return (
     <>
       {/* HERO SECTION */}
+
       <section className="hero-wrapper d-flex align-items-center justify-content-center">
         <video
           autoPlay

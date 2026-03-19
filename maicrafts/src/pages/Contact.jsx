@@ -11,7 +11,9 @@ import FloatingCart from "../components/FloatingCart.jsx";
 
 const Contact = () => {
   return (
+    
     <div>
+
     <section className="contact-section">
       <h2>Contact Us</h2>
 

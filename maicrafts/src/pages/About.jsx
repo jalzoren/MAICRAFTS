@@ -71,6 +71,7 @@ const About = () => {
 
   return (
     <>
+
       {/* Mission & Vision */}
       <section className="mission-vision">
         <div className="mission">
