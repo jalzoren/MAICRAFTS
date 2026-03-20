@@ -2,24 +2,44 @@ import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import nodemailer from "nodemailer";
 import supabase from "../supabaseClient.js";
+import axios from "axios"; // <- needed for captcha
 
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
-  const { first_name, last_name, email, password } = req.body;
+  const { first_name, last_name, email, password, captcha } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
   }
 
-  let userId; // Will hold the auth user id
+  if (!captcha) {
+    return res.status(400).json({ error: "Captcha is required" });
+  }
 
+  // 1️⃣ Verify Google reCAPTCHA
   try {
-    // 1️⃣ Create user in Supabase Auth
+    const secret = process.env.RECAPTCHA_SECRET_KEY;
+    const response = await axios.post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${captcha}`
+    );
+
+    if (!response.data.success) {
+      return res.status(400).json({ error: "Captcha verification failed" });
+    }
+  } catch (err) {
+    console.error("Captcha verification error:", err);
+    return res.status(500).json({ error: "Server error during captcha verification" });
+  }
+
+  // 2️⃣ Proceed with Supabase registration
+  let userId;
+  try {
+    // Create user in Supabase Auth
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // user will confirm via email
+      email_confirm: false,
     });
 
     if (authError) {
@@ -28,24 +48,21 @@ router.post("/register", async (req, res) => {
     }
 
     userId = authUser.user.id;
-    console.log("Auth user created with ID:", userId);
 
-    // 2️⃣ Insert profile info into public.users
-    const { error: userInsertError } = await supabase
-      .from("users")
-      .insert([{
-        id: userId,
-        email: email, 
-        first_name,
-        last_name,
-        role: "customer",
-        is_verified: false
-      }]);
+    // Insert profile info into public.users
+    const { error: userInsertError } = await supabase.from("users").insert([{
+      id: userId,
+      email,
+      first_name,
+      last_name,
+      role: "customer",
+      is_verified: false,
+    }]);
 
     if (userInsertError) {
       console.error("Failed to insert into public.users:", userInsertError);
 
-      // Rollback auth user if public.users insert fails
+      // Rollback auth user
       if (userId) {
         await supabase.auth.admin.deleteUser(userId);
       }
@@ -53,15 +70,13 @@ router.post("/register", async (req, res) => {
       return res.status(500).json({ error: "Failed to insert user profile" });
     }
 
-    // 3️⃣ Generate a confirmation token (uuid)
+    // Generate verification token
     const token = uuidv4();
-
-    // Save token in email_verifications table
     const { error: tokenError } = await supabase.from("email_verifications").insert([{
       id: uuidv4(),
       user_id: userId,
       token,
-      created_at: new Date()
+      created_at: new Date(),
     }]);
 
     if (tokenError) {
@@ -69,14 +84,14 @@ router.post("/register", async (req, res) => {
       return res.status(500).json({ error: "Failed to create verification token" });
     }
 
-    // 4️⃣ Send verification email via Nodemailer
+    // Send verification email
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER, // your email
-        pass: process.env.SMTP_PASS, // app password if using Gmail
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     });
 
@@ -93,7 +108,7 @@ router.post("/register", async (req, res) => {
       `,
     });
 
-    res.status(201).json({ message: "User registered. Check your email to verify." });
+    return res.status(201).json({ message: "User registered. Check your email to verify." });
 
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -107,7 +122,7 @@ router.post("/register", async (req, res) => {
       }
     }
 
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

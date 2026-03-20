@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FiLock, FiEye, FiEyeOff, FiArrowLeft } from "react-icons/fi";
 import Swal from "sweetalert2";
 import "../auth/css/SetupPassword.css";
+import ReCAPTCHA from "react-google-recaptcha"; 
 
 const SetupPassword = () => {
   const navigate = useNavigate();
@@ -18,6 +19,12 @@ const SetupPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [email, setEmail] = useState("");
+  
+  const [captchaValue, setCaptchaValue] = useState(null);
+
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value); // value will be null if user unchecks captcha
+  };
 
   // Get email from sessionStorage on component mount
 
@@ -177,13 +184,18 @@ const SetupPassword = () => {
       return;
     }
   
+    if (!captchaValue) {
+      showValidationAlert("Please complete the CAPTCHA before continuing");
+      return;
+    }
+  
     setIsLoading(true);
   
     try {
       const response = await fetch("http://localhost:5000/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: formData.password }),
+        body: JSON.stringify({ email, password: formData.password, captcha: captchaValue }),
       });
   
       const data = await response.json();
@@ -377,6 +389,14 @@ const SetupPassword = () => {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* CAPTCHA */}
+            <div className="captcha-wrapper" style={{ marginTop: '15px' }}>
+              <ReCAPTCHA
+                sitekey="6LdgxJAsAAAAAIEpP5JmxwRLdY5fFjjzv6_49Rjk" // replace with your key
+                onChange={handleCaptchaChange}
+              />
             </div>
 
             {/* Create Account Button */}
