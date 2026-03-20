@@ -110,16 +110,24 @@ const SetupPassword = () => {
   const showSuccessAlert = () => {
     Swal.fire({
       title: 'Account Created!',
-      html: `
-        Your account has been successfully created.<br/>
-        Please check your email and click the verification link to activate your account.
-      `,
+      text: 'Your account has been successfully created.',
       icon: 'success',
       background: '#E6BB71',
       color: '#4b2e16',
       confirmButtonColor: '#4b2e16',
-      confirmButtonText: 'Continue'
+      confirmButtonText: 'Continue',
+      timer: 3000,
+      timerProgressBar: true,
+      customClass: {
+        popup: 'swal-custom-popup',
+        title: 'swal-custom-title',
+        htmlContainer: 'swal-custom-text'
+      }
     }).then(() => {
+      // Clear session storage
+      sessionStorage.removeItem("signupEmail");
+      sessionStorage.removeItem("emailVerified");
+      sessionStorage.removeItem("passwordSetup");
       navigate("/login");
     });
   };

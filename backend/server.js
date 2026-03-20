@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/register.js';
+import verifyEmailRouter from "./routes/verify.js";
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', authRoutes);
+app.use("/api", verifyEmailRouter);
 
 const PORT = 5000;
 app.listen(PORT, () => {
