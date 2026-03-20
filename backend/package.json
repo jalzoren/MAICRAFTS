@@ -8,11 +8,14 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.3",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "nodemailer": "^7.0.11",
+    "nodemailer": "^7.0.13",
+    "pg": "^8.20.0",
     "qrcode": "^1.5.4",
-    "speakeasy": "^2.0.0"
+    "speakeasy": "^2.0.0",
+    "uuid": "^13.0.0"
   }
 }
