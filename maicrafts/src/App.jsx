@@ -107,13 +107,19 @@ const AppContent = () => {
 
         {/* Auth Pages */}
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPasswordEmail />} />
+       <Route path="/reset-password-otp" element={<ResetPasswordOTP />} />
+        <Route path="/set-new-password" element={<SetNewPassword />} />\
+
+
+
         <Route path="/signup" element={<Signup />} />
         <Route path="/enter-code" element={<EnterCode />} />
         <Route path="/setup-password" element={<SetupPassword />} />
         <Route path="/account-created" element={<AccountCreated />} />
-        <Route path="/forgot-password" element={<ForgotPasswordEmail />} />
-        <Route path="/reset-password-otp" element={<ResetPasswordOTP />} />
-        <Route path="/set-new-password" element={<SetNewPassword />} />
+
+
+      
       </Routes>
 
       {/* Show Footer only on non-auth routes */}
