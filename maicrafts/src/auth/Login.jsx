@@ -145,38 +145,27 @@ const Login = () => {
       }
 
       if (data.setupComplete) {
-        await Swal.fire({
+        Swal.fire({
           icon: "success",
           title: "Setup Complete!",
-          text: "Google Authenticator is now connected.",
-          confirmButtonText: "OK"
-        });
-        
-        // Reset and redirect to login
-        setIsOtpSent(false);
-        setIsSetup(false);
-        setOtp("");
-        setFormData({ email: "", password: "" });
-        setIsLoading(false);
-        
-        Swal.fire({
-          title: "Redirecting to login...",
-          text: "Please wait",
-          timer: 1500,
-          showConfirmButton: false,
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-      } else {
-        await Swal.fire({
-          icon: "success",
-          title: "Login Successful!",
-          text: "Welcome back!",
+          text: "Google Authenticator is now connected. Redirecting...",
           timer: 1500,
           showConfirmButton: false
+        }).then(() => {
+          navigate("/", { replace: true });
         });
-        navigate("/");
+        return;
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "Login Successful!",
+          text: "Welcome back! Redirecting...",
+          timer: 1500,
+          showConfirmButton: false
+        }).then(() => {
+          navigate("/", { replace: true });
+        });
+        return;
       }
       
     } catch (error) {
