@@ -72,9 +72,22 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        // Check if it's a verification error
+        if (data.requiresVerification) {
+          setIsLoading(false);
+          Swal.fire({
+            icon: "warning",
+            title: "Email Not Verified",
+            text: data.message,
+            confirmButtonText: "OK",
+            confirmButtonColor: "#3085d6"
+          });
+          return;
+        }
         throw new Error(data.message);
       }
 
+      // Handle 2FA setup or verification
       if (data.isSetup) {
         // First time user - show QR code for setup
         setIsLoading(false);
@@ -257,7 +270,7 @@ const Login = () => {
     );
   }
 
-  // Normal login form (same as your original)
+  // Normal login form
   return (
     <div className="login-page">
       <video autoPlay muted loop playsInline className="login-bg-video">

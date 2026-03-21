@@ -48,9 +48,20 @@ router.post("/", async (req, res) => {
       return res.status(500).json({ message: "User profile missing" });
     }
 
-    // 3️⃣ Check if 2FA is already enabled
+    // 3️⃣ CHECK IF USER IS VERIFIED - ONLY PREVENT UNVERIFIED USERS
+    if (!user.is_verified) {
+      console.log("❌ User not verified:", username);
+      return res.status(403).json({ 
+        message: "Please verify your email address first. Check your email for the verification link.",
+        requiresVerification: true
+      });
+    }
+
+    console.log("✅ User is verified. Proceeding to 2FA setup/verification");
+
+    // 4️⃣ Check if 2FA is already enabled
     if (user.is_2fa_enabled && user.secret_key) {
-      console.log("🔐 User has existing 2FA setup");
+      console.log("🔐 User has existing 2FA setup - requires OTP verification");
       tempSetup[username] = user.secret_key;
 
       return res.json({
@@ -60,8 +71,8 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // 4️⃣ First time 2FA setup
-    console.log("🆕 First time user - generating QR code");
+    // 5️⃣ First time 2FA setup (for verified users with no 2FA)
+    console.log("🆕 Verified user with no 2FA - generating QR code for setup");
     const secret = speakeasy.generateSecret({ name: `MAICRAFTS (${username})` });
     tempSetup[username] = secret.base32;
     console.log("🔑 Generated secret:", secret.base32);
@@ -106,16 +117,24 @@ router.post("/verify-otp", async (req, res) => {
     return res.status(400).json({ message: "No OTP session found. Please login again." });
   }
 
-  // 2️⃣ Check if setup or login mode
+  // 2️⃣ Check if setup or login mode and verify user is verified
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('is_2fa_enabled')
+    .select('is_2fa_enabled, is_verified')
     .eq('email', username)
     .single();
 
   if (userError || !user) {
     console.error("❌ User fetch failed:", userError);
     return res.status(500).json({ message: "User fetch failed" });
+  }
+
+  // Double-check user is verified
+  if (!user.is_verified) {
+    console.log("❌ User not verified during OTP verification");
+    return res.status(403).json({ 
+      message: "Please verify your email first" 
+    });
   }
 
   const isSetup = !(user.is_2fa_enabled);
@@ -162,7 +181,7 @@ router.post("/verify-otp", async (req, res) => {
     });
   }
 
-  // 5️⃣ Normal login
+  // 5️⃣ Normal login (existing 2FA user)
   delete tempSetup[username];
   console.log("🎉 Login successful for:", username);
 
