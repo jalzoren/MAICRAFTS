@@ -9,13 +9,20 @@ router.get("/verify-email", async (req, res) => {
 
   try {
     // Find the token in verification table
-    const { data: verification } = await supabase
-      .from("email_verifications")
-      .select("*")
-      .eq("token", token)
-      .single();
-
-    if (!verification) return res.status(400).send("Invalid token");
+    const { data: verification, error } = await supabase
+    .from("email_verifications")
+    .select("*")
+    .eq("token", token)
+    .maybeSingle();
+  
+    if (error) {
+      console.error("DB error:", error);
+      return res.status(500).send("Database error");
+    }
+    
+    if (!verification) {
+      return res.status(400).send("Invalid or expired token");
+    }
 
     // Mark the user as verified
     await supabase.from("users")

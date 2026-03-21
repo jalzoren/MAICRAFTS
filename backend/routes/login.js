@@ -4,174 +4,170 @@ import QRCode from 'qrcode';
 import supabase from '../supabaseClient.js';
 
 const router = express.Router();
-const tempSetup = {};
+const tempSetup = {}; // temporary storage for 2FA secrets
 
-// Login endpoint
+// -------------------------
+// LOGIN ENDPOINT
+// -------------------------
 router.post("/", async (req, res) => {
   console.log("\n=========================================");
   console.log("📥 Login attempt received");
   console.log("Request body:", req.body);
-  const { username, password } = req.body;
+
+  // Trim and normalize inputs
+  const username = req.body.username?.trim().toLowerCase();
+  const password = req.body.password?.trim();
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Email and password are required" });
+  }
 
   try {
-    // Use Supabase Auth to verify password
+    // 1️⃣ Authenticate using Supabase
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: username,
       password: password,
     });
 
-    if (authError) {
+    if (authError || !authData?.user) {
       console.log("❌ Invalid credentials for:", username);
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
     console.log("✅ Credentials valid for:", username);
 
-    // Get user from database
+    // 2️⃣ Fetch user profile from public.users
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('email', username)
       .single();
 
-    // If 2FA is already enabled
-    if (user && user.is_2fa_enabled === true && user.secret_key) {
+    if (userError || !user) {
+      console.error("❌ User profile not found:", userError);
+      return res.status(500).json({ message: "User profile missing" });
+    }
+
+    // 3️⃣ Check if 2FA is already enabled
+    if (user.is_2fa_enabled && user.secret_key) {
       console.log("🔐 User has existing 2FA setup");
-      
-      // Store the existing secret for OTP verification
       tempSetup[username] = user.secret_key;
-      
-      return res.json({ 
+
+      return res.json({
         requiresOTP: true,
         isSetup: false,
-        message: "Enter your Google Authenticator code"
-      });
-    } 
-    // First time - setup 2FA
-    else {
-      console.log("🆕 First time user - generating QR code");
-      const secret = speakeasy.generateSecret({
-        name: `MAICRAFTS (${username})`
-      });
-      
-      tempSetup[username] = secret.base32;
-      console.log("🔑 Generated secret:", secret.base32);
-      
-      const qrCode = await QRCode.toDataURL(secret.otpauth_url);
-      console.log("📱 QR Code generated");
-      
-      res.json({
-        requiresOTP: true,
-        isSetup: true,
-        qrCode: qrCode,
-        message: "Scan this QR code with Google Authenticator"
+        message: "Enter your Google Authenticator code",
       });
     }
-    
+
+    // 4️⃣ First time 2FA setup
+    console.log("🆕 First time user - generating QR code");
+    const secret = speakeasy.generateSecret({ name: `MAICRAFTS (${username})` });
+    tempSetup[username] = secret.base32;
+    console.log("🔑 Generated secret:", secret.base32);
+
+    const qrCode = await QRCode.toDataURL(secret.otpauth_url);
+    console.log("📱 QR Code generated");
+
+    res.json({
+      requiresOTP: true,
+      isSetup: true,
+      qrCode: qrCode,
+      message: "Scan this QR code with Google Authenticator",
+    });
+
   } catch (error) {
     console.error("❌ Login error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
+
   console.log("=========================================\n");
 });
 
-// Verify OTP endpoint - STRICT MODE (only current 30-second window)
+// -------------------------
+// VERIFY OTP ENDPOINT
+// -------------------------
 router.post("/verify-otp", async (req, res) => {
   console.log("\n=========================================");
   console.log("🔍🔍🔍 OTP VERIFICATION RECEIVED 🔍🔍🔍");
   console.log("Request body:", req.body);
-  
-  const { username, otp } = req.body;
 
-  // Get the secret from temp storage
+  const username = req.body.username?.trim().toLowerCase();
+  const otp = req.body.otp?.trim();
+
+  if (!username || !otp) {
+    return res.status(400).json({ message: "Username and OTP are required" });
+  }
+
+  // 1️⃣ Get secret from temp storage
   const secret = tempSetup[username];
-  
   if (!secret) {
     console.log("❌ No session found for user:", username);
     return res.status(400).json({ message: "No OTP session found. Please login again." });
   }
 
-  // Check if this is setup or login
-  const { data: user } = await supabase
+  // 2️⃣ Check if setup or login mode
+  const { data: user, error: userError } = await supabase
     .from('users')
     .select('is_2fa_enabled')
     .eq('email', username)
     .single();
-  
-  const isSetup = !(user && user.is_2fa_enabled);
+
+  if (userError || !user) {
+    console.error("❌ User fetch failed:", userError);
+    return res.status(500).json({ message: "User fetch failed" });
+  }
+
+  const isSetup = !(user.is_2fa_enabled);
   console.log("Is setup mode:", isSetup);
 
-  // Log current time
-  const now = new Date();
-  console.log("Current Time:", now.toLocaleString("en-PH", { timeZone: "Asia/Manila" }));
-  
-  // Calculate expected OTP for current window
-  const currentOTP = speakeasy.totp({
-    secret: secret,
-    encoding: 'base32',
-    step: 30
-  });
-  
-  console.log("Current expected OTP:", currentOTP);
-  console.log("User entered OTP:", otp);
-  
-  // STRICT VERIFICATION - Only current window (window: 0)
+  // 3️⃣ Verify OTP (STRICT mode)
   const verified = speakeasy.totp.verify({
     secret: secret,
     encoding: 'base32',
     token: otp,
-    window: 0  // 0 = only current 30-second window, no drift allowed
+    window: 0, // only current 30-second window
   });
 
   console.log("Verification result:", verified ? "✅ SUCCESS" : "❌ FAILED");
 
   if (!verified) {
-    console.log("❌ OTP rejected - invalid or expired");
-    console.log("=========================================");
-    return res.status(400).json({ 
-      message: "Invalid or expired OTP code. Please try again." 
-    });
+    return res.status(400).json({ message: "Invalid or expired OTP code. Please try again." });
   }
 
-  console.log("✅ OTP verified successfully!");
-
-  // If this is setup mode, save to database
+  // 4️⃣ Save secret if this is first-time setup
   if (isSetup) {
     console.log("💾 Saving secret permanently for user:", username);
-    
-    const { data: updateData, error: updateError } = await supabase
+
+    const { error: updateError } = await supabase
       .from('users')
-      .update({ 
+      .update({
         secret_key: secret,
         is_2fa_enabled: true,
-        two_fa_enabled_at: new Date().toISOString()
+        two_fa_enabled_at: new Date().toISOString(),
       })
-      .eq('email', username)
-      .select();
+      .eq('email', username);
 
     if (updateError) {
-      console.error("❌ Error saving secret:", updateError);
-      return res.status(500).json({ 
-        message: "Failed to save 2FA configuration",
-        error: updateError.message
-      });
+      console.error("❌ Error saving 2FA secret:", updateError);
+      return res.status(500).json({ message: "Failed to save 2FA secret", error: updateError.message });
     }
-    
-    console.log("✅ Setup complete for:", username);
+
     delete tempSetup[username];
-    console.log("=========================================");
-    
-    return res.json({ 
+    console.log("✅ 2FA setup complete for:", username);
+
+    return res.json({
       message: "Setup successful! You can now login with Google Authenticator.",
-      setupComplete: true
+      setupComplete: true,
     });
   }
 
-  // Normal login
-  console.log("🎉 Login successful for:", username);
+  // 5️⃣ Normal login
   delete tempSetup[username];
-  console.log("=========================================");
-  return res.json({ message: "Login successful" });
+  console.log("🎉 Login successful for:", username);
+
+  res.json({ message: "Login successful" });
+  console.log("=========================================\n");
 });
 
 export default router;
