@@ -45,7 +45,7 @@ const ForgotPasswordEmail = () => {
         htmlContainer: 'swal-custom-text'
       }
     }).then(() => {
-      navigate("/forgot-password-otp");
+      navigate("/reset-password-otp");
     });
   };
 
