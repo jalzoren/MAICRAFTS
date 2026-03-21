@@ -62,7 +62,7 @@ router.post("/register", async (req, res) => {
     if (userInsertError) {
       console.error("Failed to insert into public.users:", userInsertError);
 
-      // Rollback auth user
+      // Rollback auth usnner
       if (userId) {
         await supabase.auth.admin.deleteUser(userId);
       }
