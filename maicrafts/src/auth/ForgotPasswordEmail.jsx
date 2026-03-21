@@ -86,29 +86,36 @@ const ForgotPasswordEmail = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      const errorMessage = errors.email || "Please check your input";
-      showValidationAlert(errorMessage);
+  e.preventDefault();
+  if (!validateForm()) {
+    showValidationAlert(errors.email || "Please check your input");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const response = await fetch("http://localhost:5000/api/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showErrorAlert(data.message || "Failed to send reset email.");
       return;
     }
 
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Password reset email sent to:", email);
-      sessionStorage.setItem("resetEmail", email);
-      
-      // Show success alert
-      showSuccessAlert();
-      
-    } catch (error) {
-      showErrorAlert("Failed to send reset email. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    sessionStorage.setItem("resetEmail", email);
+    showSuccessAlert();
+
+  } catch (error) {
+    showErrorAlert("Network error. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleBackToLogin = () => {
     if (!isLoading) {

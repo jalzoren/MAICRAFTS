@@ -135,38 +135,77 @@ const ResetPasswordOTP = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      showValidationAlert("Please enter all 6 digits of the verification code");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!validateForm()) {
+    const errorMessage = Object.values(errors)[0] || "Please check your input";
+    showValidationAlert(errorMessage);
+    return;
+  }
+
+  const storedEmail = sessionStorage.getItem("resetEmail");
+  const otpCode = otp.join("");
+
+  if (!storedEmail) {
+    showErrorAlert("Please start the password reset process again.");
+    navigate("/forgot-password");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    // First, verify the OTP
+    const verifyResponse = await fetch("http://localhost:5000/api/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: storedEmail,
+        otp: otpCode,
+      }),
+    });
+
+    const verifyData = await verifyResponse.json();
+
+    if (!verifyResponse.ok) {
+      showErrorAlert(verifyData.message || "Invalid verification code.");
       return;
     }
 
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("OTP verified:", otp.join(""));
-      
-      // Show success alert
-      showSuccessAlert();
-      
-    } catch (error) {
-      showErrorAlert("Invalid verification code. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // Store the verified OTP in sessionStorage
+    sessionStorage.setItem("resetOTP", otpCode);
+    sessionStorage.setItem("otpVerified", "true");
 
-  const handleResend = () => {
-    setTimer(60);
-    setCanResend(false);
-    setOtp(["", "", "", "", "", ""]);
-    setErrors({});
-    inputRefs.current[0]?.focus();
-    console.log("Code resent");
+    // Navigate to set new password page
+    navigate("/set-new-password");
+
+  } catch (error) {
+    showErrorAlert("Network error. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleResend = async () => {
+  const email = sessionStorage.getItem("resetEmail");
+
+  setTimer(60);
+  setCanResend(false);
+  setOtp(["", "", "", "", "", ""]);
+  setErrors({});
+  inputRefs.current[0]?.focus();
+
+  try {
+    await fetch("http://localhost:5000/api/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
     showResendAlert();
-  };
+  } catch (error) {
+    showErrorAlert("Failed to resend code. Please try again.");
+  }
+};
 
   const handleBack = () => {
     if (!isLoading) {

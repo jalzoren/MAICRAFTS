@@ -170,37 +170,57 @@ const SetNewPassword = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      const errorMessage = Object.values(errors)[0] || "Please check your input";
-      showValidationAlert(errorMessage);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!validateForm()) {
+    const errorMessage = Object.values(errors)[0] || "Please check your input";
+    showValidationAlert(errorMessage);
+    return;
+  }
+
+  // Get email and otp from sessionStorage
+  const storedEmail = sessionStorage.getItem("resetEmail");
+  const storedOtp = sessionStorage.getItem("resetOTP");
+
+  if (!storedEmail || !storedOtp) {
+    showErrorAlert("Please verify your OTP first.");
+    navigate("/forgot-password-otp");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const response = await fetch("http://localhost:5000/api/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: storedEmail,
+        otp: storedOtp,
+        newPassword: formData.password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      showErrorAlert(data.message || "Failed to reset password.");
       return;
     }
 
-    // Check if OTP was verified
-    if (!sessionStorage.getItem("otpVerified")) {
-      showErrorAlert("Please verify your OTP first.");
-      navigate("/forgot-password-otp");
-      return;
-    }
+    // Clear sessionStorage after success
+    sessionStorage.removeItem("resetEmail");
+    sessionStorage.removeItem("resetOTP");
+    sessionStorage.removeItem("otpVerified");
 
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Password reset successfully for:", email);
-      
-      // Show success alert
-      showSuccessAlert();
-      
-    } catch (error) {
-      showErrorAlert("Failed to reset password. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    showSuccessAlert();
+
+  } catch (error) {
+    showErrorAlert("Network error. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleBack = () => {
     if (!isLoading) {
