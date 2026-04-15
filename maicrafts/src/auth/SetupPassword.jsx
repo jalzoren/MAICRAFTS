@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FiLock, FiEye, FiEyeOff, FiArrowLeft } from "react-icons/fi";
 import Swal from "sweetalert2";
 import "../auth/css/SetupPassword.css";
+import ReCAPTCHA from "react-google-recaptcha"; 
 
 const SetupPassword = () => {
   const navigate = useNavigate();
@@ -18,10 +19,23 @@ const SetupPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState("");
   const [email, setEmail] = useState("");
+  
+  const [captchaValue, setCaptchaValue] = useState(null);
+
+  const handleCaptchaChange = (value) => {
+    setCaptchaValue(value); // value will be null if user unchecks captcha
+  };
 
   // Get email from sessionStorage on component mount
 
-   
+  useEffect(() => {
+    const storedEmail = sessionStorage.getItem("signupEmail");
+    if (storedEmail) {
+      setEmail(storedEmail);
+    } else {
+      navigate("/signup"); // fallback if user skips step
+    }
+  }, []);
 
   const checkPasswordStrength = (password) => {
     if (!password) return "";
@@ -163,34 +177,38 @@ const SetupPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+  
     if (!validateForm()) {
       const errorMessage = Object.values(errors)[0] || "Please check your input";
       showValidationAlert(errorMessage);
       return;
     }
-
-    // Check if email was verified
-    if (!sessionStorage.getItem("emailVerified")) {
-      showErrorAlert("Please verify your email first.");
-      navigate("/enter-code");
+  
+    if (!captchaValue) {
+      showValidationAlert("Please complete the CAPTCHA before continuing");
       return;
     }
-
+  
     setIsLoading(true);
+  
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Password setup completed for:", email);
-      
-      // Store password setup status
-      sessionStorage.setItem("passwordSetup", "true");
-      
-      // Show success alert
+      const response = await fetch("http://localhost:5000/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: formData.password, captcha: captchaValue }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        showErrorAlert(data.error || "Failed to save password");
+        return;
+      }
+  
       showSuccessAlert();
-      
     } catch (error) {
-      showErrorAlert("Failed to set password. Please try again.");
+      console.error(error);
+      showErrorAlert("Failed to save password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +216,7 @@ const SetupPassword = () => {
 
   const handleBack = () => {
     if (!isLoading) {
-      navigate("/enter-code");
+      navigate("/signup");
     }
   };
 
@@ -209,6 +227,8 @@ const SetupPassword = () => {
     const maskedLocal = localPart.substring(0, 2) + '*'.repeat(localPart.length - 2);
     return `${maskedLocal}@${domain}`;
   };
+
+
 
   return (
     <div className="setup-password-page">
@@ -241,21 +261,16 @@ const SetupPassword = () => {
                 <span className="step-label completed">Email</span>
               </div>
               
-              {/* Step 2 - Verify - Completed */}
-              <div className="progress-step">
-                <div className="step-number completed">✓</div>
-                <span className="step-label completed">Verify</span>
-              </div>
               
               {/* Step 3 - Password - Active */}
               <div className="progress-step">
-                <div className="step-number active">3</div>
+                <div className="step-number active">2</div>
                 <span className="step-label active">Password</span>
               </div>
               
               {/* Step 4 - Done - Pending */}
               <div className="progress-step">
-                <div className="step-number">4</div>
+                <div className="step-number">3</div>
                 <span className="step-label">Done</span>
               </div>
             </div>
@@ -374,6 +389,14 @@ const SetupPassword = () => {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* CAPTCHA */}
+            <div className="captcha-wrapper" style={{ marginTop: '15px' }}>
+              <ReCAPTCHA
+                sitekey="6LdgxJAsAAAAAIEpP5JmxwRLdY5fFjjzv6_49Rjk" // replace with your key
+                onChange={handleCaptchaChange}
+              />
             </div>
 
             {/* Create Account Button */}
