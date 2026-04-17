@@ -1,0 +1,236 @@
+/* src/css/SellerDashboard.css */
+
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+/* ── Root tokens ── */
+:root {
+  --sd-bg:          #f0ebe0;
+  --sd-card-bg:     #d4a843;
+  --sd-card-shadow: #7a4f10;
+  --sd-brown:       #3d1a00;
+  --sd-brown-mid:   #5a3e28;
+  --sd-white:       #ffffff;
+  --sd-chart-bg:    #ffffff;
+  --sd-chart-border:#d4a843;
+  --sd-radius:      18px;
+  --sd-radius-sm:   12px;
+  --sd-shadow-depth:6px;
+}
+
+/* ── Layout ── */
+.sd-container {
+  min-height: 100vh;
+  background-color: var(--sd-bg);
+  padding: 36px 40px 48px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--sd-brown);
+  box-sizing: border-box;
+}
+
+/* ── Header ── */
+.sd-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+
+.sd-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sd-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sd-brown-mid);
+  letter-spacing: 0.03em;
+}
+
+.sd-welcome {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(28px, 4vw, 48px);
+  margin: 0;
+  color: var(--sd-brown);
+  line-height: 1.1;
+}
+
+/* ── Clock ── */
+.sd-clock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: right;
+}
+
+.sd-clock-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+}
+
+.sd-day-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--sd-brown-mid);
+  line-height: 1.2;
+}
+
+.sd-date-nums {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sd-brown);
+  line-height: 1.2;
+}
+
+.sd-time {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  color: var(--sd-brown);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+/* ── Stats Row ── */
+.sd-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+/* ── Stat Card (3-D golden card) ── */
+.sd-stat-card {
+  background-color: var(--sd-card-bg);
+  border-radius: var(--sd-radius);
+  padding: 20px 24px 24px;
+  box-shadow:
+    var(--sd-shadow-depth) var(--sd-shadow-depth) 0px var(--sd-card-shadow),
+    0 2px 8px rgba(61, 26, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sd-stat-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow:
+    8px 8px 0px var(--sd-card-shadow),
+    0 4px 14px rgba(61, 26, 0, 0.16);
+}
+
+.sd-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sd-brown);
+  letter-spacing: 0.02em;
+}
+
+.sd-stat-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.sd-stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-color: var(--sd-white);
+  flex-shrink: 0;
+}
+
+.sd-stat-value {
+  font-size: clamp(28px, 3vw, 42px);
+  font-weight: 800;
+  color: var(--sd-brown);
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* ── Bottom Row ── */
+.sd-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Large Placeholder Card ── */
+.sd-main-card {
+  background-color: var(--sd-card-bg);
+  border-radius: var(--sd-radius);
+  min-height: 340px;
+  box-shadow:
+    var(--sd-shadow-depth) var(--sd-shadow-depth) 0px var(--sd-card-shadow),
+    0 2px 8px rgba(61, 26, 0, 0.10);
+}
+
+/* ── Chart Card ── */
+.sd-chart-card {
+  background-color: var(--sd-chart-bg);
+  border: 2px solid var(--sd-chart-border);
+  border-radius: var(--sd-radius);
+  padding: 20px 20px 16px;
+  box-shadow: 0 2px 12px rgba(61, 26, 0, 0.08);
+}
+
+.sd-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sd-chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sd-brown);
+  letter-spacing: 0.01em;
+}
+
+.sd-chart-arrow {
+  font-size: 18px;
+  color: var(--sd-brown-mid);
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.sd-chart-arrow:hover {
+  color: var(--sd-brown);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .sd-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sd-bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .sd-container {
+    padding: 24px 20px 36px;
+  }
+
+  .sd-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .sd-clock {
+    align-self: flex-start;
+  }
+}
