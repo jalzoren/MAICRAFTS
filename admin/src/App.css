@@ -1,9 +1,4 @@
-/* Page Layout */
-.page-title {
-  font-size: 2.6rem;
-  margin-bottom: 2rem;
-  color: var(--brown-dark);
-}
+
 
 .page-header {
   display: flex;

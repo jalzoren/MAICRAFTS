@@ -1,0 +1,255 @@
+/* Admin Sidebar */
+.admin-sidebar {
+  width: 280px;
+  background-color: #462C14;
+  color: #333;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.admin-logo-wrapper {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  padding: 7px;
+  box-shadow: 0 0 20px rgba(230, 187, 113, 0.5), 
+              0 4px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(230, 187, 113, 0.3);
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.admin-logo-wrapper:hover {
+  box-shadow: 0 0 30px rgba(230, 187, 113, 0.8),
+              0 6px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.admin-logo {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  display: block;
+}
+
+.admin-logo:hover {
+  transform: scale(1.05);
+}
+
+.admin-sidebar-divider {
+  background-color: #E6BB71;
+  height: 1px;
+  border: none;
+  margin: 20px 0;
+}
+
+/* Brand Section */
+.admin-sidebar-brand {
+  padding: 20px 14px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.admin-brand-name {
+  font-size: 36px;
+  font-weight: 400;
+  color: #E6BB71;
+  margin: 0 0 12px 0;
+  letter-spacing: 1px;
+  font-family: 'Playfair Display', serif;
+  justify-content: center;
+  display: flex;
+}
+
+.admin-brand-tagline {
+  font-size: 13px;
+  color: #E6BB71;
+  line-height: 1.5;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.admin-sidebar-nav {
+  padding-left: 10px;
+  flex: 1;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  color: #fafafa;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border-radius: 100px 0 0 100px; 
+  margin-bottom: 4px;
+  font-family: 'Raleway', sans-serif;
+  position: relative;
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 14px;
+}
+
+.admin-nav-link:hover {
+  background: #E6BB71;
+  color: #000;
+}
+
+.admin-nav-link.active {
+  background: #E6BB71;
+  color: #000;
+}
+
+.admin-nav-icon {
+  margin-right: 12px;
+  font-size: 20px;
+  stroke-width: 1.5;
+  min-width: 24px;
+}
+
+/* Labels */
+.admin-nav-label {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Profile Section */
+.admin-sidebar-profile {
+  margin-top: auto;
+  padding: 20px 16px;
+}
+
+.admin-profile-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: #E6BB71;
+}
+
+.admin-profile-content:hover {
+  background-color: rgba(230, 187, 113, 0.1);
+}
+
+.admin-profile-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background:#fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid rgba(230, 187, 113, 0.5);
+}
+
+.admin-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-profile-icon {
+  width: 24px;
+  height: 24px;
+  color: #462C14;
+}
+
+.admin-profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-profile-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #000;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Raleway', sans-serif;
+}
+
+.admin-profile-role {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Inter', sans-serif;
+}
+
+.admin-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+  background: #E6BB71;
+  border-radius: 3px;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #c9a34f;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 250px;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+  }
+  
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .admin-brand-name {
+    font-size: 28px;
+  }
+  
+  .admin-brand-tagline {
+    font-size: 11px;
+  }
+  
+  .admin-profile-avatar {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .admin-profile-name {
+    font-size: 0.85rem;
+  }
+}

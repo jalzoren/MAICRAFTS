@@ -1,26 +1,60 @@
 import React from "react";
-import Sidebar from "./components/Sidebar";
-import Navbar from "./components/Navbar";
-import Dashboard from "./pages/Dashboard";
-import Users from "./pages/Users";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import MainLayout from "./layouts/MainLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import Users from "./pages/admin/Users";
 import Products from "./pages/Products";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import "./index.css";
+import Login from "./auth/Login";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import "./App.css";
+
+// Layout wrapper with authentication
+const AppLayout = () => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <MainLayout />;
+};
 
 function App() {
   return (
     <Router>
-      <div className="app">
-        <Sidebar />
-        <div className="main">
-          <Navbar />
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<Users />} />
-            <Route path="/products" element={<Products />} />
-          </Routes>
-        </div>
-      </div>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          
+          {/* Protected routes with MainLayout */}
+          <Route path="/" element={<AppLayout />}>
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Users />
+              </ProtectedRoute>
+            } />
+            <Route path="/products" element={
+              <ProtectedRoute allowedRoles={['admin', 'staff']}>
+                <Products />
+              </ProtectedRoute>
+            } />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </Router>
   );
 }
