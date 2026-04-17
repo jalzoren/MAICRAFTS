@@ -35,7 +35,7 @@ router.get("/verify-email", async (req, res) => {
       .eq("id", verification.id);
 
     // Redirect to homepage or login page
-    res.redirect("http://localhost:5173/"); 
+    res.redirect("http://localhost:5173/login"); 
   } catch (error) {
     console.error(error);
     res.status(500).send("Internal server error");
