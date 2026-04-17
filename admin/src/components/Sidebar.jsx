@@ -1,17 +1,42 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiHome, FiUsers, FiSettings, FiUser } from 'react-icons/fi';
+import { FiHome, FiUsers, FiSettings, FiUser, FiPackage, FiShoppingCart, FiBox } from 'react-icons/fi';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const { user } = useAuth();
 
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-    { path: '/users', label: 'User Management', icon: FiUsers },
-    { path: '/settings', label: 'System Settings', icon: FiSettings },
-  ];
+  // Define navigation items based on user role
+  const getNavItems = () => {
+    if (user?.role === 'admin') {
+      return [
+        { path: '/admin/dashboard', label: 'Dashboard', icon: FiHome },
+        { path: '/admin/users', label: 'User Management', icon: FiUsers },
+        { path: '/admin/settings', label: 'System Settings', icon: FiSettings },
+      ];
+    } else if (user?.role === 'seller') {
+      return [
+        { path: '/seller/dashboard', label: 'Dashboard', icon: FiHome },
+        { path: '/seller/products', label: 'Product Management', icon: FiPackage },
+        { path: '/seller/orders', label: 'Order Management', icon: FiShoppingCart },
+      ];
+    }
+    // Default/Staff role
+    return [
+      { path: '/dashboard', label: 'Dashboard', icon: FiHome },
+      { path: '/products', label: 'Products', icon: FiBox },
+    ];
+  };
+
+  const navItems = getNavItems();
+
+  // Get role display name
+  const getRoleDisplay = () => {
+    if (user?.role === 'admin') return 'Administrator';
+    if (user?.role === 'seller') return 'Seller';
+    return 'Staff';
+  };
 
   return (
     <div className="admin-sidebar">
@@ -58,10 +83,10 @@ const Sidebar = () => {
           </div>
           <div className="admin-profile-info">
             <div className="admin-profile-name">
-              {user?.name || 'Admin User'}
+              {user?.name || (user?.role === 'admin' ? 'Admin User' : 'Seller User')}
             </div>
             <div className="admin-profile-role">
-              {user?.role || 'Administrator'}
+              {getRoleDisplay()}
             </div>
           </div>
         </div>
