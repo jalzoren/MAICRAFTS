@@ -267,7 +267,6 @@ function AddUser({ onClose, onUserAdded }) {
                 <select value={role} onChange={(e) => setRole(e.target.value)} required>
                   <option value="">Select Role</option>
                   <option value="seller">Seller</option>
-                  <option value="admin">Admin</option>
                   <option value="Super Admin">Super Admin</option>
                 </select>
               </div>

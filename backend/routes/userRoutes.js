@@ -4,10 +4,34 @@ import supabase from "../supabaseClient.js";
 
 const router = express.Router();
 
-// CREATE user (Admin adding new user) - POST /users
+// GET all users
+router.get("/users", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("admin")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const usersWithoutPassword = data.map(user => {
+      const { password_hash, ...userData } = user;
+      return userData;
+    });
+
+    res.json(usersWithoutPassword);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+// CREATE user
 router.post("/users", async (req, res) => {
   try {
     const { username, lastName, firstName, middleName, extension, email, role, password } = req.body;
+
+    console.log("Creating user:", { email, role, username });
 
     // Check if username exists
     const { data: existingUsername } = await supabase
@@ -32,27 +56,25 @@ router.post("/users", async (req, res) => {
     }
 
     // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Password hashed successfully");
 
-    // Insert user into admin table
+    // Insert user
     const { data, error } = await supabase
       .from("admin")
-      .insert([
-        {
-          username: username.toLowerCase(),
-          last_name: lastName,
-          first_name: firstName,
-          middle_name: middleName || null,
-          extension: extension || null,
-          email: email.toLowerCase(),
-          role: role,
-          password_hash: hashedPassword,
-          status: "active",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ])
+      .insert([{
+        username: username.toLowerCase(),
+        last_name: lastName,
+        first_name: firstName,
+        middle_name: middleName || null,
+        extension: extension || null,
+        email: email.toLowerCase(),
+        role: role,
+        password_hash: hashedPassword,
+        status: "active",
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
       .select();
 
     if (error) {
@@ -60,7 +82,7 @@ router.post("/users", async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    // Remove password hash from response
+    console.log("User created successfully!");
     const { password_hash, ...userWithoutPassword } = data[0];
     res.status(201).json(userWithoutPassword);
   } catch (err) {
@@ -69,30 +91,7 @@ router.post("/users", async (req, res) => {
   }
 });
 
-// GET all users - GET /users
-router.get("/users", async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from("admin")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    // Remove password hash from response
-    const usersWithoutPassword = data.map(user => {
-      const { password_hash, ...userData } = user;
-      return userData;
-    });
-
-    res.json(usersWithoutPassword);
-  } catch (err) {
-    console.error("Error fetching users:", err);
-    res.status(500).json({ error: "Failed to fetch users" });
-  }
-});
-
-// UPDATE user role - PUT /users/:id/role
+// UPDATE user role
 router.put("/users/:id/role", async (req, res) => {
   try {
     const { id } = req.params;
@@ -117,7 +116,7 @@ router.put("/users/:id/role", async (req, res) => {
   }
 });
 
-// DELETE user - DELETE /users/:id
+// DELETE user
 router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -133,31 +132,6 @@ router.delete("/users/:id", async (req, res) => {
   } catch (err) {
     console.error("Error deleting user:", err);
     res.status(500).json({ error: "Failed to delete user" });
-  }
-});
-
-// UPDATE user status - PUT /users/:id/status
-router.put("/users/:id/status", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const { data, error } = await supabase
-      .from("admin")
-      .update({ 
-        status: status,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-
-    const { password_hash, ...userWithoutPassword } = data[0];
-    res.json(userWithoutPassword);
-  } catch (err) {
-    console.error("Error updating status:", err);
-    res.status(500).json({ error: "Failed to update status" });
   }
 });
 

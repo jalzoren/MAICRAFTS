@@ -1,11 +1,10 @@
-// src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
-import Dashboard from "./pages/seller/SellerDashboard"; // Seller dashboard
-import Products from "./pages/seller/Products"; // Product management
+import Dashboard from "./pages/seller/SellerDashboard";
+import Products from "./pages/seller/Products";
 import Login from "./auth/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -39,18 +38,18 @@ function App() {
           
           {/* Protected routes with MainLayout */}
           <Route path="/" element={<AppLayout />}>
-            {/* Admin Routes */}
+            {/* Super Admin Routes */}
             <Route path="/admin/dashboard" element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['Super Admin']}>
                 <AdminDashboard />
               </ProtectedRoute>
             } />
             <Route path="/admin/users" element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['Super Admin']}>
                 <Users />
               </ProtectedRoute>
             } />
-            
+
             {/* Seller Routes */}
             <Route path="/seller/dashboard" element={
               <ProtectedRoute allowedRoles={['seller']}>
@@ -63,7 +62,7 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/* Default redirect based on role */}
+            {/* Default redirect */}
             <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
         </Routes>

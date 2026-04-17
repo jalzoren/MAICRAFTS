@@ -14,6 +14,18 @@ const Navbar = () => {
     navigate('/login');
   };
 
+  // Get dashboard title based on user role
+  const getDashboardTitle = () => {
+    if (user?.role === 'Super Admin') {
+      return 'SUPER ADMIN DASHBOARD';
+    } else if (user?.role === 'seller') {
+      return 'SELLER DASHBOARD';
+    } else if (user?.role === 'admin') {
+      return 'ADMIN DASHBOARD';
+    }
+    return 'DASHBOARD';
+  };
+
   // Sample notifications - you can replace with real data
   const notifications = [
     { id: 1, title: 'New user registered', time: '5 min ago', read: false },
@@ -29,7 +41,6 @@ const Navbar = () => {
   };
 
   const handleNotificationClick = (id) => {
-    // Handle notification click
     console.log('Notification clicked:', id);
     setShowNotifications(false);
   };
@@ -37,7 +48,7 @@ const Navbar = () => {
   return (
     <div className="navbar">
       <div className="navbar-left">
-        <h3>ADMIN DASHBOARD</h3>
+        <h3>{getDashboardTitle()}</h3>
       </div>
       
       <div className="navbar-right">

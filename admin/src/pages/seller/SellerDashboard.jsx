@@ -1,5 +1,6 @@
 // src/pages/staff/SellerDashboard.jsx
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext'; // Add this import
 import '../../css/SellerDashboard.css';
 import {
   BarChart,
@@ -23,6 +24,7 @@ const lowStockData = [
 const barColors = ['#C8962A', '#D4A843', '#3D1A00', '#E8B4B8', '#7A1C1C', '#8B0000'];
 
 const SellerDashboard = () => {
+  const { user } = useAuth(); // Get user from auth
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -40,13 +42,21 @@ const SellerDashboard = () => {
     hour12: true,
   });
 
+  // Get user's name (prefer name, then first_name + last_name, then username, then fallback)
+  const getUserName = () => {
+    if (user?.name) return user.name;
+    if (user?.first_name && user?.last_name) return `${user.first_name} ${user.last_name}`;
+    if (user?.username) return user.username;
+    return 'Seller';
+  };
+
   return (
     <div className="sd-container">
       {/* Header */}
       <div className="sd-header">
         <div className="sd-header-left">
           <span className="sd-label">Dashboard</span>
-          <h1 className="sd-welcome">Welcome Back, Lorem</h1>
+          <h1 className="sd-welcome">Welcome Back, {getUserName()}!</h1>
         </div>
         <div className="sd-clock">
           <div className="sd-clock-date">

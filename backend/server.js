@@ -4,8 +4,9 @@ import cors from 'cors';
 import authRoutes from './routes/register.js';
 import verifyEmailRouter from "./routes/verify.js";
 import loginRoutes from './routes/login.js';
+import superloginRoutes from './routes/superlogin.js'; // ADD THIS
 import forgotPasswordRoutes from './routes/forgotpassword.js';
-import userRoutes from './routes/userRoutes.js'; // Make sure this path is correct
+import userRoutes from './routes/userRoutes.js';
 
 const app = express();
 
@@ -35,8 +36,9 @@ app.get('/', (req, res) => {
 app.use('/api', authRoutes);
 app.use("/api", verifyEmailRouter);
 app.use('/api', forgotPasswordRoutes);
-app.use('/login', loginRoutes);
-app.use('/api', userRoutes); // This will work now because routes are /users not /api/users
+app.use('/login', loginRoutes);        // Your old login
+app.use('/api', superloginRoutes);     // ADD THIS - new superlogin
+app.use('/api', userRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {
