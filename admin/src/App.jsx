@@ -1,9 +1,11 @@
+// src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
-import Products from "./pages/Products";
+import Dashboard from "./pages/seller/SellerDashboard"; // Seller dashboard
+import Products from "./pages/seller/Products"; // Product management
 import Login from "./auth/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -37,21 +39,32 @@ function App() {
           
           {/* Protected routes with MainLayout */}
           <Route path="/" element={<AppLayout />}>
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
+            {/* Admin Routes */}
+            <Route path="/admin/dashboard" element={
+              <ProtectedRoute allowedRoles={['admin']}>
                 <AdminDashboard />
               </ProtectedRoute>
             } />
-            <Route path="/users" element={
+            <Route path="/admin/users" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Users />
               </ProtectedRoute>
             } />
-            <Route path="/products" element={
-              <ProtectedRoute allowedRoles={['admin', 'staff']}>
+            
+            {/* Seller Routes */}
+            <Route path="/seller/dashboard" element={
+              <ProtectedRoute allowedRoles={['seller']}>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/products" element={
+              <ProtectedRoute allowedRoles={['seller']}>
                 <Products />
               </ProtectedRoute>
             } />
+            
+            {/* Default redirect based on role */}
+            <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
         </Routes>
       </AuthProvider>

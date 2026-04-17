@@ -153,7 +153,7 @@
 }
 
 .admin-profile-content:hover {
-  background-color: rgba(230, 187, 113, 0.1);
+  background-color: rgb(174, 132, 61);
 }
 
 .admin-profile-avatar {
@@ -253,3 +253,4 @@
     font-size: 0.85rem;
   }
 }
+

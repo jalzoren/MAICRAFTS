@@ -49,7 +49,15 @@ const Login = () => {
       const result = await login(formData.email, formData.password);
       
       if (result.success) {
-        navigate("/dashboard");
+        // Redirect based on user role
+        const userRole = result.user?.role;
+        if (userRole === 'admin') {
+          navigate("/admin/dashboard");
+        } else if (userRole === 'seller') {
+          navigate("/seller/dashboard");
+        } else {
+          navigate("/dashboard");
+        }
       } else {
         setErrors({ submit: result.error || "Login failed. Please check your credentials." });
       }
@@ -58,6 +66,23 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-fill demo credentials
+  const fillDemoCredentials = (role) => {
+    if (role === 'admin') {
+      setFormData({
+        email: "admin@maicrafts.com",
+        password: "admin123"
+      });
+    } else if (role === 'seller') {
+      setFormData({
+        email: "seller@maicrafts.com",
+        password: "seller123"
+      });
+    }
+    // Clear any existing errors
+    setErrors({});
   };
 
   return (
@@ -83,7 +108,7 @@ const Login = () => {
           </div>
 
           {/* Title */}
-          <h2 className="login-title">ADMIN LOGIN</h2>
+          <h2 className="login-title">LOGIN</h2>
 
           {/* Form */}
           <form className="login-form" onSubmit={handleSubmit} noValidate>
@@ -140,8 +165,6 @@ const Login = () => {
               {errors.password && <span className="form-error">{errors.password}</span>}
             </div>
 
-            
-
             {/* Submit Error */}
             {errors.submit && (
               <div className="submit-error" role="alert">
@@ -149,7 +172,8 @@ const Login = () => {
               </div>
             )}
 
-<br></br>
+            <br />
+
             {/* Login Button */}
             <button 
               type="submit" 
@@ -164,24 +188,54 @@ const Login = () => {
             </button>
           </form>
 
-     
-
-          {/* Demo Credentials */}
+          {/* Demo Credentials with Quick Fill Buttons */}
           <div className="signup-section">
-            <p style={{ fontSize: '12px', color: '#4b2e16', marginBottom: '10px' }}>
+            <p style={{ fontSize: '12px', color: '#4b2e16', marginBottom: '10px', fontWeight: 'bold' }}>
               Demo Credentials:
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11px' }}>
-              <div>
-                <strong>Admin:</strong> admin@maicrafts.com / admin123
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div>
+                  <strong>Admin:</strong> admin@maicrafts.com / admin123
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => fillDemoCredentials('admin')}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '11px',
+                    backgroundColor: '#4a2c0c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Use Admin
+                </button>
               </div>
-              <div>
-                <strong>Staff:</strong> staff@maicrafts.com / staff123
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <div>
+                  <strong>Seller:</strong> seller@maicrafts.com / seller123
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => fillDemoCredentials('seller')}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '11px',
+                    backgroundColor: '#4a2c0c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Use Seller
+                </button>
               </div>
             </div>
           </div>
-
-        
         </div>
       </div>
     </div>

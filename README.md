@@ -51,137 +51,6 @@ MAICRAFTS
 │  ├─ package-lock.json
 │  ├─ package.json
 │  ├─ public
-│  │  └─ vite.svg
-│  ├─ README.md
-│  ├─ src
-│  │  ├─ App.css
-│  │  ├─ App.jsx
-│  │  ├─ assets
-│  │  │  └─ react.svg
-│  │  ├─ components
-│  │  │  ├─ MainContent.jsx
-│  │  │  ├─ Navbar.jsx
-│  │  │  └─ Sidebar.jsx
-│  │  ├─ css
-│  │  ├─ index.css
-│  │  ├─ layouts
-│  │  ├─ main.jsx
-│  │  └─ pages
-│  │     ├─ admin
-│  │     ├─ Dashboard.jsx
-│  │     ├─ Products.jsx
-│  │     ├─ staff
-│  │     └─ Users.jsx
-│  └─ vite.config.js
-├─ backend
-│  ├─ package-lock.json
-│  ├─ package.json
-│  └─ server.js
-├─ maicrafts
-│  ├─ eslint.config.js
-│  ├─ git
-│  ├─ index.html
-│  ├─ package-lock.json
-│  ├─ package.json
-│  ├─ public
-│  │  ├─ counter1.mp4
-│  │  ├─ crochet1.svg
-│  │  ├─ flower1.svg
-│  │  ├─ flower2.svg
-│  │  ├─ logo.webp
-│  │  ├─ maicraftss.mp4
-│  │  ├─ maicrafts_logo.svg
-│  │  ├─ products.mp4
-│  │  └─ vite.svg
-│  ├─ README.md
-│  ├─ src
-│  │  ├─ App.css
-│  │  ├─ App.jsx
-│  │  ├─ assets
-│  │  │  ├─ counter.png
-│  │  │  ├─ doll.png
-│  │  │  ├─ doll2.png
-│  │  │  ├─ doll3.png
-│  │  │  ├─ doll4.png
-│  │  │  ├─ doll5.png
-│  │  │  ├─ doll6.png
-│  │  │  ├─ flower.png
-│  │  │  ├─ flower2.png
-│  │  │  ├─ flower3.png
-│  │  │  ├─ flower4.png
-│  │  │  ├─ flower5.png
-│  │  │  ├─ flower6.png
-│  │  │  ├─ flower7.png
-│  │  │  ├─ flower8.png
-│  │  │  ├─ img1.png
-│  │  │  ├─ products.svg
-│  │  │  └─ react.svg
-│  │  ├─ auth
-│  │  │  ├─ AccountCreated.jsx
-│  │  │  ├─ AuthPages.css
-│  │  │  ├─ css
-│  │  │  │  ├─ AccountCreated.css
-│  │  │  │  ├─ EnterCode.css
-│  │  │  │  ├─ ForgotPasswordEmail.css
-│  │  │  │  ├─ Login.css
-│  │  │  │  ├─ ResetPasswordOTP.css
-│  │  │  │  ├─ SetNewPassword.css
-│  │  │  │  ├─ SetupPassword.css
-│  │  │  │  └─ Signup.css
-│  │  │  ├─ EnterCode.jsx
-│  │  │  ├─ ForgotPasswordEmail.jsx
-│  │  │  ├─ Login.jsx
-│  │  │  ├─ Register.jsx
-│  │  │  ├─ ResetPasswordOTP.jsx
-│  │  │  ├─ SetNewPassword.jsx
-│  │  │  ├─ SetupPassword.jsx
-│  │  │  └─ Signup.jsx
-│  │  ├─ components
-│  │  │  ├─ CheckoutFormModal.jsx
-│  │  │  ├─ components-css
-│  │  │  │  ├─ CheckoutFormModal.css
-│  │  │  │  ├─ FloatingCart.css
-│  │  │  │  ├─ Footer.css
-│  │  │  │  └─ Navbar.css
-│  │  │  ├─ FloatingCart.jsx
-│  │  │  ├─ Footer.jsx
-│  │  │  ├─ Navbar.jsx
-│  │  │  └─ ScrollToTop.jsx
-│  │  ├─ css
-│  │  │  ├─ About.css
-│  │  │  ├─ Contact.css
-│  │  │  ├─ CustomizeFormModal.css
-│  │  │  ├─ Home.css
-│  │  │  ├─ ProductDetail.css
-│  │  │  ├─ ProductDetail2.css
-│  │  │  └─ Products.css
-│  │  ├─ data
-│  │  │  └─ productsData.js
-│  │  ├─ index.css
-│  │  ├─ main.jsx
-│  │  ├─ pages
-│  │  │  ├─ About.jsx
-│  │  │  ├─ Contact.jsx
-│  │  │  ├─ CustomizeFormModal.jsx
-│  │  │  ├─ Home.jsx
-│  │  │  ├─ ProductDetail.jsx
-│  │  │  ├─ ProductDetail2.jsx
-│  │  │  └─ Products.jsx
-│  │  └─ pages-components
-│  └─ vite.config.js
-├─ package-lock.json
-├─ package.json
-└─ README.md
-
-```
-```
-MAICRAFTS
-├─ admin
-│  ├─ eslint.config.js
-│  ├─ index.html
-│  ├─ package-lock.json
-│  ├─ package.json
-│  ├─ public
 │  │  ├─ counter1.mp4
 │  │  ├─ crochet1.svg
 │  │  ├─ flower1.svg
@@ -209,159 +78,9 @@ MAICRAFTS
 │  │  ├─ context
 │  │  │  └─ AuthContext.jsx
 │  │  ├─ css
-│  │  │  └─ Login.css
-│  │  ├─ index.css
-│  │  ├─ layouts
-│  │  │  ├─ MainLayout.css
-│  │  │  └─ MainLayout.jsx
-│  │  ├─ main.jsx
-│  │  └─ pages
-│  │     ├─ admin
-│  │     │  ├─ AdminDashboard.jsx
-│  │     │  └─ Dashboard.css
-│  │     ├─ Dashboard.jsx
-│  │     ├─ Products.jsx
-│  │     ├─ staff
-│  │     └─ Users.jsx
-│  └─ vite.config.js
-├─ backend
-│  ├─ package-lock.json
-│  ├─ package.json
-│  └─ server.js
-├─ maicrafts
-│  ├─ eslint.config.js
-│  ├─ git
-│  ├─ index.html
-│  ├─ package-lock.json
-│  ├─ package.json
-│  ├─ public
-│  │  ├─ counter1.mp4
-│  │  ├─ crochet1.svg
-│  │  ├─ flower1.svg
-│  │  ├─ flower2.svg
-│  │  ├─ logo.webp
-│  │  ├─ maicraftss.mp4
-│  │  ├─ maicrafts_logo.svg
-│  │  ├─ products.mp4
-│  │  └─ vite.svg
-│  ├─ README.md
-│  ├─ src
-│  │  ├─ App.css
-│  │  ├─ App.jsx
-│  │  ├─ assets
-│  │  │  ├─ counter.png
-│  │  │  ├─ doll.png
-│  │  │  ├─ doll2.png
-│  │  │  ├─ doll3.png
-│  │  │  ├─ doll4.png
-│  │  │  ├─ doll5.png
-│  │  │  ├─ doll6.png
-│  │  │  ├─ flower.png
-│  │  │  ├─ flower2.png
-│  │  │  ├─ flower3.png
-│  │  │  ├─ flower4.png
-│  │  │  ├─ flower5.png
-│  │  │  ├─ flower6.png
-│  │  │  ├─ flower7.png
-│  │  │  ├─ flower8.png
-│  │  │  ├─ img1.png
-│  │  │  ├─ products.svg
-│  │  │  └─ react.svg
-│  │  ├─ auth
-│  │  │  ├─ AccountCreated.jsx
-│  │  │  ├─ AuthPages.css
-│  │  │  ├─ css
-│  │  │  │  ├─ AccountCreated.css
-│  │  │  │  ├─ EnterCode.css
-│  │  │  │  ├─ ForgotPasswordEmail.css
-│  │  │  │  ├─ Login.css
-│  │  │  │  ├─ ResetPasswordOTP.css
-│  │  │  │  ├─ SetNewPassword.css
-│  │  │  │  ├─ SetupPassword.css
-│  │  │  │  └─ Signup.css
-│  │  │  ├─ EnterCode.jsx
-│  │  │  ├─ ForgotPasswordEmail.jsx
+│  │  │  ├─ Dashboard.css
 │  │  │  ├─ Login.css
-│  │  │  ├─ Login.jsx
-│  │  │  ├─ Register.jsx
-│  │  │  ├─ ResetPasswordOTP.jsx
-│  │  │  ├─ SetNewPassword.jsx
-│  │  │  ├─ SetupPassword.jsx
-│  │  │  └─ Signup.jsx
-│  │  ├─ components
-│  │  │  ├─ CheckoutFormModal.jsx
-│  │  │  ├─ components-css
-│  │  │  │  ├─ CheckoutFormModal.css
-│  │  │  │  ├─ FloatingCart.css
-│  │  │  │  ├─ Footer.css
-│  │  │  │  └─ Navbar.css
-│  │  │  ├─ FloatingCart.jsx
-│  │  │  ├─ Footer.jsx
-│  │  │  ├─ Navbar.jsx
-│  │  │  └─ ScrollToTop.jsx
-│  │  ├─ css
-│  │  │  ├─ About.css
-│  │  │  ├─ Contact.css
-│  │  │  ├─ CustomizeFormModal.css
-│  │  │  ├─ Home.css
-│  │  │  ├─ ProductDetail.css
-│  │  │  ├─ ProductDetail2.css
-│  │  │  └─ Products.css
-│  │  ├─ data
-│  │  │  └─ productsData.js
-│  │  ├─ index.css
-│  │  ├─ main.jsx
-│  │  ├─ pages
-│  │  │  ├─ About.jsx
-│  │  │  ├─ Contact.jsx
-│  │  │  ├─ CustomizeFormModal.jsx
-│  │  │  ├─ Home.jsx
-│  │  │  ├─ ProductDetail.jsx
-│  │  │  ├─ ProductDetail2.jsx
-│  │  │  └─ Products.jsx
-│  │  └─ pages-components
-│  └─ vite.config.js
-├─ package-lock.json
-├─ package.json
-└─ README.md
-
-```
-```
-MAICRAFTS
-├─ admin
-│  ├─ eslint.config.js
-│  ├─ index.html
-│  ├─ package-lock.json
-│  ├─ package.json
-│  ├─ public
-│  │  ├─ counter1.mp4
-│  │  ├─ crochet1.svg
-│  │  ├─ flower1.svg
-│  │  ├─ flower2.svg
-│  │  ├─ logo.webp
-│  │  ├─ maicraftss.mp4
-│  │  ├─ maicrafts_logo.svg
-│  │  ├─ products.mp4
-│  │  ├─ vite copy.svg
-│  │  └─ vite.svg
-│  ├─ README.md
-│  ├─ src
-│  │  ├─ App.css
-│  │  ├─ App.jsx
-│  │  ├─ assets
-│  │  │  └─ react.svg
-│  │  ├─ auth
-│  │  │  └─ Login.jsx
-│  │  ├─ components
-│  │  │  ├─ Navbar.css
-│  │  │  ├─ Navbar.jsx
-│  │  │  ├─ ProtectedRoute.jsx
-│  │  │  ├─ Sidebar.css
-│  │  │  └─ Sidebar.jsx
-│  │  ├─ context
-│  │  │  └─ AuthContext.jsx
-│  │  ├─ css
-│  │  │  └─ Login.css
+│  │  │  └─ Users.css
 │  │  ├─ index.css
 │  │  ├─ layouts
 │  │  │  ├─ MainLayout.css
@@ -370,17 +89,21 @@ MAICRAFTS
 │  │  └─ pages
 │  │     ├─ admin
 │  │     │  ├─ AdminDashboard.jsx
-│  │     │  ├─ Dashboard.css
-│  │     │  ├─ Users.css
 │  │     │  └─ Users.jsx
-│  │     ├─ Products.jsx
 │  │     └─ staff
-│  │        └─ Dashboard.jsx
+│  │        ├─ Dashboard.jsx
+│  │        └─ Products.jsx
 │  └─ vite.config.js
 ├─ backend
 │  ├─ package-lock.json
 │  ├─ package.json
-│  └─ server.js
+│  ├─ routes
+│  │  ├─ forgotpassword.js
+│  │  ├─ login.js
+│  │  ├─ register.js
+│  │  └─ verify.js
+│  ├─ server.js
+│  └─ supabaseClient.js
 ├─ maicrafts
 │  ├─ eslint.config.js
 │  ├─ git

@@ -19,10 +19,6 @@ router.get("/verify-email", async (req, res) => {
       console.error("DB error:", error);
       return res.status(500).send("Database error");
     }
-    
-    if (!verification) {
-      return res.status(400).send("Invalid or expired token");
-    }
 
     // Mark the user as verified
     await supabase.from("users")
@@ -31,8 +27,8 @@ router.get("/verify-email", async (req, res) => {
 
     // Optionally delete the token
     await supabase.from("email_verifications")
-      .delete()
-      .eq("id", verification.id);
+    .update({ is_used: true })
+    .eq("id", verification.id);
 
     // Redirect to homepage or login page
     res.redirect("http://localhost:5173/login"); 
