@@ -1,11 +1,13 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FiHome, FiUsers, FiSettings, FiUser, FiPackage, FiShoppingCart, FiBox } from 'react-icons/fi';
+import { FiHome, FiUsers, FiSettings, FiUser, FiPackage, FiShoppingCart, FiBox, FiLogOut } from 'react-icons/fi';
+import Swal from 'sweetalert2';
 import './Sidebar.css';
 
 const Sidebar = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   // Define navigation items based on user role
   const getNavItems = () => {
@@ -36,6 +38,39 @@ const Sidebar = () => {
     if (user?.role === 'admin') return 'Administrator';
     if (user?.role === 'seller') return 'Seller';
     return 'Staff';
+  };
+
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You will be logged out of your account",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, logout',
+      cancelButtonText: 'Cancel',
+      background: '#fff',
+      customClass: {
+        popup: 'swal-popup',
+        title: 'swal-title',
+        confirmButton: 'swal-confirm-btn',
+        cancelButton: 'swal-cancel-btn'
+      }
+    });
+
+    if (result.isConfirmed) {
+      logout();
+      navigate('/');
+      await Swal.fire({
+        title: 'Logged Out!',
+        text: 'You have been successfully logged out',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
+        background: '#fff'
+      });
+    }
   };
 
   return (
@@ -73,7 +108,8 @@ const Sidebar = () => {
 
       {/* Profile Section at Bottom */}
       <div className="admin-sidebar-profile">
-        <div className="admin-profile-content">
+        {/* Profile Content - Clickable for logout */}
+        <div className="admin-profile-content" onClick={handleLogout} style={{ cursor: 'pointer' }}>
           <div className="admin-profile-avatar">
             {user?.avatar ? (
               <img src={user.avatar} alt={user.name} />
@@ -90,6 +126,9 @@ const Sidebar = () => {
             </div>
           </div>
         </div>
+        
+        {/* Logout Button */}
+       
       </div>
     </div>
   );
