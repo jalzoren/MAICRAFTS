@@ -3,8 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import MainLayout from "./layouts/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
-import Dashboard from "./pages/seller/SellerDashboard";
-import Products from "./pages/seller/Products";
+import Dashboard from "./pages/seller/SellerDashboard"; // Seller dashboard
+import Products from "./pages/seller/Products"; // Product management
+import OrderManagement from "./pages/seller/OrderManagement"; // Order management for seller
 import Login from "./auth/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -59,6 +60,11 @@ function App() {
             <Route path="/seller/products" element={
               <ProtectedRoute allowedRoles={['seller']}>
                 <Products />
+              </ProtectedRoute>
+            } />
+            <Route path="/seller/orders" element={
+              <ProtectedRoute allowedRoles={['seller']}>
+                <OrderManagement />
               </ProtectedRoute>
             } />
             
