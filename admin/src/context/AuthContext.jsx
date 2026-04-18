@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
@@ -18,10 +17,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const userData = JSON.parse(localStorage.getItem('user') || '{}');
-          setUser(userData);
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          setUser(JSON.parse(userData));
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -34,31 +32,66 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    // Demo login - in production, this should be an API call
-    // For demo purposes:
+    try {
+      // Try to login with backend
+      const response = await fetch('http://localhost:5000/api/superlogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Database login success
+        const userData = {
+          id: data.user.id,
+          email: data.user.email,
+          role: data.user.role,
+          name: `${data.user.first_name} ${data.user.last_name}`,
+          username: data.user.username
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return { success: true, user: userData };
+      }
+      
+      // If backend fails, try demo accounts
+      return handleDemoLogin(email, password);
+      
+    } catch (error) {
+      // If API call fails, try demo accounts
+      console.log('Backend not available, trying demo accounts...');
+      return handleDemoLogin(email, password);
+    }
+  };
+
+  const handleDemoLogin = (email, password) => {
+    // Super Admin Demo
     if (email === 'admin@maicrafts.com' && password === 'admin123') {
       const userData = { 
         id: 1, 
         email, 
-        role: 'admin', 
-        name: 'Admin User',
-        avatar: null
+        role: 'Super Admin', 
+        name: 'Super Admin User',
+        username: 'superadmin'
       };
       setUser(userData);
-      localStorage.setItem('token', 'admin-token');
       localStorage.setItem('user', JSON.stringify(userData));
       return { success: true, user: userData };
     } 
+    
+    // Seller Demo
     else if (email === 'seller@maicrafts.com' && password === 'seller123') {
       const userData = { 
         id: 2, 
         email, 
         role: 'seller', 
         name: 'Seller User',
-        avatar: null
+        username: 'seller'
       };
       setUser(userData);
-      localStorage.setItem('token', 'seller-token');
       localStorage.setItem('user', JSON.stringify(userData));
       return { success: true, user: userData };
     }
@@ -68,7 +101,6 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 

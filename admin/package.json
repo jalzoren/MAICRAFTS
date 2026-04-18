@@ -28,6 +28,7 @@
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.9.6",
+    "recharts": "^3.8.1",
     "sweetalert2": "^11.26.24",
     "tailwind-merge": "^3.4.0"
   },

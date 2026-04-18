@@ -11,7 +11,8 @@ const Sidebar = () => {
 
   // Define navigation items based on user role
   const getNavItems = () => {
-    if (user?.role === 'admin') {
+    // Check for Super Admin (with space) OR admin
+    if (user?.role === 'Super Admin' || user?.role === 'admin') {
       return [
         { path: '/admin/dashboard', label: 'Dashboard', icon: FiHome },
         { path: '/admin/users', label: 'User Management', icon: FiUsers },
@@ -24,7 +25,7 @@ const Sidebar = () => {
         { path: '/seller/orders', label: 'Order Management', icon: FiShoppingCart },
       ];
     }
-    // Default/Staff role
+    // Default/Staff role (should not happen now)
     return [
       { path: '/dashboard', label: 'Dashboard', icon: FiHome },
       { path: '/products', label: 'Products', icon: FiBox },
@@ -35,7 +36,7 @@ const Sidebar = () => {
 
   // Get role display name
   const getRoleDisplay = () => {
-    if (user?.role === 'admin') return 'Administrator';
+    if (user?.role === 'Super Admin' || user?.role === 'admin') return 'Super Admin';
     if (user?.role === 'seller') return 'Seller';
     return 'Staff';
   };
@@ -108,7 +109,6 @@ const Sidebar = () => {
 
       {/* Profile Section at Bottom */}
       <div className="admin-sidebar-profile">
-        {/* Profile Content - Clickable for logout */}
         <div className="admin-profile-content" onClick={handleLogout} style={{ cursor: 'pointer' }}>
           <div className="admin-profile-avatar">
             {user?.avatar ? (
@@ -119,16 +119,13 @@ const Sidebar = () => {
           </div>
           <div className="admin-profile-info">
             <div className="admin-profile-name">
-              {user?.name || (user?.role === 'admin' ? 'Admin User' : 'Seller User')}
+              {user?.name || (user?.role === 'Super Admin' ? 'Super Admin' : 'Seller User')}
             </div>
             <div className="admin-profile-role">
               {getRoleDisplay()}
             </div>
           </div>
         </div>
-        
-        {/* Logout Button */}
-       
       </div>
     </div>
   );

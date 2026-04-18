@@ -68,7 +68,7 @@ const Login = () => {
     }
   };
 
-  // Auto-fill demo credentials
+  // The fillDemoCredentials function stays the same
   const fillDemoCredentials = (role) => {
     if (role === 'admin') {
       setFormData({
@@ -81,7 +81,6 @@ const Login = () => {
         password: "seller123"
       });
     }
-    // Clear any existing errors
     setErrors({});
   };
 
