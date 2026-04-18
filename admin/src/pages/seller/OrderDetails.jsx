@@ -212,7 +212,6 @@ const OrderDetails = () => {
                 </select>
                 </div>
 
-                {/* Payment Status with Toggle */}
                {/* Payment Status */}
                 <div className="form-group">
                 <label>Payment Status</label>
@@ -228,36 +227,73 @@ const OrderDetails = () => {
                 </div>
                 {/* Buttons */}
                 <div className="action-buttons">
-                <button className="btn-secondary">View Receipt</button>
+                <button className="btn-secondary">Receipt</button>
                 <button className="btn-primary">Update</button>
                 </div>
 
             </div>
             </div>
 
-          {/* Summary */}
-          <div className="card-box">
-            <div className="card-box__header">
-              <Icon><SummaryIcon /></Icon>
-              <span>Order Summary</span>
+        {/* Summary */}
+        <div className="card-box">
+        <div className="card-box__header">
+            <Icon><SummaryIcon /></Icon>
+            <span>Order Summary</span>
+        </div>
+
+        <div className="card-box__body">
+
+            <div className="summary-row">
+            <span className="label">Subtotal</span>
+            <span className="value gray">₱120.00</span>
             </div>
-            <div className="card-box__body">
-              <p>Total: ₱145.00</p>
-              <p>Status: Pending</p>
+
+            <div className="summary-row">
+            <span className="label">Shipping</span>
+            <span className="value gray">₱25.00</span>
             </div>
-          </div>
+
+            <div className="summary-divider"></div>
+
+            <div className="summary-row total">
+            <span className="label total-label">Total</span>
+            <span className="value total-value">₱145.00</span>
+            </div>
+
+        </div>
+        </div>
 
           {/* Activity */}
-          <div className="card-box">
+            <div className="card-box">
             <div className="card-box__header">
-              <Icon><ActivityIcon /></Icon>
-              <span>Recent Activity</span>
+                <Icon><ActivityIcon /></Icon>
+                <span>Recent Activity</span>
             </div>
+
             <div className="card-box__body">
-              <p>Order created</p>
-              <p>Payment received</p>
+
+                {/* Item 1 */}
+                <div className="activity-item">
+                <span className="dot gray"></span>
+
+                <div className="activity-content">
+                    <p className="activity-title">Order placed by customer</p>
+                    <span className="activity-time">Today, 10:23 PM</span>
+                </div>
+                </div>
+
+                {/* Item 2 */}
+                <div className="activity-item">
+                <span className="dot gold"></span>
+
+                <div className="activity-content">
+                    <p className="activity-title">Payment received</p>
+                    <span className="activity-time">Today, 10:30 PM</span>
+                </div>
+                </div>
+
             </div>
-          </div>
+            </div>
 
         </div>
       </div>

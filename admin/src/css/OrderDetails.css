@@ -176,21 +176,6 @@ body {
     margin: 0;
   }
   
-  /* ---------- BUTTONS ---------- */
-  .card-box__body button {
-    width: 100%;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #f59e0b;
-    background: white;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  
-  .card-box__body button:hover {
-    background: #f59e0b;
-    color: white;
-  }
   
   /* ---------- INFO GRID ---------- */
   .info-grid {
@@ -471,27 +456,65 @@ body {
 /* BUTTONS */
 .action-buttons {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.btn-primary {
+.action-buttons button {
   flex: 1;
-  background: #f59e0b;
-  color: white;
-  border: none;
   padding: 10px;
   border-radius: 8px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  /* Center text properly */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* Force identical text styles */
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: var(--font-main), sans-serif !important;
+  line-height: 1.2 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
 }
 
+/* View Receipt button - White with gray border */
 .btn-secondary {
-  flex: 1;
   background: white;
   border: 1px solid #e5e7eb;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* Update button - D4AF70 background with dark text */
+.btn-primary {
+  background: #D4AF70;
+  border: 1px solid #D4AF70;
+  color: #4A3321;
+}
+
+.btn-primary:hover {
+  background: #c9a55c;
+  border-color: #c9a55c;
+  transform: translateY(-1px);
+}
+
+/* If you want both buttons to have the same width and share space equally */
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.action-buttons button {
+  flex: 1; /* Both buttons take equal width */
 }
 
 
@@ -560,4 +583,90 @@ body {
 
 .switch.small input:checked + .slider:before {
   transform: translateX(16px);
+}
+
+/* ROW LAYOUT */
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* LABEL (left) */
+.label {
+  font-size: 13px;
+  color: #9ca3af; /* gray */
+}
+
+/* VALUE (right) */
+.value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* gray values */
+.value.gray {
+  color: #9ca3af;
+}
+
+/* divider line */
+.summary-divider {
+  border-top: 1px solid #000; /* black line */
+  margin: 8px 0;
+}
+
+/* TOTAL LABEL */
+.total-label {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+/* TOTAL VALUE */
+.total-value {
+  color: #462C14;
+  font-weight: 700;
+}
+
+/* ITEM ROW */
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* DOT */
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.dot.gray {
+  background: #9ca3af;
+}
+
+.dot.gold {
+  background: #D4AF70;
+}
+
+/* CONTENT */
+.activity-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* TITLE */
+.activity-title {
+  margin: 0;
+  font-size: 13px;
+  color: #111827; /* black */
+  font-weight: 500;
+}
+
+/* TIME */
+.activity-time {
+  font-size: 12px;
+  color: #9ca3af; /* gray */
 }
