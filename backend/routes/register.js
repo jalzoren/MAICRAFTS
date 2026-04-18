@@ -32,7 +32,6 @@ router.post("/register", async (req, res) => {
     return res.status(500).json({ error: "Server error during captcha verification" });
   }
 
-  // 2️⃣ Proceed with Supabase registration
   let userId;
   try {
     // Create user in Supabase Auth
