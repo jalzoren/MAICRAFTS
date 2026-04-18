@@ -16,6 +16,7 @@ import ProductDetail2 from "./pages/ProductDetail2.jsx";
 import About from "./pages/About.jsx";
 import Contact from "./pages/Contact.jsx";
 import CustomizeFormModal from "./pages/CustomizeFormModal.jsx";
+import Settings from "./pages/Settings.jsx";
 
 
 import Login from "./auth/Login.jsx";
@@ -104,6 +105,7 @@ const AppContent = () => {
         <Route path="/crochet/:id" element={<ProductDetail2 />} />
         <Route path="/about-us" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/settings" element={<Settings />} />
 
         {/* Auth Pages */}
         <Route path="/login" element={<Login />} />
