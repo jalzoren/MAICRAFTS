@@ -117,7 +117,7 @@ const SetupPassword = () => {
   const showSuccessAlert = () => {
     Swal.fire({
       title: 'Account Created!',
-      text: 'Your account has been successfully created.',
+      text: 'Your account has been successfully created. Check your email for activation',
       icon: 'success',
       background: '#E6BB71',
       color: '#4b2e16',
