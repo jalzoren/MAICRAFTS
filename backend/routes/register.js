@@ -33,7 +33,6 @@ router.post("/register", async (req, res) => {
     return res.status(500).json({ error: "Server error during captcha verification" });
   }
 
-  // 2️⃣ Proceed with Supabase registration
   let userId;
   try {
     // Create user in Supabase Auth
@@ -101,7 +100,7 @@ router.post("/register", async (req, res) => {
     await transporter.sendMail({
       from: `"Maicrafts" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Confirm your email",
+      subject: "Activate your email",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto;
                     border: 1px solid #e0c896; border-radius: 12px; overflow: hidden;">
@@ -111,16 +110,16 @@ router.post("/register", async (req, res) => {
           </div>
     
           <div style="background: #E6BB71; padding: 32px; text-align: center;">
-            <h2 style="color: #4b2e16; margin-top: 0;">Confirm Your Email</h2>
+            <h2 style="color: #4b2e16; margin-top: 0;">Activate Your Email</h2>
             <p style="color: #4b2e16;">
-              Thank you for signing up! Please confirm your email address by clicking the button below.
+              Thank you for signing up! Please activate your email address by clicking the button below.
             </p>
     
             <a href="${confirmURL}" 
                style="display: inline-block; margin-top: 24px; padding: 14px 28px;
                       background: #4b2e16; color: #E6BB71; text-decoration: none;
                       border-radius: 8px; font-weight: bold;">
-              Verify Email
+              Activate Email
             </a>
     
             <p style="color: #7a5c3a; font-size: 13px; margin-top: 24px;">
