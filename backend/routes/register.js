@@ -110,7 +110,7 @@ router.post("/register", async (req, res) => {
           </div>
     
           <div style="background: #E6BB71; padding: 32px; text-align: center;">
-            <h2 style="color: #4b2e16; margin-top: 0;">Confirm Your Email</h2>
+            <h2 style="color: #4b2e16; margin-top: 0;">Activate Your Email</h2>
             <p style="color: #4b2e16;">
               Thank you for signing up! Please activate your email address by clicking the button below.
             </p>
