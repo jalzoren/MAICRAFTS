@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
@@ -10,6 +10,7 @@ import Login from "./auth/Login";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
+import OrderDetails from "./pages/seller/OrderDetails";
 
 // Layout wrapper with authentication
 const AppLayout = () => {
@@ -32,7 +33,6 @@ const AppLayout = () => {
 
 function App() {
   return (
-    <Router>
       <AuthProvider>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -67,13 +67,17 @@ function App() {
                 <OrderManagement />
               </ProtectedRoute>
             } />
+            <Route path="/seller/orders/:id" element={
+              <ProtectedRoute allowedRoles={['seller']}>
+                <OrderDetails />
+              </ProtectedRoute>
+            } />
             
             {/* Default redirect */}
             <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
           </Route>
         </Routes>
       </AuthProvider>
-    </Router>
   );
 }
 

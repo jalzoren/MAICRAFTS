@@ -1,5 +1,6 @@
 import React from "react";
 import "../../css/OrderManagement.css";
+import { useNavigate } from "react-router-dom";
 
 // Icons as inline SVGs
 const ShoppingBagIcon = () => (
@@ -141,6 +142,8 @@ const orders = [
 ];
 
 const OrderManagement = () => {
+  const navigate = useNavigate();
+ 
   return (
     <div className="order-management">
       {/* Page Header */}
@@ -227,25 +230,38 @@ const OrderManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {orders.map((order) => (
+          {orders.map((order) => {
+
+            const cleanId = order.id.replace("#", "");
+
+            return (
               <tr key={order.id}>
                 <td className="order-id">{order.id}</td>
                 <td className="customer-name">{order.customerName}</td>
                 <td className="order-date">{order.date}</td>
                 <td className="order-items">{order.items}</td>
                 <td className="order-amount">{order.totalAmount}</td>
+
                 <td>
                   <StatusBadge status={order.status} />
                 </td>
+
                 <td>
                   <PaymentStatus status={order.payment} />
                 </td>
+
                 <td>
-                  <button className="view-details-btn">View Details</button>
+                  <button
+                    className="view-details-btn"
+                    onClick={() => navigate(`/seller/orders/${cleanId}`)}
+                  >
+                    View Details
+                  </button>
                 </td>
               </tr>
-            ))}
-          </tbody>
+            );
+          })}
+        </tbody>
         </table>
       </div>
 
