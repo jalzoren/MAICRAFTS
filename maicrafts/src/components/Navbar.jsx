@@ -1,11 +1,12 @@
 // src/components/Navbar.jsx
 import React, { useState, useRef, useEffect } from "react";
+import "./components-css/Navbar.css";
 import { IoMdClose, IoMdMenu } from "react-icons/io";
 import { BsBell, BsCart3 } from "react-icons/bs";
 import { FiUser, FiLogOut } from "react-icons/fi";
 import { IoSettings } from "react-icons/io5";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import "./components-css/Navbar.css";
+
 
 // ─────────────────────────────────────────────
 // Utility: get logged-in user from localStorage
