@@ -36,12 +36,13 @@ router.post("/", async (req, res) => {
     }
 
     console.log("✅ Credentials valid for:", username);
+    console.log("AUTH USER ID:", authData.user.id);
 
     // 2️⃣ Fetch user profile from public.users
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('email', username)
+      .eq('id', authData.user.id)
       .single();
 
     if (userError || !user) {
