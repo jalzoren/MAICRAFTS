@@ -30,11 +30,13 @@ router.post("/", async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    console.log("✅ Credentials valid for:", username);
+
     // 2️⃣ Fetch user profile from public.users
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('email', username)
+      .eq('id', authData.user.id)
       .single();
 
     if (userError || !user) {
