@@ -8,7 +8,7 @@ import loginRoutes from './routes/login.js';
 import superloginRoutes from './routes/superlogin.js';
 import forgotPasswordRoutes from './routes/forgotpassword.js';
 import userRoutes from './routes/userRoutes.js';
-//import cartRoutes from './routes/cartRoutes.js';  ==== wala muna cart routes pero meron ng CART CONTEXT sa frontend, so pwede na mag integrate pag may time nalang ====
+//import cartRoutes from './routes/cartRoutes.js';  ==== wala muna cart routes pero meron ng CART CONTEXT sa frontend, so pwede na mag integrate naka ready na yan sya ====
 import addressRoutes from './routes/addressRoutes.js';
 
 const app = express();
