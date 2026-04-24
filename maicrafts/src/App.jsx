@@ -1,6 +1,9 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext"; 
+import { CartProvider } from "./context/CartContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Components
 import Navbar from "./components/Navbar.jsx";
@@ -32,7 +35,6 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 // Wrapper component to access location inside Router
 const AppContent = () => {
-  const [cart, setCart] = useState([]);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const location = useLocation();
 
@@ -51,22 +53,6 @@ const AppContent = () => {
   // Check if current route is an auth route
   const isAuthRoute = authRoutes.includes(location.pathname);
 
-  // Load cart from localStorage
-  useEffect(() => {
-    const savedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCart(savedCart);
-  }, []);
-
-  // Listen for cart updates
-  useEffect(() => {
-    const updateCart = () => {
-      const updated = JSON.parse(localStorage.getItem("cart") || "[]");
-      setCart(updated);
-    };
-    window.addEventListener("cart-updated", updateCart);
-    return () => window.removeEventListener("cart-updated", updateCart);
-  }, []);
-
   // Auto-open Customize Modal when URL has ?customize=true
   useEffect(() => {
     if (location.search === "?customize=true") {
@@ -74,12 +60,6 @@ const AppContent = () => {
     }
   }, [location]);
 
-  const removeItem = (key) => {
-    const newCart = cart.filter((item) => item.key !== key);
-    localStorage.setItem("cart", JSON.stringify(newCart));
-    setCart(newCart);
-    window.dispatchEvent(new Event("cart-updated"));
-  };
 
   const closeCustomizeModal = () => {
     setIsCustomizeOpen(false);
@@ -89,60 +69,53 @@ const AppContent = () => {
   return (
     <>
       <ScrollToTop />
-      
-      {/* Show Navbar only on non-auth routes */}
       {!isAuthRoute && <Navbar />}
 
-      {/* Floating Cart */}
-      {/* <FloatingCart cartItems={cart} removeItem={removeItem} /> */}
-
-      {/* ROUTES */}
       <Routes>
-        {/* Main Pages */}
-        <Route path="/" element={<Home />} />
-        <Route path="/products" element={<Products />} />
+        {/* Public */}
+        <Route path="/"            element={<Home />} />
+        <Route path="/products"    element={<Products />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/crochet/:id" element={<ProductDetail2 />} />
-        <Route path="/about-us" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/about-us"    element={<About />} />
+        <Route path="/contact"     element={<Contact />} />
 
-        {/* Auth Pages */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/forgot-password" element={<ForgotPasswordEmail />} />
-       <Route path="/reset-password-otp" element={<ResetPasswordOTP />} />
-        <Route path="/set-new-password" element={<SetNewPassword />} />\
+        {/* Auth */}
+        <Route path="/login"              element={<Login />} />
+        <Route path="/signup"             element={<Signup />} />
+        <Route path="/enter-code"         element={<EnterCode />} />
+        <Route path="/setup-password"     element={<SetupPassword />} />
+        <Route path="/account-created"    element={<AccountCreated />} />
+        <Route path="/forgot-password"    element={<ForgotPasswordEmail />} />
+        <Route path="/reset-password-otp" element={<ResetPasswordOTP />} />
+        <Route path="/set-new-password"   element={<SetNewPassword />} />
 
+        {/* ── Protected (login required) ── */}
+        <Route path="/settings" element={
+          <ProtectedRoute><Settings /></ProtectedRoute>   
+        }/>
 
-
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/enter-code" element={<EnterCode />} />
-        <Route path="/setup-password" element={<SetupPassword />} />
-        <Route path="/account-created" element={<AccountCreated />} />
-
-
-      
+        <Route path="/cart" element={
+          <ProtectedRoute><Settings /></ProtectedRoute>  // temp placeholder
+        }/>
       </Routes>
 
-      {/* Show Footer only on non-auth routes */}
       {!isAuthRoute && <Footer />}
-
-      {/* Customize Modal */}
-      <CustomizeFormModal
-        isOpen={isCustomizeOpen}
-        onClose={closeCustomizeModal}
-      />
+      <CustomizeFormModal isOpen={isCustomizeOpen} onClose={closeCustomizeModal} />
     </>
   );
 };
 
 // Main App with Router
-const App = () => {
-  return (
-    <Router>
-      <AppContent />
-    </Router>
-  );
-};
+
+const App = () => (
+  <Router>
+    <AuthProvider>    
+      <CartProvider>  
+        <AppContent />
+      </CartProvider>
+    </AuthProvider>
+  </Router>
+);
 
 export default App;

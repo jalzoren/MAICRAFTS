@@ -1,56 +1,68 @@
+// maicrafts/src/auth/AccountCreated.jsx
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiCheckCircle, FiShoppingBag, FiLogIn } from "react-icons/fi";
 import Swal from "sweetalert2";
+import { useAuth } from "../context/AuthContext";
 import "../auth/css/AccountCreated.css";
 
 const AccountCreated = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();     
   const [countdown, setCountdown] = useState(5);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("");  
 
-  
-  // Countdown and auto-redirect
+  // ── If already logged in, no reason to be here ──
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated]);
+
+  // ── Read email from sessionStorage (this was the missing piece) ──
+  useEffect(() => {
+    const storedEmail = sessionStorage.getItem("signupEmail");
+    if (storedEmail) setEmail(storedEmail);        // ← THIS was missing — email was always ""
+  }, []);
+
+  // ── Countdown + auto-redirect ──
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(timer); return 0; }
         return prev - 1;
       });
     }, 1000);
 
-    // Auto-redirect after countdown
-    const redirectTimer = setTimeout(() => {
-      handleContinueToLogin();
-    }, 5000);
+    const redirectTimer = setTimeout(() => handleContinueToLogin(), 5000);
 
     return () => {
       clearInterval(timer);
       clearTimeout(redirectTimer);
     };
-  }, [navigate]);
+  }, []);
 
   const handleContinueToLogin = () => {
-    // Clear all session storage
-    sessionStorage.removeItem("signupEmail");
-    sessionStorage.removeItem("emailVerified");
-    sessionStorage.removeItem("passwordSetup");
-    navigate("/login");
+    // Clear signup session storage
+    ["signupEmail", "emailVerified", "passwordSetup"].forEach((k) =>
+      sessionStorage.removeItem(k)
+    );
+    // ← Pass email via state so Login.jsx can pre-fill the email field (nice UX)
+    navigate("/login", { state: { prefillEmail: email } });
   };
 
   const handleExploreProducts = () => {
-    navigate("/");
+    ["signupEmail", "emailVerified", "passwordSetup"].forEach((k) =>
+      sessionStorage.removeItem(k)
+    );
+    navigate("/products");
   };
 
   const maskEmail = (email) => {
     if (!email) return "";
-    const [localPart, domain] = email.split('@');
-    if (localPart.length <= 2) return email;
-    const maskedLocal = localPart.substring(0, 2) + '*'.repeat(localPart.length - 2);
-    return `${maskedLocal}@${domain}`;
+    const [local, domain] = email.split("@");
+    if (local.length <= 2) return email;
+    return `${local.slice(0, 2)}${"*".repeat(local.length - 2)}@${domain}`;
   };
 
   return (

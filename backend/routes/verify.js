@@ -1,3 +1,4 @@
+// backend/routes/verify.js
 import express from "express";
 import supabase from "../supabaseClient.js";
 

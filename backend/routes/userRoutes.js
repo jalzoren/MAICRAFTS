@@ -1,3 +1,4 @@
+// backend/routes/userRoutes.js
 import express from "express";
 import bcrypt from "bcrypt";
 import supabase from "../supabaseClient.js";

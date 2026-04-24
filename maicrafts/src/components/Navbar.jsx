@@ -6,18 +6,9 @@ import { BsBell, BsCart3 } from "react-icons/bs";
 import { FiUser, FiLogOut } from "react-icons/fi";
 import { IoSettings } from "react-icons/io5";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext"; 
+import { useCart } from "../context/CartContext";
 
-
-// ─────────────────────────────────────────────
-// Utility: get logged-in user from localStorage
-// ─────────────────────────────────────────────
-const getUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem("user")) || null;
-  } catch {
-    return null;
-  }
-};
 
 // ─────────────────────────────────────────────
 // Sub-component: Profile Dropdown
@@ -44,7 +35,7 @@ const ProfileDropdown = ({ user, onLogout }) => {
         </div>
         <div className="profile-dropdown-divider" />
         <div className="profile-settings">
-          <Link to="/profile" className="profile-settings-link">
+          <Link to="/settings" className="profile-settings-link">
             <IoSettings className="settings-icon" />
             Account Settings
           </Link>
@@ -78,11 +69,11 @@ const ProfileDropdown = ({ user, onLogout }) => {
 // Main Navbar Component
 // ─────────────────────────────────────────────
 const Navbar = () => {
+  const { user, logout }  = useAuth();
+  const { totalCount }    = useCart();
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(0);
-  const [user, setUser] = useState(getUser);
-
   const profileRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
@@ -94,24 +85,6 @@ const Navbar = () => {
     { name: "Contact", path: "/contact" },
   ];
 
-  // ── Sync cart count from localStorage ──
-  useEffect(() => {
-    const syncCart = () => {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const total = cart.reduce((acc, item) => acc + (item.qty || 1), 0);
-      setCartCount(total);
-    };
-    syncCart();
-    window.addEventListener("cart-updated", syncCart);
-    return () => window.removeEventListener("cart-updated", syncCart);
-  }, []);
-
-  // ── Sync user state (e.g. after login/logout) ──
-  useEffect(() => {
-    const syncUser = () => setUser(getUser());
-    window.addEventListener("user-updated", syncUser);
-    return () => window.removeEventListener("user-updated", syncUser);
-  }, []);
 
   // ── Close profile dropdown when clicking outside ──
   useEffect(() => {
@@ -125,8 +98,7 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
+    logout();
     setIsProfileOpen(false);
     window.dispatchEvent(new Event("user-updated"));
     navigate("/login");
@@ -144,8 +116,8 @@ const Navbar = () => {
       <Link to="/cart" className="nav-cart-btn" aria-label="Cart">
         <BsCart3 className="nav-icon" />
         <span style={{ textShadow: "0 2px 5px rgba(0, 0, 0, 0.9)" }}>Cart</span>
-        {cartCount > 0 && (
-          <span className="nav-cart-badge">{cartCount}</span>
+        {totalCount > 0 && (
+          <span className="nav-cart-badge">{totalCount}</span>
         )}
       </Link>
 
@@ -219,8 +191,8 @@ const Navbar = () => {
               {/* Cart icon on mobile */}
               <Link to="/cart" className="mobile-cart-btn" aria-label="Cart">
                 <BsCart3 size={22} />
-                {cartCount > 0 && (
-                  <span className="nav-cart-badge">{cartCount}</span>
+                {totalCount > 0 && (
+                  <span className="nav-cart-badge">{totalCount}</span>
                 )}
               </Link>
 
