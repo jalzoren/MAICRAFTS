@@ -55,7 +55,6 @@ router.post("/register", async (req, res) => {
       email,
       first_name,
       last_name,
-      role: "customer",
       is_verified: false,
     }]);
 
