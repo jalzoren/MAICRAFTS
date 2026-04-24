@@ -1,5 +1,5 @@
 /* Navbar.css */
-@import url('https://fonts.googleapis.com/css2?family=Carattere&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Raleway:ital,wght@0,100..900;1,100..900&display=swap');
 .nav-container {
   width: 100%;
   position: fixed;        /* makes it stick */
@@ -8,7 +8,6 @@
   z-index: 999;           /* stays on top of everything */
   background-color: linear-gradient(90deg, rgba(16, 11, 0, 0.15) 0%, rgba(71, 47, 2, 0.05) 100%);
 }
-
 
 .nav-inner {
   max-width: 1100px;

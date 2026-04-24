@@ -1,10 +1,11 @@
+// backend/server.js
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/register.js';
 import verifyEmailRouter from "./routes/verify.js";
 import loginRoutes from './routes/login.js';
-import superloginRoutes from './routes/superlogin.js'; // ADD THIS
+import superloginRoutes from './routes/superlogin.js';
 import forgotPasswordRoutes from './routes/forgotpassword.js';
 import userRoutes from './routes/userRoutes.js';
 
@@ -36,8 +37,8 @@ app.get('/', (req, res) => {
 app.use('/api', authRoutes);
 app.use("/api", verifyEmailRouter);
 app.use('/api', forgotPasswordRoutes);
-app.use('/login', loginRoutes);        // Your old login
-app.use('/api', superloginRoutes);     // ADD THIS - new superlogin
+app.use('/login', loginRoutes); 
+app.use('/api', superloginRoutes);    
 app.use('/api', userRoutes);
 
 const PORT = 5000;

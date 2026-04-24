@@ -1,13 +1,16 @@
+// maicrafts/src/auth/Login.jsx
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";  
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
+import { useAuth } from "../context/AuthContext"; 
 import Swal from "sweetalert2";
 import "./css/Login.css";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location  = useLocation();
   const [formData, setFormData] = useState({
-    email: "",
+    email: location.state?.prefillEmail || "",
     password: "",
   });
   const [otp, setOtp] = useState("");
@@ -17,6 +20,8 @@ const Login = () => {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isSetup, setIsSetup] = useState(false);
   const [qrCode, setQrCode] = useState("");
+  const auth = useAuth();
+  const from = location.state?.from?.pathname || "/";
 
   const validateForm = () => {
     const newErrors = {};
@@ -126,19 +131,13 @@ const Login = () => {
       Swal.fire("Error", "OTP must be 6 digits", "error");
       return;
     }
-
     setIsLoading(true);
-    
     try {
       const response = await fetch("http://localhost:5000/login/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: formData.email, 
-          otp: otp 
-        }),
+        body: JSON.stringify({ username: formData.email, otp }),
       });
-
       const data = await response.json();
 
       if (!response.ok) {
@@ -146,8 +145,8 @@ const Login = () => {
           Swal.fire({
             icon: "warning",
             title: "OTP Expired",
-            text: "The code has expired. Please enter the current code from Google Authenticator.",
-            confirmButtonText: "OK"
+            text: "The code has expired. Please enter the current code.",
+            confirmButtonText: "OK",
           });
           setOtp("");
         } else {
@@ -157,30 +156,26 @@ const Login = () => {
         return;
       }
 
-      if (data.setupComplete) {
-        Swal.fire({
-          icon: "success",
-          title: "Setup Complete!",
-          text: "Google Authenticator is now connected. Redirecting...",
-          timer: 1500,
-          showConfirmButton: false
-        }).then(() => {
-          navigate("/", { replace: true });
-        });
-        return;
-      } else {
-        Swal.fire({
-          icon: "success",
-          title: "Login Successful!",
-          text: "Welcome back! Redirecting...",
-          timer: 1500,
-          showConfirmButton: false
-        }).then(() => {
-          navigate("/", { replace: true });
-        });
-        return;
+      // ✅ Save session — this is the key addition
+      if (data.user) {
+        auth.login(data.user);
       }
-      
+
+      const title = data.setupComplete ? "Setup Complete!" : "Login Successful!";
+      const text  = data.setupComplete
+        ? "Google Authenticator is now connected."
+        : `Welcome back, ${data.user?.name || ""}!`;
+
+      await Swal.fire({
+        icon: "success",
+        title,
+        text,
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      navigate(from, { replace: true });   // ← send back to intended page
+
     } catch (error) {
       setIsLoading(false);
       Swal.fire("Error", error.message, "error");

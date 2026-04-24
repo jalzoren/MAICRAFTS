@@ -1,0 +1,40 @@
+.notif-list { display: flex; flex-direction: column; gap: 0; }
+
+.notif-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--s-border-light);
+}
+
+.notif-row:last-child { border-bottom: none; }
+
+.notif-label { font-size: 0.85rem; font-weight: 600; color: var(--s-text); margin: 0 0 0.15rem; }
+.notif-desc  { font-size: 0.75rem; color: var(--s-text-light); margin: 0; }
+
+/* Toggle Switch */
+.toggle-btn {
+  width: 42px; height: 24px;
+  border-radius: 12px;
+  background: #d4c4a8;
+  border: none; cursor: pointer;
+  position: relative; flex-shrink: 0;
+  transition: background 0.25s;
+  padding: 0;
+}
+
+.toggle-btn--on   { background: var(--s-brown); }
+
+.toggle-thumb {
+  display: block;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 3px; left: 3px;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+}
+
+.toggle-btn--on .toggle-thumb { transform: translateX(18px); }

@@ -156,10 +156,8 @@ router.post("/verify-otp", async (req, res) => {
     return res.status(400).json({ message: "Invalid or expired OTP code. Please try again." });
   }
 
-  // 4️⃣ Save secret if this is first-time setup
+ // 4️⃣ Save secret if this is first-time setup
   if (isSetup) {
-    console.log("💾 Saving secret permanently for user:", username);
-
     const { error: updateError } = await supabase
       .from('users')
       .update({
@@ -170,25 +168,54 @@ router.post("/verify-otp", async (req, res) => {
       .eq('email', username);
 
     if (updateError) {
-      console.error("❌ Error saving 2FA secret:", updateError);
       return res.status(500).json({ message: "Failed to save 2FA secret", error: updateError.message });
     }
 
     delete tempSetup[username];
-    console.log("✅ 2FA setup complete for:", username);
+
+    // ✅ FETCH AND RETURN user data after setup
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, middle_name, email, contact_number')
+      .eq('email', username)
+      .single();
 
     return res.json({
-      message: "Setup successful! You can now login with Google Authenticator.",
+      message: "Setup successful! Google Authenticator is now connected.",
       setupComplete: true,
+      user: _buildUserPayload(userData),
     });
   }
 
-  // 5️⃣ Normal login (existing 2FA user)
+  // 5️⃣ Normal login — fetch and return user data
   delete tempSetup[username];
-  console.log("🎉 Login successful for:", username);
 
-  res.json({ message: "Login successful" });
-  console.log("=========================================\n");
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id, first_name, last_name, middle_name, email, contact_number')
+    .eq('email', username)
+    .single();
+
+  res.json({
+    message: "Login successful",
+    user: _buildUserPayload(userData),
+  });
 });
+
+// ─────────────────────────────
+// Helper: shape the user object
+// ─────────────────────────────
+function _buildUserPayload(userData) {
+  if (!userData) return null;
+  return {
+    id:        userData.id,
+    name:      [userData.first_name, userData.last_name].filter(Boolean).join(" ") || null,
+    firstName: userData.first_name || null,
+    lastName:  userData.last_name || null,
+    email:     userData.email,
+    phone:     userData.contact_number || null,
+    avatar:    null, 
+  };
+}
 
 export default router;
