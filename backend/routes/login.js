@@ -11,10 +11,6 @@ const tempSetup = {}; // temporary storage for 2FA secrets
 // LOGIN ENDPOINT
 // -------------------------
 router.post("/", async (req, res) => {
-  console.log("\n=========================================");
-  console.log("📥 Login attempt received");
-  console.log("Request body:", req.body);
-
   // Trim and normalize inputs
   const username = req.body.username?.trim().toLowerCase();
   const password = req.body.password?.trim();
@@ -31,11 +27,8 @@ router.post("/", async (req, res) => {
     });
 
     if (authError || !authData?.user) {
-      console.log("❌ Invalid credentials for:", username);
       return res.status(401).json({ message: "Invalid email or password" });
     }
-
-    console.log("✅ Credentials valid for:", username);
 
     // 2️⃣ Fetch user profile from public.users
     const { data: user, error: userError } = await supabase
@@ -45,24 +38,19 @@ router.post("/", async (req, res) => {
       .single();
 
     if (userError || !user) {
-      console.error("❌ User profile not found:", userError);
       return res.status(500).json({ message: "User profile missing" });
     }
 
     // 3️⃣ CHECK IF USER IS VERIFIED - ONLY PREVENT UNVERIFIED USERS
     if (!user.is_verified) {
-      console.log("❌ User not verified:", username);
       return res.status(403).json({ 
         message: "Please verify your email address first. Check your email for the verification link.",
         requiresVerification: true
       });
     }
 
-    console.log("✅ User is verified. Proceeding to 2FA setup/verification");
-
     // 4️⃣ Check if 2FA is already enabled
     if (user.is_2fa_enabled && user.secret_key) {
-      console.log("🔐 User has existing 2FA setup - requires OTP verification");
       tempSetup[username] = user.secret_key;
 
       return res.json({
@@ -73,13 +61,10 @@ router.post("/", async (req, res) => {
     }
 
     // 5️⃣ First time 2FA setup (for verified users with no 2FA)
-    console.log("🆕 Verified user with no 2FA - generating QR code for setup");
     const secret = speakeasy.generateSecret({ name: `MAICRAFTS (${username})` });
     tempSetup[username] = secret.base32;
-    console.log("🔑 Generated secret:", secret.base32);
 
     const qrCode = await QRCode.toDataURL(secret.otpauth_url);
-    console.log("📱 QR Code generated");
 
     res.json({
       requiresOTP: true,
@@ -89,21 +74,14 @@ router.post("/", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Login error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
-
-  console.log("=========================================\n");
 });
 
 // -------------------------
 // VERIFY OTP ENDPOINT
 // -------------------------
 router.post("/verify-otp", async (req, res) => {
-  console.log("\n=========================================");
-  console.log("🔍🔍🔍 OTP VERIFICATION RECEIVED 🔍🔍🔍");
-  console.log("Request body:", req.body);
-
   const username = req.body.username?.trim().toLowerCase();
   const otp = req.body.otp?.trim();
 
@@ -114,7 +92,6 @@ router.post("/verify-otp", async (req, res) => {
   // 1️⃣ Get secret from temp storage
   const secret = tempSetup[username];
   if (!secret) {
-    console.log("❌ No session found for user:", username);
     return res.status(400).json({ message: "No OTP session found. Please login again." });
   }
 
@@ -126,22 +103,19 @@ router.post("/verify-otp", async (req, res) => {
     .single();
 
   if (userError || !user) {
-    console.error("❌ User fetch failed:", userError);
     return res.status(500).json({ message: "User fetch failed" });
   }
 
   // Double-check user is verified
   if (!user.is_verified) {
-    console.log("❌ User not verified during OTP verification");
     return res.status(403).json({ 
       message: "Please verify your email first" 
     });
   }
 
   const isSetup = !(user.is_2fa_enabled);
-  console.log("Is setup mode:", isSetup);
 
-  // 3️⃣ Verify OTP (STRICT mode)
+  // 3️⃣ Verify OTP (STRICT mode - window 0)
   const verified = speakeasy.totp.verify({
     secret: secret,
     encoding: 'base32',
@@ -149,13 +123,11 @@ router.post("/verify-otp", async (req, res) => {
     window: 0, // only current 30-second window
   });
 
-  console.log("Verification result:", verified ? "✅ SUCCESS" : "❌ FAILED");
-
   if (!verified) {
     return res.status(400).json({ message: "Invalid or expired OTP code. Please try again." });
   }
 
- // 4️⃣ Save secret if this is first-time setup
+  // 4️⃣ Save secret if this is first-time setup
   if (isSetup) {
     const { error: updateError } = await supabase
       .from('users')
@@ -172,7 +144,7 @@ router.post("/verify-otp", async (req, res) => {
 
     delete tempSetup[username];
 
-    // ✅ FETCH AND RETURN user data after setup
+    // FETCH AND RETURN user data after setup
     const { data: userData } = await supabase
       .from('users')
       .select('id, first_name, last_name, middle_name, email, contact_number')
