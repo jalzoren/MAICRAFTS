@@ -1,9 +1,11 @@
+// Settings.jsx
 import { useState, useEffect } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { BsBell, BsShieldLock, BsBoxSeam } from "react-icons/bs";
 import { FiUser } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";     // ← uses AuthContext now
+import { useRef } from "react";
 
 // Tab components
 import PersonalInfoTab from "./settings/PersonalInfoTab";
@@ -22,7 +24,8 @@ const NAV_ITEMS = [
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("personal");
-  const { user, logout }          = useAuth(); 
+  const { user, logout, refreshUser } = useAuth(); 
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -30,7 +33,7 @@ const Settings = () => {
     navigate("/login");
   };
 
-  const initials = user?.name
+  const initials = (user?.name || `${user?.firstName || ""} ${user?.lastName || ""}`.trim())
     ?.split(" ")
     .map((n) => n[0])
     .join("")
@@ -44,19 +47,61 @@ const Settings = () => {
     notif:    <NotifTab />,
   };
 
+  // ── Upload profile photo to Supabase Storage ──
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+
+    // Validate: image only, max 2MB
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image must be under 2MB.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res  = await fetch(`http://localhost:5000/api/users/${user.id}/avatar`, {
+        method: "POST",
+        body:   formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      await refreshUser();   // pulls new profile_url into AuthContext
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    }
+  };
+
   return (
     <div className="settings-page">
       <div className="settings-wrapper">
-
-        {/* Sidebar */}
         <aside className="settings-sidebar">
           <div className="sidebar-avatar-wrap">
-            <div className="sidebar-avatar">
+
+            {/* ── Clickable avatar ── */}
+            <div className="sidebar-avatar sidebar-avatar--editable"
+              onClick={() => fileInputRef.current?.click()}
+              title="Change profile photo">
               {user?.avatar
                 ? <img src={user.avatar} alt={user.name} />
                 : <span>{initials}</span>}
+              <div className="sidebar-avatar-overlay">Edit</div>
             </div>
-            <p className="sidebar-username">{user?.name || "Guest"}</p>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleAvatarChange}
+            />
+
+            {/* Show first name instead of full name */}
+            <p className="sidebar-username">{user?.firstName || user?.name?.split(" ")[0] || "Guest"}</p>
           </div>
 
           <nav className="sidebar-nav">

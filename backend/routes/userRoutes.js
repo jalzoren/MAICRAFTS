@@ -2,9 +2,12 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import supabase from "../supabaseClient.js";
+import multer from 'multer';
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
+// ADMIN AND SELLER ENDPOINTS -----------------------------------------------------
 // GET all users
 router.get("/users", async (req, res) => {
   try {
@@ -134,6 +137,62 @@ router.delete("/users/:id", async (req, res) => {
     console.error("Error deleting user:", err);
     res.status(500).json({ error: "Failed to delete user" });
   }
+});
+
+
+// CUSTOMER ENDPOINTS -----------------------------------------------------
+
+// POST avatar upload
+router.post('/users/:id/avatar', upload.single('avatar'), async (req, res) => {
+  const { id } = req.params;
+  const file = req.file;
+  if (!file) return res.status(400).json({ message: 'No file provided' });
+
+  const filePath = `avatars/${id}-${Date.now()}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('profile')
+    .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
+
+  if (uploadError) return res.status(500).json({ message: uploadError.message });
+
+  const { data: urlData } = supabase.storage.from('profile').getPublicUrl(filePath);
+  const publicUrl = urlData.publicUrl;
+
+  const { error: dbError } = await supabase
+    .from('users')
+    .update({ profile_url: publicUrl })
+    .eq('id', id);
+
+  if (dbError) return res.status(500).json({ message: dbError.message });
+
+  res.json({ message: 'Avatar updated', profile_url: publicUrl });
+});
+
+// GET user profile
+router.get('/users/:id', async (req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, first_name, last_name, middle_name, email, contact_number, profile_url')
+    .eq('id', req.params.id)
+    .single();
+
+  if (error) return res.status(404).json({ message: 'User not found' });
+  res.json({ user: data });
+});
+
+// PUT update user profile
+router.put('/users/:id', async (req, res) => {
+  const { first_name, last_name, middle_name, contact_number } = req.body;
+  const { data, error } = await supabase
+    .from('users')
+    .update({ first_name, last_name, middle_name, contact_number, updated_at: new Date() })
+    .eq('id', req.params.id)
+    .select('id, first_name, last_name, middle_name, email, contact_number, profile_url')
+    .single();
+
+  if (error) return res.status(500).json({ message: error.message });
+  res.json({ user: data });
 });
 
 export default router;

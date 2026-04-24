@@ -1,6 +1,18 @@
 // maicrafts/src/context/AuthContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
+
+const normalizeUser = (raw) => ({
+  id:         raw.id,
+  firstName:  raw.first_name  || "",
+  lastName:   raw.last_name   || "",
+  middleName: raw.middle_name || "",
+  name:       [raw.first_name, raw.last_name].filter(Boolean).join(" "),
+  email:      raw.email       || "",
+  phone:      raw.contact_number || "",
+  avatar:     raw.profile_url || null,   // ← maps profile_url → avatar
+});
+
 // ─────────────────────────────────────────────
 // Context + Hook
 // ─────────────────────────────────────────────
@@ -11,6 +23,8 @@ export const useAuth = () => {
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
   return ctx;
 };
+
+
 
 // ─────────────────────────────────────────────
 // Session helpers (localStorage)
@@ -59,9 +73,14 @@ export const AuthProvider = ({ children }) => {
 
   // ── login: called after successful OTP verification ──
   const login = useCallback((userData) => {
-    writeSession(userData);
-    setUser(userData);
-    window.dispatchEvent(new Event("user-updated"));   // backward compat with Navbar
+    // userData might be raw from backend — normalize it
+    const normalized = userData.first_name !== undefined
+      ? normalizeUser(userData)
+      : userData;  // already normalized (e.g. if you mapped it before calling login)
+
+    writeSession(normalized);
+    setUser(normalized);
+    window.dispatchEvent(new Event("user-updated"));
   }, []);
 
   // ── logout: clears session and guest cart is preserved ──
@@ -73,19 +92,20 @@ export const AuthProvider = ({ children }) => {
 
   // ── refreshUser: re-fetch profile from backend (call after profile edits) ──
   const refreshUser = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const res  = await fetch(`http://localhost:5000/api/users/${user.id}`);
-      const data = await res.json();
-      if (res.ok && data.user) {
-        writeSession(data.user);
-        setUser(data.user);
-        window.dispatchEvent(new Event("user-updated"));
-      }
-    } catch (err) {
-      console.error("refreshUser failed:", err);
+  if (!user?.id) return;
+  try {
+    const res  = await fetch(`http://localhost:5000/api/users/${user.id}`);
+    const data = await res.json();
+    if (res.ok && data.user) {
+      const normalized = normalizeUser(data.user);   // ← normalize here
+      writeSession(normalized);
+      setUser(normalized);
+      window.dispatchEvent(new Event("user-updated"));
     }
-  }, [user?.id]);
+  } catch (err) {
+    console.error("refreshUser failed:", err);
+  }
+}, [user?.id]);
 
   const value = {
     user,           // { id, name, firstName, lastName, email, phone, avatar }
