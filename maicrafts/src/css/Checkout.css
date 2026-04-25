@@ -19,6 +19,64 @@
   margin-bottom: 50px;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  width: 5% !important;
+  height: 32px;
+  min-width: 32px;
+}
+
+.back-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateX(-4px);
+}
+
+.back-button:active {
+  transform: translateX(-2px);
+}
+
+.breadcrumb-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #3a2f25;
+  background-color: #d4af84;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: #3a2f25;
+  font-weight: 600;
+  margin: 0 4px;
+}
+
+.breadcrumb-current {
+  color: #3a2f25;
+  font-weight: 600;
+}
+
 .checkout-header h1 {
   font-size: 42px;
   font-weight: 300;
@@ -180,14 +238,31 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
+
+.form-row-half {
+  display: flex;
+  gap: 20px;
+}
+
+.form-row-half .form-group {
+  flex: 1;
 }
 
 .form-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
+  font-size: .8rem !important; 
+  font-weight: 500 !important;
+  color: white !important;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-icon {
+  font-size: 16px;
+  color: #d4af84;
 }
 
 .required {
@@ -195,12 +270,59 @@
   font-weight: 700;
 }
 
+/* Payment Options - Icon Buttons */
+.payment-options {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.payment-btn {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.payment-btn:hover {
+  background-color: rgba(212, 175, 132, 0.2);
+  border-color: #d4af84;
+  transform: translateY(-2px);
+}
+
+.payment-btn.active {
+  background-color: #d4af84;
+  border-color: #d4af84;
+  color: #3a2f25;
+}
+
+.payment-btn.active svg {
+  color: #3a2f25;
+}
+
+.payment-btn svg {
+  color: #d4af84;
+  transition: color 0.3s ease;
+}
+
 /* Form Controls */
 .form-control,
 .form-textarea {
   background-color: white;
   border: 1px solid rgba(200, 150, 100, 0.3);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 12px 15px;
   font-size: 14px;
   color: #3a2f25;
@@ -208,11 +330,17 @@
   transition: all 0.3s;
 }
 
+.form-control:hover,
+.form-textarea:hover {
+  border-color: rgba(200, 150, 100, 0.5);
+}
+
 .form-control:focus,
 .form-textarea:focus {
   outline: none;
   border-color: #c9a961;
-  box-shadow: 0 0 0 3px rgba(201, 169, 97, 0.1);
+  box-shadow: 0 0 0 4px rgba(201, 169, 97, 0.15);
+  background-color: rgba(255, 255, 255, 0.95);
 }
 
 .form-control {
@@ -228,6 +356,7 @@
 .form-control option {
   background-color: white;
   color: #3a2f25;
+  padding: 10px;
 }
 
 .form-textarea {
@@ -244,24 +373,28 @@
   background: linear-gradient(135deg, #d4b896 0%, #c9a961 100%);
   border: none;
   color: #3a2f25;
-  padding: 14px 30px;
+  padding: 16px 40px;
   font-size: 16px;
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
-  margin-top: 15px;
+  transition: all 0.3s ease;
+  margin-top: 10px;
   box-shadow: 0 4px 15px rgba(196, 164, 100, 0.3);
   letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
 }
 
 .place-order-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(196, 164, 100, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(196, 164, 100, 0.5);
+  background: linear-gradient(135deg, #e0c9a0 0%, #d4b896 100%);
 }
 
 .place-order-btn:active {
-  transform: translateY(0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(196, 164, 100, 0.3);
 }
 
 /* Responsive Design */
@@ -278,15 +411,36 @@
     width: 90px;
     height: 90px;
   }
+
+  .form-row-half {
+    flex-direction: column;
+  }
+
+  .payment-options {
+    gap: 12px;
+  }
+
+  .payment-btn {
+    min-width: 100px;
+  }
 }
 
 @media (max-width: 768px) {
   .checkout-container {
-    padding: 100px 15px 20px 15px;
+    padding: 80px 15px 20px 15px;
   }
 
   .checkout-wrapper {
     padding: 0 10px;
+  }
+
+  .header-top {
+    gap: 10px;
+  }
+
+  .breadcrumb-text {
+    padding: 8px 12px;
+    font-size: 12px;
   }
 
   .checkout-header h1 {
@@ -341,16 +495,49 @@
     padding: 10px 12px;
     font-size: 13px;
   }
+
+  .payment-options {
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .payment-btn {
+    flex: 1;
+    padding: 12px 8px;
+    min-width: auto;
+    font-size: 12px;
+  }
+
+  .place-order-btn {
+    padding: 14px 30px;
+    font-size: 15px;
+  }
 }
 
 @media (max-width: 480px) {
   .checkout-container {
-    padding: 100px 10px 20px 10px;
+    padding: 70px 10px 20px 10px;
+  }
+
+  .header-top {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .back-button {
+    width: 28px;
+    height: 28px;
+    padding: 4px;
+  }
+
+  .breadcrumb-text {
+    font-size: 11px;
+    padding: 6px 10px;
   }
 
   .checkout-header h1 {
     font-size: 28px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
   }
 
   .product-title {
@@ -362,7 +549,11 @@
   }
 
   .checkout-form-section {
-    padding: 20px;
+    padding: 15px;
+  }
+
+  .checkout-form {
+    gap: 15px;
   }
 
   .product-specs {
@@ -384,8 +575,24 @@
     font-size: 13px;
   }
 
+  .payment-options {
+    flex-direction: column;
+  }
+
+  .payment-btn {
+    padding: 12px;
+    flex-direction: row;
+    gap: 10px;
+    min-width: auto;
+  }
+
   .place-order-btn {
     padding: 12px 20px;
     font-size: 14px;
+    margin-top: 8px;
+  }
+
+  .form-group {
+    gap: 6px;
   }
 }

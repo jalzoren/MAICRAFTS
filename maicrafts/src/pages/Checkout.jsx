@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IoImage } from "react-icons/io5";
+import { IoArrowBack, IoImage, IoCard, IoLocationSharp, IoDocumentText, IoWallet, IoCash } from "react-icons/io5";
 import { useCart } from "../context/CartContext";
 import "../css/Checkout.css";
 
@@ -51,6 +51,16 @@ const Checkout = () => {
         {/* Header */}
         <div className="checkout-header">
           <h1>Your Order</h1>
+          <div className="breadcrumb">
+                <button className="back-button" onClick={handleBackClick} title="Go back">
+                  <IoArrowBack size={12} />
+                </button>
+                <div className="main-breadcrumb">
+                  <p>Cart</p>
+                  <p className="breadcrumb-separator">&gt;</p>
+                  <p className="breadcrumb-current">{firstItem?.name}</p>
+                </div>
+          </div>
         </div>
 
         <div className="checkout-content">
@@ -137,50 +147,83 @@ const Checkout = () => {
           <div className="checkout-form-section">
             <form className="checkout-form">
               {/* Shipping Option */}
-              <div className="form-group">
-                <label htmlFor="shippingOption" className="form-label">
-                  Shipping Option <span className="required">*</span>
-                </label>
-                <select
-                  id="shippingOption"
-                  name="shippingOption"
-                  value={formData.shippingOption}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                >
-                  <option value="">Select shipping option</option>
-                  <option value="standard">Standard Shipping (3-5 days)</option>
-                  <option value="express">Express Shipping (1-2 days)</option>
-                  <option value="overnight">Overnight Shipping</option>
-                </select>
+              <div className="form-row-half">
+                <div className="form-group">
+                  <label htmlFor="shippingOption" className="form-label">
+                    <IoLocationSharp className="form-icon" />
+                    Shipping Option <span className="required">*</span>
+                    Outside the Metro Manila area will be charged an additional delivery fee. 
+                  </label>
+
+                  <select
+                    id="shippingOption"
+                    name="shippingOption"
+                    value={formData.shippingOption}
+                    onChange={handleInputChange}
+                    className="form-control"
+                    required
+                  >
+                    <option value="">Select shipping option</option>
+                    <option value="pickup">Pick Up</option>
+                    <option value="delivery">Delivery</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Payment Method */}
+              {/* Payment Method - Icon Buttons */}
               <div className="form-group">
-                <label htmlFor="paymentMethod" className="form-label">
+                <label className="form-label">
+                  <IoCard className="form-icon" />
                   Payment Method <span className="required">*</span>
                 </label>
-                <select
-                  id="paymentMethod"
-                  name="paymentMethod"
-                  value={formData.paymentMethod}
-                  onChange={handleInputChange}
-                  className="form-control"
-                  required
-                >
-                  <option value="">Select payment method</option>
-                  <option value="credit-card">Credit Card</option>
-                  <option value="debit-card">Debit Card</option>
-                  <option value="gcash">GCash</option>
-                  <option value="bank-transfer">Bank Transfer</option>
-                </select>
+                <div className="payment-options">
+                  <button
+                    type="button"
+                    className={`payment-btn ${formData.paymentMethod === "gcash" ? "active" : ""}`}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        paymentMethod: "gcash",
+                      }))
+                    }
+                  >
+                    <IoWallet size={24} />
+                    <span>GCash</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`payment-btn ${formData.paymentMethod === "maya" ? "active" : ""}`}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        paymentMethod: "maya",
+                      }))
+                    }
+                  >
+                    <IoCash size={24} />
+                    <span>Maya</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`payment-btn ${formData.paymentMethod === "cod" ? "active" : ""}`}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        paymentMethod: "cod",
+                      }))
+                    }
+                  >
+                    <IoCard size={24} />
+                    <span>COD</span>
+                  </button>
+                </div>
               </div>
 
               {/* Address */}
               <div className="form-group">
                 <label htmlFor="address" className="form-label">
-                  Address
+                  <IoLocationSharp className="form-icon" />
+                  Delivery Address
                 </label>
                 <select
                   id="address"
@@ -199,7 +242,8 @@ const Checkout = () => {
               {/* Message / Note */}
               <div className="form-group">
                 <label htmlFor="message" className="form-label">
-                  Message Here / Note:
+                  <IoDocumentText className="form-icon" />
+                  Special Instructions
                 </label>
                 <textarea
                   id="message"
@@ -207,7 +251,7 @@ const Checkout = () => {
                   value={formData.message}
                   onChange={handleInputChange}
                   className="form-textarea"
-                  placeholder="Enter a Message"
+                  placeholder="Add any special requests or delivery notes..."
                   rows="4"
                 />
               </div>

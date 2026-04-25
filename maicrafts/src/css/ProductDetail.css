@@ -16,13 +16,31 @@
 
 .breadcrumb {
   font-size: 14px;
-  color: #d4a574;
+  color: #110900;
   margin-bottom: 30px;
+  background-color: #d4a574;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: row;
+  padding: 10px;
+  gap: 20px;
+  align-items: center;
 }
 
 .breadcrumb a {
   color: #d4a574;
   text-decoration: none;
+}
+
+.main-breadcrumb{
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+}
+
+.main-breadcrumb p{
+  align-self: center;
 }
 
 .main-content {
