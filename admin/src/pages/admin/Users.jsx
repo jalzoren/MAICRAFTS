@@ -52,13 +52,9 @@ const Users = () => {
     }
   ];
 
-  // Fetch users from backend
-  const fetchUsers = async () => {
+    const fetchUsers = async () => {
     setLoading(true);
     try {
-      // For demo purposes, using mock data
-      // Uncomment below to use actual API
-      /*
       const response = await fetch('http://localhost:5000/api/users');
       const data = await response.json();
       
@@ -66,18 +62,16 @@ const Users = () => {
       
       const transformedUsers = data.map(user => ({
         id: user.id,
-        username: user.email.split('@')[0],
+        username: user.username,
         fullName: `${user.first_name} ${user.last_name}`,
         email: user.email,
         role: user.role,
         status: user.status || 'active',
-        joinDate: new Date(user.created_at).toISOString().split('T')[0],
-        isLocked: user.is_locked || false
+        joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        isLocked: user.status === 'inactive' || false
       }));
-      */
       
-      // Using mock data for now
-      setUsers(mockUsers);
+      setUsers(transformedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
       Swal.fire({
@@ -90,10 +84,9 @@ const Users = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+    useEffect(() => {
+      fetchUsers();
+    }, []);
 
   // Calculate statistics
   const totalUsers = users.length;
