@@ -20,6 +20,8 @@ import About from "./pages/About.jsx";
 import Contact from "./pages/Contact.jsx";
 import CustomizeFormModal from "./pages/CustomizeFormModal.jsx";
 import Settings from "./pages/Settings.jsx";
+import Cart from "./pages/Cart.jsx";
+import Checkout from "./pages/Checkout.jsx";
 
 
 import Login from "./auth/Login.jsx";
@@ -96,7 +98,11 @@ const AppContent = () => {
         }/>
 
         <Route path="/cart" element={
-          <ProtectedRoute><Settings /></ProtectedRoute>  // temp placeholder
+          <ProtectedRoute><Cart /></ProtectedRoute>
+        }/>
+
+        <Route path="/checkout" element={
+          <ProtectedRoute><Checkout /></ProtectedRoute>
         }/>
       </Routes>
 

@@ -32,7 +32,7 @@ const ProfileDropdown = ({ user, onLogout }) => {
             <span className="profile-name">{user.name}</span>
             <span className="profile-role">{user.role || "My Profile"}</span>
           </div>
-        </div>
+        </div>  
         <div className="profile-dropdown-divider" />
         <div className="profile-settings">
           <Link to="/settings" className="profile-settings-link">
