@@ -1,14 +1,34 @@
 // backend/routes/changePassword.js
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/change-password
-// Used when user verified via Google Authenticator (not email OTP).
-// Since the OTP was already validated by /login/verify-otp before reaching
-// this endpoint, we just need to update the password in Supabase.
-// ─────────────────────────────────────────────────────────────────────────────
+
 import express from "express";
 import supabase from "../supabaseClient.js";
 
 const router = express.Router();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/verify-current-password
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/verify-current-password", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data?.user) {
+      return res.status(401).json({ message: "Incorrect password. Please try again." });
+    }
+
+    return res.status(200).json({ message: "Password verified." });
+
+  } catch (err) {
+    console.error("Verify current password error:", err);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
 
 router.post("/change-password", async (req, res) => {
   const { email, newPassword } = req.body;
