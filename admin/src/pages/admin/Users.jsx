@@ -18,40 +18,6 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [auditTrails] = useState([]);
 
-  // Mock data for Bianca Rain Castillon
-  const mockUsers = [
-    {
-      id: 1,
-      username: "bianca.castillon",
-      fullName: "Bianca Rain Castillon",
-      email: "bianca.castillon@example.com",
-      role: "admin",
-      status: "active",
-      joinDate: "2024-01-15",
-      isLocked: false
-    },
-    {
-      id: 2,
-      username: "lynn.czyla",
-      fullName: "Lynn Czyla",
-      email: "lynn.czyla @example.com",
-      role: "seller",
-      status: "active",
-      joinDate: "2024-02-20",
-      isLocked: false
-    },
-    {
-      id: 3,
-      username: "LaurenceJames",
-      fullName: "Laurence James",
-      email: "laurence.james@example.com",
-      role: "seller",
-      status: "inactive",
-      joinDate: "2024-01-10",
-      isLocked: true
-    }
-  ];
-
     const fetchUsers = async () => {
     setLoading(true);
     try {
