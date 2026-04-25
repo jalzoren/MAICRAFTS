@@ -1,3 +1,4 @@
+// src/admin/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
@@ -11,6 +12,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 import OrderDetails from "./pages/seller/OrderDetails";
+import Settings from "./pages/admin/Settings";
 
 // Layout wrapper with authentication
 const AppLayout = () => {
@@ -48,6 +50,13 @@ function App() {
             <Route path="/admin/users" element={
               <ProtectedRoute allowedRoles={['Super Admin']}>
                 <Users />
+              </ProtectedRoute>
+            } />
+
+            {/* ✅ Add this */}
+            <Route path="/admin/settings" element={
+              <ProtectedRoute allowedRoles={['Super Admin']}>
+                <Settings />
               </ProtectedRoute>
             } />
 
