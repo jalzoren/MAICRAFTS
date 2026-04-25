@@ -18,47 +18,9 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [auditTrails] = useState([]);
 
-  // Mock data for Bianca Rain Castillon
-  const mockUsers = [
-    {
-      id: 1,
-      username: "bianca.castillon",
-      fullName: "Bianca Rain Castillon",
-      email: "bianca.castillon@example.com",
-      role: "admin",
-      status: "active",
-      joinDate: "2024-01-15",
-      isLocked: false
-    },
-    {
-      id: 2,
-      username: "lynn.czyla",
-      fullName: "Lynn Czyla",
-      email: "lynn.czyla @example.com",
-      role: "seller",
-      status: "active",
-      joinDate: "2024-02-20",
-      isLocked: false
-    },
-    {
-      id: 3,
-      username: "LaurenceJames",
-      fullName: "Laurence James",
-      email: "laurence.james@example.com",
-      role: "seller",
-      status: "inactive",
-      joinDate: "2024-01-10",
-      isLocked: true
-    }
-  ];
-
-  // Fetch users from backend
-  const fetchUsers = async () => {
+    const fetchUsers = async () => {
     setLoading(true);
     try {
-      // For demo purposes, using mock data
-      // Uncomment below to use actual API
-      /*
       const response = await fetch('http://localhost:5000/api/users');
       const data = await response.json();
       
@@ -66,18 +28,16 @@ const Users = () => {
       
       const transformedUsers = data.map(user => ({
         id: user.id,
-        username: user.email.split('@')[0],
+        username: user.username,
         fullName: `${user.first_name} ${user.last_name}`,
         email: user.email,
         role: user.role,
         status: user.status || 'active',
-        joinDate: new Date(user.created_at).toISOString().split('T')[0],
-        isLocked: user.is_locked || false
+        joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        isLocked: user.status === 'inactive' || false
       }));
-      */
       
-      // Using mock data for now
-      setUsers(mockUsers);
+      setUsers(transformedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
       Swal.fire({
@@ -90,10 +50,9 @@ const Users = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+    useEffect(() => {
+      fetchUsers();
+    }, []);
 
   // Calculate statistics
   const totalUsers = users.length;
