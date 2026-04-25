@@ -529,7 +529,7 @@ const Users = () => {
               <thead><tr><th>No.</th><th>User</th><th>Action</th><th>Details</th><th>Timestamp</th><th>IP Address</th></tr></thead>
               <tbody><tr><td colSpan="6" className="no-data">No audit trails available</td></tr>
               </tbody>
-            }</table>
+            </table>
           </div>
         </div>
       )}

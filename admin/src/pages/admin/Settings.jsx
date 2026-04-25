@@ -317,7 +317,7 @@ const PasswordComplexitySection = () => {
   return (
     <div className="ss-section">
       <div className="ss-section-header">
-        <span className="ss-section-icon">🔒</span>
+        <span className="ss-section-icon"></span>
         PASSWORD COMPLEXITY
       </div>
       <div className="ss-section-body">
@@ -531,7 +531,7 @@ const LoginAttemptsSection = () => {
   return (
     <div className="ss-section">
       <div className="ss-section-header">
-        <span className="ss-section-icon">🔐</span>
+        <span className="ss-section-icon"></span>
         LOGIN ATTEMPTS
       </div>
       <div className="ss-section-body">
@@ -565,7 +565,7 @@ const LoginAttemptsSection = () => {
             />
 
             <div className="ss-info-box">
-              <strong>ℹ️ Note:</strong> After the lockout duration expires, the user can attempt to log in again. 
+              <strong>ℹ Note:</strong> After the lockout duration expires, the user can attempt to log in again. 
               For permanent locks, contact an administrator to manually unlock the account.
             </div>
           </div>
