@@ -1,8 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { IoImage } from "react-icons/io5";
 import { useCart } from "../context/CartContext";
 import "../css/Checkout.css";
 
 const Checkout = () => {
+  const navigate = useNavigate();
   const { items, totalCount } = useCart();
   const [formData, setFormData] = useState({
     shippingOption: "",
@@ -19,8 +22,24 @@ const Checkout = () => {
     }));
   };
 
-  // Calculate totals from first cart item (for demo)
-  const firstItem = items.length > 0 ? items[0] : null;
+  const handleBackClick = () => {
+    navigate(-1);
+  };
+
+  // Hardcoded demo product data
+  const demoProduct = {
+    id: "fuzzy-rose-1",
+    name: "Giant Fuzzy Crochet Rose",
+    image_url: new URL("../assets/flower.png", import.meta.url).href,
+    price: 100,
+    variation: "Lover",
+    size: "Small",
+    quantity_of_flower: 3,
+    add_ons: "Fairy Lights & Letter",
+    quantity: 1,
+  };
+
+  const firstItem = demoProduct;
   const addOnsAmount = 20.00;
   const shippingFee = 20.00;
   const subtotal = firstItem ? firstItem.price * firstItem.quantity : 0;
@@ -44,9 +63,9 @@ const Checkout = () => {
 
                 {/* Product Details */}
                 <div className="product-details-section">
-                  {/* Product Image */}
-                  <div className="product-image-wrapper">
-                    <img src={firstItem.image_url} alt={firstItem.name} className="product-image" />
+                  {/* Product Image Placeholder */}
+                  <div className="product-image-placeholder">
+                    <IoImage size={40} />
                   </div>
 
                   {/* Product Info */}
