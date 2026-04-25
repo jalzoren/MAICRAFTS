@@ -293,7 +293,7 @@ const Login = () => {
                   type="text"
                   id="email"
                   name="email"
-                  placeholder="Enter your Email or Phone Number"
+                  placeholder="Enter your Email"
                   value={formData.email}
                   onChange={handleChange}
                   className="input-field"
