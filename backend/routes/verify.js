@@ -21,15 +21,15 @@
       }
 
       if (!verification) {
-        return res.redirect("http://localhost:5173/login?error=invalid_token");
+        return res.redirect("http://localhost:5174/login?error=invalid_token");
       }
 
       if (verification.is_used) {
-        return res.redirect("http://localhost:5173/login?message=already_verified");
+        return res.redirect("http://localhost:5174/login?message=already_verified");
       }
 
       if (new Date(verification.expires_at) < new Date()) {
-        return res.redirect("http://localhost:5173/login?error=expired");
+        return res.redirect("http://localhost:5174/login?error=expired");
       }
 
       await supabase
