@@ -113,9 +113,6 @@ const Cart = () => {
         <div className="related-products">
           {relatedProducts.map((product) => (
             <div key={product.id} className="product-card">
-              <div className="product-image">
-                <img src={product.image} alt={product.name} />
-              </div>
               <div className="product-info">
                 <p className="product-name">{product.name}</p>
                 <div className="product-rating">

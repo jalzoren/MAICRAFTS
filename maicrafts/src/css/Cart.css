@@ -3,7 +3,7 @@
 .cart-container {
   background-color: #5a4a3a;
   min-height: 100vh;
-  padding: 40px 20px;
+  padding: 100px 20px 40px 20px;
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -15,6 +15,8 @@
   border-radius: 8px;
   padding: 40px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Cart Header */
@@ -35,12 +37,14 @@
 .cart-items-section {
   margin-bottom: 30px;
   overflow-x: auto;
+  width: 100%;
 }
 
 .cart-table {
   width: 100%;
   border-collapse: collapse;
   background-color: transparent;
+  table-layout: auto;
 }
 
 .cart-table thead {
@@ -56,10 +60,41 @@
   border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
+.cart-table th.checkbox-col {
+  width: 50px;
+  text-align: center;
+}
+
+.cart-table th.item-col {
+  min-width: 280px;
+  max-width: 350px;
+}
+
+.cart-table th.price-col {
+  width: 100px;
+  text-align: center;
+}
+
+.cart-table th.quantity-col {
+  width: 140px;
+  text-align: center;
+}
+
+.cart-table th.total-col {
+  width: 120px;
+  text-align: center;
+}
+
+.cart-table th.action-col {
+  width: 50px;
+  text-align: center;
+}
+
 .cart-table td {
   padding: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   vertical-align: middle;
+  box-sizing: border-box;
 }
 
 .cart-item-row {
@@ -74,6 +109,7 @@
 .checkbox-col {
   width: 50px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .item-checkbox {
@@ -85,13 +121,16 @@
 
 /* Item Column */
 .item-col {
-  width: 300px;
+  min-width: 280px;
+  max-width: 350px;
+  text-align: left;
 }
 
 .item-details {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-wrap: nowrap;
 }
 
 .item-image {
@@ -100,12 +139,15 @@
   border-radius: 4px;
   object-fit: cover;
   background-color: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .item-name {
   font-size: 14px;
   font-weight: 500;
   color: white;
+  flex: 1;
+  word-break: break-word;
 }
 
 /* Price Column */
@@ -152,6 +194,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .qty-btn:hover {
@@ -199,6 +242,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto;
+  flex-shrink: 0;
 }
 
 .remove-btn:hover {
@@ -460,11 +504,15 @@
   .checkout-btn {
     width: 100%;
   }
+
+  .cart-container {
+    padding: 100px 15px 20px 15px;
+  }
 }
 
 @media (max-width: 480px) {
   .cart-container {
-    padding: 20px 10px;
+    padding: 100px 10px 20px 10px;
   }
 
   .cart-wrapper {
