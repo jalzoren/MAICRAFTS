@@ -96,12 +96,12 @@ const Products = () => {
           <div className="row justify-content-end align-items-center">
             <div className="col-md-6 hero-right-content text-md-end text-center">
               <p className="hero-desc lead mb-4">
-                Order your Custom Gift Now!
+                Order your Gift Now!
               </p>
-           {/* This works perfectly now */}
-<Link to="/?customize=true" className="btn hero-btn-primary">
-  Customize!
-</Link>
+           {/* This works perfectly now 
+              <Link to="/?customize=true" className="btn hero-btn-primary">
+                Customize!
+              </Link>*/}
             </div>
           </div>
         </div>
