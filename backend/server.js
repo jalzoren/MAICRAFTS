@@ -10,6 +10,7 @@ import forgotPasswordRoutes from './routes/forgotpassword.js';
 import userRoutes from './routes/userRoutes.js';
 //import cartRoutes from './routes/cartRoutes.js';  ==== wala muna cart routes pero meron ng CART CONTEXT sa frontend, so pwede na mag integrate naka ready na yan sya ====
 import addressRoutes from './routes/addressRoutes.js';
+import productRoutes from './routes/productRoutes.js';
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use('/api', superloginRoutes);
 app.use('/api', userRoutes);
 //app.use('/api/cart', cartRoutes);
 app.use('/api/address', addressRoutes);
+app.use('/api', productRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {
