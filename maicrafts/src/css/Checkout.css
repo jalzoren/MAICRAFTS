@@ -3,7 +3,7 @@
 .checkout-container {
   background-color: #5a4a3a;
   min-height: 100vh;
-  padding: 40px 20px;
+  padding: 100px 20px 40px 20px;
   color: white;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -279,7 +279,7 @@
 
 @media (max-width: 768px) {
   .checkout-container {
-    padding: 20px 15px;
+    padding: 100px 15px 20px 15px;
   }
 
   .checkout-wrapper {
@@ -341,6 +341,10 @@
 }
 
 @media (max-width: 480px) {
+  .checkout-container {
+    padding: 100px 10px 20px 10px;
+  }
+
   .checkout-header h1 {
     font-size: 28px;
     margin-bottom: 30px;
