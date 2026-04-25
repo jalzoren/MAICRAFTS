@@ -5,10 +5,97 @@ import { IoMdClose, IoMdMenu } from "react-icons/io";
 import { BsBell, BsCart3 } from "react-icons/bs";
 import { FiUser, FiLogOut } from "react-icons/fi";
 import { IoSettings } from "react-icons/io5";
+import { MdInfoOutline } from "react-icons/md";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext"; 
 import { useCart } from "../context/CartContext";
 
+
+// ─────────────────────────────────────────────
+// Sub-component: Notification Dropdown
+// ─────────────────────────────────────────────
+const NotificationDropdown = ({ onClearAll, onRemoveNotification }) => {
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "4 New Orders",
+      description: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.",
+      time: "TODAY",
+    },
+    {
+      id: 2,
+      title: "Order is out of delivery",
+      description: "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Aenean commodo ligula eget dolor. Aenean massa.",
+      time: "YESTERDAY",
+    },
+  ]);
+
+  const handleRemoveNotification = (id) => {
+    setNotifications((prev) => prev.filter((notif) => notif.id !== id));
+  };
+
+  const handleClearAll = () => {
+    setNotifications([]);
+  };
+
+  const groupedNotifications = notifications.reduce((acc, notif) => {
+    if (!acc[notif.time]) {
+      acc[notif.time] = [];
+    }
+    acc[notif.time].push(notif);
+    return acc;
+  }, {});
+
+  const timeOrder = ["TODAY", "YESTERDAY"];
+  const sortedTimes = timeOrder.filter((time) => groupedNotifications[time]);
+
+  return (
+    <div className="notification-dropdown">
+      <div className="notification-header">
+        <h3>Notification</h3>
+        <div className="notification-meta">
+          <span className="notification-count">You have {notifications.length} notifications</span>
+          <button className="clear-all-btn" onClick={handleClearAll}>
+            Clear All
+          </button>
+        </div>
+      </div>
+
+      <div className="notification-body">
+        {notifications.length > 0 ? (
+          sortedTimes.map((time) => (
+            <div key={time} className="notification-section">
+              <h4 className="notification-time">{time}</h4>
+              <div className="notification-items">
+                {groupedNotifications[time].map((notif) => (
+                  <div key={notif.id} className="notification-card">
+                    <div className="notification-card-header">
+                      <div className="notification-title-wrapper">
+                        <MdInfoOutline className="notification-icon" />
+                        <h5 className="notification-title">{notif.title}</h5>
+                      </div>
+                      <button
+                        className="notification-close-btn"
+                        onClick={() => handleRemoveNotification(notif.id)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <p className="notification-description">{notif.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="no-notifications">
+            <p>No notifications</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────
 // Sub-component: Profile Dropdown
@@ -74,7 +161,9 @@ const Navbar = () => {
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const profileRef = useRef(null);
+  const notificationRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -92,6 +181,9 @@ const Navbar = () => {
       if (profileRef.current && !profileRef.current.contains(e.target)) {
         setIsProfileOpen(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(e.target)) {
+        setIsNotificationOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -107,10 +199,20 @@ const Navbar = () => {
   // ── Right-side action buttons (Bell, Cart, Profile) ──
   const NavActions = () => (
     <div className="nav-actions">
-      {/* Bell */}
-      <button className="nav-icon-btn" aria-label="Notifications">
-        <BsBell className="nav-icon" />
-      </button>
+      {/* Bell / Notifications */}
+      <div className="nav-notification-wrapper" ref={notificationRef}>
+        <button
+          className="nav-icon-btn"
+          aria-label="Notifications"
+          onClick={() => setIsNotificationOpen((prev) => !prev)}
+        >
+          <BsBell className="nav-icon" />
+        </button>
+
+        {isNotificationOpen && (
+          <NotificationDropdown />
+        )}
+      </div>
 
       {/* Cart */}
       <Link to="/cart" className="nav-cart-btn" aria-label="Cart">
