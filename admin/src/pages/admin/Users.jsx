@@ -28,13 +28,13 @@ const Users = () => {
       
       const transformedUsers = data.map(user => ({
         id: user.id,
-        username: user.username,
-        fullName: `${user.first_name} ${user.last_name}`,
+        username: user.email?.split('@')[0] || '',
+        fullName: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email,
         email: user.email,
         role: user.role,
-        status: user.status || 'active',
+        status: user.is_active ? 'active' : 'inactive',
         joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-        isLocked: user.status === 'inactive' || false
+        isLocked: !user.is_active
       }));
       
       setUsers(transformedUsers);
@@ -58,7 +58,7 @@ const Users = () => {
   const totalUsers = users.length;
   const activeUsers = users.filter(user => user.status === 'active' && !user.isLocked).length;
   const lockedAccounts = users.filter(user => user.isLocked || user.status === 'inactive').length;
-  const adminUsers = users.filter(user => user.role === 'admin' || user.role === 'Super Admin').length;
+  const adminUsers = users.filter(user => user.role === 'admin' || user.role === 'super_admin').length;
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,10 +78,11 @@ const Users = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const getRoleBadgeClass = (role) => {
-    switch(role) {
+    const normalizedRole = role?.toLowerCase();
+    switch(normalizedRole) {
       case 'admin': return 'role-badge admin';
       case 'seller': return 'role-badge editor';
-      case 'Super Admin': return 'role-badge admin';
+      case 'super_admin': return 'role-badge admin';
       default: return 'role-badge';
     }
   };
@@ -147,13 +148,13 @@ const Users = () => {
 
     if (result.isConfirmed) {
       try {
-        // API call to lock/unlock user
-        // const response = await fetch(`http://localhost:5000/api/users/${userId}/lock`, {
-        //   method: 'PUT',
-        //   headers: { 'Content-Type': 'application/json' },
-        //   body: JSON.stringify({ isLocked: !user.isLocked })
-        // });
-        // if (!response.ok) throw new Error(`Failed to ${action} user`);
+        const response = await fetch(`http://localhost:5000/api/users/${userId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: user.isLocked })
+        });
+        
+        if (!response.ok) throw new Error(`Failed to ${action} user`);
 
         setUsers(users.map(u => 
           u.id === userId ? { ...u, isLocked: !u.isLocked, status: !u.isLocked ? 'inactive' : 'active' } : u
@@ -216,14 +217,14 @@ const Users = () => {
   
   const handleUserAdded = (newUser) => {
     const transformedUser = {
-      id: newUser.id || users.length + 1,
-      username: newUser.email.split('@')[0],
-      fullName: `${newUser.first_name} ${newUser.last_name}`,
+      id: newUser.id,
+      username: newUser.email?.split('@')[0] || '',
+      fullName: [newUser.first_name, newUser.last_name].filter(Boolean).join(' ') || newUser.email,
       email: newUser.email,
       role: newUser.role,
-      status: 'active',
-      joinDate: new Date().toISOString().split('T')[0],
-      isLocked: false
+      status: newUser.is_active ? 'active' : 'inactive',
+      joinDate: newUser.created_at ? new Date(newUser.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      isLocked: !newUser.is_active
     };
     setUsers([transformedUser, ...users]);
   };
@@ -340,7 +341,7 @@ const Users = () => {
                   <option value="all">All Roles ({getRoleCount('all')})</option>
                   <option value="admin">Admin ({getRoleCount('admin')})</option>
                   <option value="seller">Seller ({getRoleCount('seller')})</option>
-                  <option value="Super Admin">Super Admin ({getRoleCount('Super Admin')})</option>
+                  <option value="super_admin">Super Admin ({getRoleCount('super_admin')})</option>
                 </select>
               </div>
 
@@ -396,11 +397,11 @@ const Users = () => {
                             >
                               <option value="seller">Seller</option>
                               <option value="admin">Admin</option>
-                              <option value="Super Admin">Super Admin</option>
+                              <option value="super_admin">Super Admin</option>
                             </select>
                           ) : (
                             <span className={getRoleBadgeClass(user.role)}>
-                              {user.role === 'seller' ? 'Seller' : user.role === 'admin' ? 'Admin' : user.role}
+                              {user.role === 'seller' ? 'Seller' : user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : user.role}
                             </span>
                           )}
                         </td>

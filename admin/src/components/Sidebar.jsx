@@ -10,35 +10,30 @@ const Sidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Define navigation items based on user role
   const getNavItems = () => {
-    // Check for Super Admin (with space) OR admin
-    if (user?.role === 'Super Admin' || user?.role === 'admin') {
+    if (user?.role?.toLowerCase() === 'super_admin') {
       return [
         { path: '/admin/dashboard', label: 'Dashboard', icon: FiHome },
         { path: '/admin/users', label: 'User Management', icon: FiUsers },
         { path: '/admin/settings', label: 'System Settings', icon: FiSettings },
       ];
-    } else if (user?.role === 'seller') {
+    } else if (user?.role?.toLowerCase() === 'seller') {
       return [
         { path: '/seller/dashboard', label: 'Dashboard', icon: FiHome },
         { path: '/seller/products', label: 'Product Management', icon: FiPackage },
         { path: '/seller/orders', label: 'Order Management', icon: FiShoppingCart },
       ];
     }
-    // Default/Staff role (should not happen now)
-    return [
-      { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-      { path: '/products', label: 'Products', icon: FiBox },
-    ];
+    return [];
   };
 
   const navItems = getNavItems();
 
   // Get role display name
   const getRoleDisplay = () => {
-    if (user?.role === 'Super Admin' || user?.role === 'admin') return 'Super Admin';
-    if (user?.role === 'seller') return 'Seller';
+    const role = user?.role?.toLowerCase();
+    if (role === 'super_admin') return 'Super Admin';
+    if (role === 'seller') return 'Seller';
     return 'Staff';
   };
 

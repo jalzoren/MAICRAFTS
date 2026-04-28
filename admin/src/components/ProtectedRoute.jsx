@@ -1,33 +1,31 @@
-// src/components/ProtectedRoute.jsx
-import React from 'react';
+// admin/src/components/ProtectedRoute.jsx
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user, loading } = useAuth();
-
+  
   if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-      </div>
-    );
+    return <div className="loading-spinner">Loading...</div>;
   }
-
+  
   if (!user) {
-    return <Navigate to="/" replace />;
+    window.location.href = 'http://localhost:5173/login';
+    return null;
   }
-
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    // Redirect to appropriate dashboard based on role
-    if (user.role === 'Super Admin' || user.role === 'admin') {
-      return <Navigate to="/admin/dashboard" replace />;
-    } else if (user.role === 'seller') {
-      return <Navigate to="/seller/dashboard" replace />;
+  
+  // Check role access
+  if (allowedRoles.length > 0) {
+    const userRole = user.role?.toLowerCase();
+    const hasAccess = allowedRoles.some(role => 
+      role.toLowerCase() === userRole
+    );
+    
+    if (!hasAccess) {
+      return <Navigate to="/unauthorized" replace />;
     }
-    return <Navigate to="/" replace />;
   }
-
+  
   return children;
 };
 

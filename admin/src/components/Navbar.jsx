@@ -14,17 +14,14 @@ const Navbar = () => {
     navigate('/login');
   };
 
-  // Get dashboard title based on user role
-  const getDashboardTitle = () => {
-    if (user?.role === 'Super Admin') {
-      return 'SUPER ADMIN DASHBOARD';
-    } else if (user?.role === 'seller') {
-      return 'SELLER DASHBOARD';
-    } else if (user?.role === 'admin') {
-      return 'ADMIN DASHBOARD';
-    }
-    return 'DASHBOARD';
-  };
+ const getDashboardTitle = () => {
+  if (user?.role === 'super_admin') {  
+    return 'SUPER ADMIN DASHBOARD';
+  } else if (user?.role === 'seller') {
+    return 'SELLER DASHBOARD';
+  }
+  return 'DASHBOARD';
+};
 
   // Sample notifications - you can replace with real data
   const notifications = [
