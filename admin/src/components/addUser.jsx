@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 import Swal from 'sweetalert2';
 import "./AddUserModal.css";
 
-function AddUser({ onClose, onUserAdded }) {
+
+function AddUser({ onClose, onUserAdded, requestData }) {
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
@@ -159,6 +160,20 @@ function AddUser({ onClose, onUserAdded }) {
       onClose();
     }
   };
+
+  useEffect(() => {
+    if (requestData) {
+      setFirstName(requestData.first_name || "");
+      setMiddleName(requestData.middle_name || "");
+      setLastName(requestData.last_name || "");
+      setEmail(requestData.email || "");
+  
+      // FORCE ROLE = seller
+      setRole("seller");
+  
+      // OPTIONAL: auto-focus behavior can be added later
+    }
+  }, [requestData]);
 
   return (
     <div className="popup-overlay" onClick={handleCancel}>

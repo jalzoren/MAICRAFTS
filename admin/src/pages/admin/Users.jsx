@@ -21,6 +21,7 @@ const Users = () => {
   const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [userFromRequest, setUserFromRequest] = useState(null);
 
     const fetchUsers = async () => {
     setLoading(true);
@@ -268,6 +269,11 @@ const Users = () => {
     (req) => req.status === "pending"
   );
 
+  const getFullName = (req) =>
+    [req.first_name, req.middle_name, req.last_name]
+      .filter(Boolean)
+      .join(" ");
+
   return (
     <div className="user-management">
       <div className="page-header">
@@ -361,7 +367,7 @@ const Users = () => {
                   requests.map((req, index) => (
                     <tr key={req.id}>
                       <td>{index + 1}</td>
-                      <td>{req.name}</td>
+                      <td>{getFullName(req)}</td>
                       <td>{req.email}</td>
                       <td>{req.message}</td>
                       <td>{req.status}</td>
@@ -578,7 +584,16 @@ const Users = () => {
         </div>
       )}
 
-      {showAddModal && <AddUser onClose={() => setShowAddModal(false)} onUserAdded={handleUserAdded} />}
+      {showAddModal && (
+        <AddUser
+          onClose={() => {
+            setShowAddModal(false);
+            setUserFromRequest(null);
+          }}
+          onUserAdded={handleUserAdded}
+          requestData={userFromRequest}
+        />
+      )}
 
       {showRequestModal && selectedRequest && (
             <div className="popup-overlay">
@@ -602,7 +617,7 @@ const Users = () => {
                   <div className="form-row">
                     <div className="input-group">
                       <label>Name</label>
-                      <input value={selectedRequest.name} disabled />
+                      <input value={getFullName(selectedRequest)} disabled />
                     </div>
 
                     <div className="input-group">
@@ -647,8 +662,9 @@ const Users = () => {
                             text: "Request has been approved",
                             confirmButtonText: "OK"
                           }).then(() => {
-                            // 👇 THIS runs when user clicks OK
+                           
                             setShowRequestModal(false);
+                            setUserFromRequest(selectedRequest);
                             setShowAddModal(true);
                             fetchRequests();
                           });

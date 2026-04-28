@@ -7,7 +7,6 @@ const router = express.Router();
 router.post("/contact-admin", async (req, res) => {
     const { first_name, middle_name, last_name, email, message } = req.body;
 
-  // 1️⃣ Validation
   if (!first_name || !last_name || !email || !message) {
     return res.status(400).json({
       error: "First name, last name, email, and message are required"
@@ -17,7 +16,6 @@ router.post("/contact-admin", async (req, res) => {
   let requestId;
 
   try {
-    // 2️⃣ Insert request into Supabase
     const { data, error } = await supabase
       .from("contact_admin_requests")
       .insert([
