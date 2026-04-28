@@ -57,10 +57,8 @@ router.post("/users", async (req, res) => {
       }
     } catch (checkErr) {
       console.error("Exception checking email:", checkErr);
-      // Continue anyway, the insert will fail if duplicate
     }
 
-    // Create auth user first
     if (!supabaseAdmin) {
       return res.status(500).json({ error: "Service role key not configured on backend" });
     }
@@ -83,7 +81,6 @@ router.post("/users", async (req, res) => {
     createdAuthUserId = authData.user.id;
     console.log("Auth user created with ID:", createdAuthUserId);
 
-    // Then create user profile in users table
     const insertData = {
       id: authData.user.id,
       first_name: firstName?.trim() || null,

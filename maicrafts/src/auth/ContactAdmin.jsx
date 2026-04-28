@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMail } from "react-icons/fi";
+import { FiUser, FiMail, FiMessageSquare} from "react-icons/fi";
 import Swal from "sweetalert2";
 import "../auth/css/Signup.css";
 
@@ -97,13 +97,14 @@ const ContactAdmin = () => {
             <div className="form-group">
               <label className="form-label">First Name</label>
               <div className="input-wrapper">
+                <FiUser className="input-icon" />
                 <input
                   type="text"
-                  placeholder="e.g. Juan"
                   name="first_name"
+                  placeholder="e.g. Juan"
                   value={form.first_name}
                   onChange={handleChange}
-                  className="input-field"
+                  className="input-field icon-input"
                   required
                 />
               </div>
@@ -113,6 +114,7 @@ const ContactAdmin = () => {
             <div className="form-group">
               <label className="form-label">Middle Name</label>
               <div className="input-wrapper">
+                <FiUser className="input-icon" />
                 <input
                   type="text"
                   placeholder="e.g. Cruz"
@@ -128,6 +130,7 @@ const ContactAdmin = () => {
             <div className="form-group">
               <label className="form-label">Last Name</label>
               <div className="input-wrapper">
+              <FiUser className="input-icon" />
                 <input
                   type="text"
                   placeholder="e.g. Cruz"
@@ -161,6 +164,7 @@ const ContactAdmin = () => {
             <div className="form-group">
               <label className="form-label">Message</label>
               <div className="input-wrapper" style={{ height: "80px" }}>
+                <FiMessageSquare className="input-icon" />
                 <textarea
                   name="message"
                   placeholder="Why do you need seller/staff access?"
