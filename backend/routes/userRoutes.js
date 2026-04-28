@@ -4,6 +4,8 @@ import bcrypt from "bcrypt";
 import supabase, { supabaseAdmin } from "../supabaseClient.js";
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
+import { sendWelcomeEmail } from "../utils/mailer.js";
+import crypto from "crypto";
 
 const router = express.Router();
 
@@ -31,9 +33,10 @@ router.post("/users", async (req, res) => {
   let createdAuthUserId = null;
   
   try {
-    const { firstName, lastName, middleName, email, role, password } = req.body;
+    const { firstName, lastName, middleName, email, role} = req.body;
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
 
-    if (!email || !password || !role) {
+    if (!email || !role) {
       return res.status(400).json({ error: "Email, password, and role are required" });
     }
 
@@ -64,7 +67,7 @@ router.post("/users", async (req, res) => {
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
-      password: password,
+      password: tempPassword,
       email_confirm: true,
     });
 
@@ -120,6 +123,12 @@ router.post("/users", async (req, res) => {
     if (!newUser || newUser.length === 0) {
       return res.status(400).json({ error: "User created but no data returned" });
     }
+
+    await sendWelcomeEmail({
+      email: normalizedEmail,
+      fullName: `${firstName || ""} ${lastName || ""}`.trim(),
+      password: tempPassword,
+    });
 
     console.log("User created successfully!");
     res.status(201).json(newUser[0]);

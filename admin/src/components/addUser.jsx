@@ -23,7 +23,7 @@ function AddUser({ onClose, onUserAdded, requestData }) {
   const handleMiddleNameChange = (e) => setMiddleName(toUpperCase(e.target.value));
 
   const validateForm = () => {
-    if (!lastName || !firstName || !email || !role || !password || !confirmPassword) {
+    if (!lastName || !firstName || !email || !role) {
       Swal.fire({
         icon: 'warning',
         title: 'Validation Error',
@@ -43,27 +43,7 @@ function AddUser({ onClose, onUserAdded, requestData }) {
       });
       return false;
     }
-
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Weak Password',
-        text: 'Password must contain at least 8 characters, one uppercase, one lowercase, one number and one special character',
-        confirmButtonColor: '#3085d6'
-      });
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Password Mismatch',
-        text: 'Passwords do not match',
-        confirmButtonColor: '#3085d6'
-      });
-      return false;
-    }
+    
 
     return true;
   };
@@ -93,8 +73,7 @@ function AddUser({ onClose, onUserAdded, requestData }) {
       lastName,
       middleName,
       email,
-      role,
-      password
+      role
     };
 
     try {
@@ -252,54 +231,6 @@ function AddUser({ onClose, onUserAdded, requestData }) {
                   <option value="admin">Admin</option>
                   <option value="super_admin">Super Admin</option>
                 </select>
-              </div>
-            </div>
-
-            {/* Row 4 - Password Fields */}
-            <div className="form-row">
-              <div className="input-group">
-                <label>Password <span className="required">*</span></label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                  <button 
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <MdVisibilityOff /> : <MdVisibility />}
-                  </button>
-                </div>
-                <small className="helper-text">
-                  8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special
-                </small>
-              </div>
-
-              <div className="input-group">
-                <label>Confirm Password <span className="required">*</span></label>
-                <div className="password-input-wrapper">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                  <button 
-                    type="button"
-                    className="password-toggle-btn"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <MdVisibilityOff /> : <MdVisibility />}
-                  </button>
-                </div>
               </div>
             </div>
 
