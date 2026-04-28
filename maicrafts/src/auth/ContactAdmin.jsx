@@ -8,7 +8,9 @@ const ContactAdmin = () => {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     email: "",
     message: ""
   });
@@ -91,15 +93,46 @@ const ContactAdmin = () => {
           {/* FORM */}
           <form className="signup-form" onSubmit={handleSubmit}>
 
-            {/* Name */}
+            {/* First Name */}
             <div className="form-group">
-              <label className="form-label">Full Name</label>
+              <label className="form-label">First Name</label>
               <div className="input-wrapper">
                 <input
                   type="text"
-                  name="name"
-                  placeholder="Enter your name"
-                  value={form.name}
+                  placeholder="e.g. Juan"
+                  name="first_name"
+                  value={form.first_name}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Middle Name */}
+            <div className="form-group">
+              <label className="form-label">Middle Name</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  placeholder="e.g. Cruz"
+                  name="middle_name"
+                  value={form.middle_name}
+                  onChange={handleChange}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            {/* Last Name */}
+            <div className="form-group">
+              <label className="form-label">Last Name</label>
+              <div className="input-wrapper">
+                <input
+                  type="text"
+                  placeholder="e.g. Cruz"
+                  name="last_name"
+                  value={form.last_name}
                   onChange={handleChange}
                   className="input-field"
                   required

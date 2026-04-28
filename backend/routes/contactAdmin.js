@@ -5,12 +5,12 @@ import supabase from "../supabaseClient.js";
 const router = express.Router();
 
 router.post("/contact-admin", async (req, res) => {
-  const { name, email, message } = req.body;
+    const { first_name, middle_name, last_name, email, message } = req.body;
 
   // 1️⃣ Validation
-  if (!name || !email || !message) {
+  if (!first_name || !last_name || !email || !message) {
     return res.status(400).json({
-      error: "Name, email, and message are required"
+      error: "First name, last name, email, and message are required"
     });
   }
 
@@ -23,7 +23,9 @@ router.post("/contact-admin", async (req, res) => {
       .insert([
         {
           id: uuidv4(),
-          name,
+          first_name,
+          middle_name,
+          last_name,
           email,
           message,
           status: "pending",
