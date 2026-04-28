@@ -201,6 +201,17 @@ const Signup = () => {
 
           </form>
 
+          {/* CONTACT ADMIN ADDED HERE */}
+          <div className="contact-admin-section">
+            <p className="contact-admin-text">
+              Need seller access?
+            </p>
+
+            <Link to="/contact-admin" className="contact-admin-link">
+              Contact Administrator
+            </Link>
+          </div>
+
           {/* Login */}
           <div className="login-section">
             <p>

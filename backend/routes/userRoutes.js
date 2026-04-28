@@ -1,7 +1,7 @@
 // backend/routes/userRoutes.js
 import express from "express";
 import bcrypt from "bcrypt";
-import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import supabase, { supabaseAdmin } from "../supabaseClient.js";
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
 

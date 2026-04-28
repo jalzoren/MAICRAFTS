@@ -706,3 +706,25 @@
     font-size: 0.75rem;
   }
 }
+
+
+.contact-admin-section {
+  text-align: center;
+  margin-top: 15px;
+}
+
+.contact-admin-text {
+  color: var(--brown);
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.contact-admin-link {
+  color: var(--brown);
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.contact-admin-link:hover {
+  text-decoration: underline;
+}

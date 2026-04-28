@@ -1,0 +1,63 @@
+.contact-admin-page {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #0f0f0f;
+  }
+  
+  .contact-card {
+    background: #1a1a1a;
+    padding: 30px;
+    border-radius: 12px;
+    width: 350px;
+    color: white;
+    text-align: center;
+  }
+  
+  .contact-card h2 {
+    margin-bottom: 10px;
+  }
+  
+  .contact-card p {
+    font-size: 14px;
+    color: #aaa;
+    margin-bottom: 20px;
+  }
+  
+  .contact-card input,
+  .contact-card textarea {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    border: none;
+    outline: none;
+  }
+  
+  .contact-card textarea {
+    height: 80px;
+    resize: none;
+  }
+  
+  .contact-card button {
+    width: 100%;
+    padding: 10px;
+    background: #00bcd4;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    margin-top: 5px;
+  }
+  
+  .back-btn {
+    background: transparent;
+    margin-top: 10px;
+    color: #ccc;
+  }
+  
+  .success-msg {
+    color: lightgreen;
+    font-size: 14px;
+  }

@@ -25,6 +25,7 @@ import ForgotPasswordEmail from "./auth/ForgotPasswordEmail.jsx";
 import ResetPasswordOTP from "./auth/ResetPasswordOTP.jsx";
 import SetNewPassword from "./auth/SetNewPassword.jsx";
 import "bootstrap/dist/css/bootstrap.min.css";
+import ContactAdmin from "./auth/ContactAdmin";
 
 const AppContent = () => {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
@@ -32,7 +33,8 @@ const AppContent = () => {
 
   const authRoutes = [
     '/login', '/signup', '/enter-code', '/setup-password',
-    '/account-created', '/forgot-password', '/reset-password-otp', '/set-new-password'
+    '/account-created', '/forgot-password', '/reset-password-otp', '/set-new-password',
+    '/contact-admin' 
   ];
   const isAuthRoute = authRoutes.includes(location.pathname);
 
@@ -67,6 +69,7 @@ const AppContent = () => {
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+        <Route path="/contact-admin" element={<ContactAdmin />} />
       </Routes>
       {!isAuthRoute && <Footer />}
       <CustomizeFormModal isOpen={isCustomizeOpen} onClose={closeCustomizeModal} />
