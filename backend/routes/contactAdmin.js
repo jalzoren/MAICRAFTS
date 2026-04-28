@@ -54,4 +54,37 @@ router.post("/contact-admin", async (req, res) => {
   }
 });
 
+
+// GET all contact admin requests
+router.get("/contact-admin", async (req, res) => {
+    try {
+      const { data, error } = await supabase
+        .from("contact_admin_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+  
+      if (error) throw error;
+  
+      res.json(data);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+      res.status(500).json({ error: "Failed to fetch requests" });
+    }
+  });
+
+  router.put("/contact-admin/:id/approve", async (req, res) => {
+    const { id } = req.params;
+  
+    const { error } = await supabase
+      .from("contact_admin_requests")
+      .update({ status: "approved" })
+      .eq("id", id);
+  
+    if (error) {
+      return res.status(500).json({ error: "Failed to approve request" });
+    }
+  
+    res.json({ message: "Request approved" });
+  });
+
 export default router;

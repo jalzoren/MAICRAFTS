@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { FiSearch, FiEdit2, FiTrash2, FiUserPlus, FiUserCheck, FiEye, FiSave, FiX, FiFilter, FiLock, FiUnlock, FiUsers, FiUserCheck as FiActiveUsers, FiUserX } from "react-icons/fi";
+import { FiSearch, FiEdit2, FiTrash2, FiUserPlus, FiUserCheck, FiEye, FiSave, FiX, FiFilter, FiLock, FiUnlock, FiUsers, FiUserCheck as FiActiveUsers, FiUserX, FiMail } from "react-icons/fi";
 import AddUser from "../../components/addUser";
 import Swal from "sweetalert2";
 import "../../css/Users.css";
+import "../../components/AddUserModal.css";
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,6 +18,9 @@ const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [auditTrails] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showRequestModal, setShowRequestModal] = useState(false);
 
     const fetchUsers = async () => {
     setLoading(true);
@@ -52,6 +56,7 @@ const Users = () => {
   };
     useEffect(() => {
       fetchUsers();
+      fetchRequests();
     }, []);
 
   // Calculate statistics
@@ -246,6 +251,23 @@ const Users = () => {
     </div>
   );
 
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/contact-admin");
+      const data = await res.json();
+  
+      if (!res.ok) throw new Error(data.error);
+  
+      setRequests(data);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+    }
+  };
+
+  const pendingRequests = requests.filter(
+    (req) => req.status === "pending"
+  );
+
   return (
     <div className="user-management">
       <div className="page-header">
@@ -308,9 +330,69 @@ const Users = () => {
           Audit Trails
           <span className="tab-count">{auditTrails.length}</span>
         </button>
+
+        <button 
+          className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
+          onClick={() => setActiveTab('requests')}
+        >
+          <FiMail />
+          Requests
+          <span className="tab-count">{pendingRequests.length}</span>
+        </button>
       </div>
 
-      {activeTab === 'users' ? (
+      {activeTab === 'requests' ? (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {requests.length > 0 ? (
+                  requests.map((req, index) => (
+                    <tr key={req.id}>
+                      <td>{index + 1}</td>
+                      <td>{req.name}</td>
+                      <td>{req.email}</td>
+                      <td>{req.message}</td>
+                      <td>{req.status}</td>
+                      <td>
+                        {new Date(req.created_at).toLocaleDateString()}
+                      </td>
+
+                      <td>
+                        <button
+                          className="action-btn edit"
+                          onClick={() => {
+                            setSelectedRequest(req);
+                            setShowRequestModal(true);
+                          }}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="no-data">
+                      No requests found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : activeTab === 'users' ? (
         <>
           <div className="search-filter-container">
             <div className="search-box">
@@ -362,6 +444,8 @@ const Users = () => {
               </div>
             </div>
           </div>
+
+          
 
           <div className="table-container">
             {loading ? (
@@ -495,6 +579,100 @@ const Users = () => {
       )}
 
       {showAddModal && <AddUser onClose={() => setShowAddModal(false)} onUserAdded={handleUserAdded} />}
+
+      {showRequestModal && selectedRequest && (
+            <div className="popup-overlay">
+              <div className="register-container">
+
+                {/* HEADER */}
+                <div className="register-header">
+                  <span className="register-text">Request Details</span>
+
+                  <span
+                    className="register-close-btn"
+                    onClick={() => setShowRequestModal(false)}
+                  >
+                    <FiX />
+                  </span>
+                </div>
+
+                {/* BODY */}
+                <div className="register-form">
+
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label>Name</label>
+                      <input value={selectedRequest.name} disabled />
+                    </div>
+
+                    <div className="input-group">
+                      <label>Email</label>
+                      <input value={selectedRequest.email} disabled />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <div className="input-group">
+                      <label>Message</label>
+                      <textarea
+                        value={selectedRequest.message}
+                        disabled
+                        className="message-box"
+                      />
+                    </div>
+
+                    <div className="input-group">
+                      <label>Status</label>
+                      <input value={selectedRequest.status} disabled />
+                    </div>
+                  </div>
+
+                  {/* ACTION BUTTONS */}
+                  <div className="form-actions">
+
+                    <button
+                      className="btn add"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(
+                            `http://localhost:5000/api/contact-admin/${selectedRequest.id}/approve`,
+                            { method: "PUT" }
+                          );
+                      
+                          if (!res.ok) throw new Error("Failed");
+                      
+                          Swal.fire({
+                            icon: "success",
+                            title: "Approved!",
+                            text: "Request has been approved",
+                            confirmButtonText: "OK"
+                          }).then(() => {
+                            // 👇 THIS runs when user clicks OK
+                            setShowRequestModal(false);
+                            setShowAddModal(true);
+                            fetchRequests();
+                          });
+                      
+                        } catch (err) {
+                          Swal.fire("Error", "Failed to approve request", "error");
+                        }
+                      }}
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      className="btn cancel"
+                      onClick={() => setShowRequestModal(false)}
+                    >
+                      Close
+                    </button>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
     </div>
   );
 };

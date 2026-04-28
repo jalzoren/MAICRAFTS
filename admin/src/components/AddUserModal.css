@@ -181,3 +181,18 @@
     width: 100%;
   }
 }
+
+
+.message-box {
+  width: 100%;
+  min-height: 100px;
+  max-height: 180px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #f9f9f9;
+  resize: none;        /* prevents stretching */
+  overflow-y: auto;    /* scroll if long */
+  font-family: 'Poppins', sans-serif;
+}
