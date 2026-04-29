@@ -45,7 +45,7 @@ router.post("/users", async (req, res) => {
 
     // Check if email already exists in users table
     try {
-      const { data: existingUsers, error: checkError } = await supabase
+      const { data: existingUsers, error: checkError } = await supabaseAdmin
         .from("users")
         .select("id, email")
         .eq("email", normalizedEmail);
@@ -59,6 +59,7 @@ router.post("/users", async (req, res) => {
       console.error("Exception checking email:", checkErr);
     }
 
+    // Create auth user first
     if (!supabaseAdmin) {
       return res.status(500).json({ error: "Service role key not configured on backend" });
     }
@@ -81,6 +82,7 @@ router.post("/users", async (req, res) => {
     createdAuthUserId = authData.user.id;
     console.log("Auth user created with ID:", createdAuthUserId);
 
+    // Then create user profile in users table
     const insertData = {
       id: authData.user.id,
       first_name: firstName?.trim() || null,
@@ -94,15 +96,14 @@ router.post("/users", async (req, res) => {
 
     console.log("Inserting user profile:", insertData);
 
-    const { data: newUser, error: userError } = await supabase
+    // ✅ FIX: Use supabaseAdmin here instead of supabase
+    const { data: newUser, error: userError } = await supabaseAdmin
       .from("users")
       .insert([insertData])
       .select();
 
     if (userError) {
       console.error("Supabase insert error:", userError);
-      console.error("Insert error details:", userError.details);
-      console.error("Insert error hint:", userError.hint);
       
       // Rollback auth user if profile creation fails
       try {
