@@ -27,7 +27,7 @@ router.post("/contact-admin", async (req, res) => {
           email,
           message,
           status: "pending",
-          created_at: new Date()
+          created_at: new Date().toISOString()
         }
       ])
       .select();
