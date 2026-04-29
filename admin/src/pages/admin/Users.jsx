@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiSearch, FiEdit2, FiTrash2, FiUserPlus, FiUserCheck, FiEye, FiSave, FiX, FiFilter, FiLock, FiUnlock, FiUsers, FiUserCheck as FiActiveUsers, FiUserX, FiMail } from "react-icons/fi";
 import AddUser from "../../components/addUser";
+import LockedAccounts from "../../components/LockedAccounts";
 import Swal from "sweetalert2";
 import "../../css/Users.css";
 import "../../components/AddUserModal.css";
@@ -22,8 +23,9 @@ const Users = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [userFromRequest, setUserFromRequest] = useState(null);
+  const [lockedAccountsCount, setLockedAccountsCount] = useState(0);
 
-    const fetchUsers = async () => {
+  const fetchUsers = async () => {
     setLoading(true);
     try {
       const response = await fetch('http://localhost:5000/api/users');
@@ -55,10 +57,35 @@ const Users = () => {
       setLoading(false);
     }
   };
-    useEffect(() => {
-      fetchUsers();
-      fetchRequests();
-    }, []);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/contact-admin");
+      const data = await res.json();
+  
+      if (!res.ok) throw new Error(data.error);
+  
+      setRequests(data);
+    } catch (err) {
+      console.error("Error fetching requests:", err);
+    }
+  };
+
+  const fetchLockedAccountsCount = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/login/locked-accounts");
+      const data = await response.json();
+      setLockedAccountsCount(data.length);
+    } catch (err) {
+      console.error("Error fetching locked count:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchRequests();
+    fetchLockedAccountsCount();
+  }, []);
 
   // Calculate statistics
   const totalUsers = users.length;
@@ -252,27 +279,14 @@ const Users = () => {
     </div>
   );
 
-  const fetchRequests = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/api/contact-admin");
-      const data = await res.json();
-  
-      if (!res.ok) throw new Error(data.error);
-  
-      setRequests(data);
-    } catch (err) {
-      console.error("Error fetching requests:", err);
-    }
-  };
-
-  const pendingRequests = requests.filter(
-    (req) => req.status === "pending"
-  );
-
   const getFullName = (req) =>
     [req.first_name, req.middle_name, req.last_name]
       .filter(Boolean)
       .join(" ");
+
+  const pendingRequests = requests.filter(
+    (req) => req.status === "pending"
+  );
 
   return (
     <div className="user-management">
@@ -336,7 +350,6 @@ const Users = () => {
           Audit Trails
           <span className="tab-count">{auditTrails.length}</span>
         </button>
-
         <button 
           className={`tab-btn ${activeTab === 'requests' ? 'active' : ''}`}
           onClick={() => setActiveTab('requests')}
@@ -344,6 +357,14 @@ const Users = () => {
           <FiMail />
           Requests
           <span className="tab-count">{pendingRequests.length}</span>
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'locked' ? 'active' : ''}`}
+          onClick={() => setActiveTab('locked')}
+        >
+          <FiLock />
+          Locked Accounts
+          <span className="tab-count">{lockedAccountsCount}</span>
         </button>
       </div>
 
@@ -374,7 +395,6 @@ const Users = () => {
                       <td>
                         {new Date(req.created_at).toLocaleDateString()}
                       </td>
-
                       <td>
                         <button
                           className="action-btn edit"
@@ -398,6 +418,8 @@ const Users = () => {
               </tbody>
             </table>
           </div>
+        ) : activeTab === 'locked' ? (
+          <LockedAccounts onUnlock={fetchLockedAccountsCount} />
         ) : activeTab === 'users' ? (
         <>
           <div className="search-filter-container">
@@ -450,8 +472,6 @@ const Users = () => {
               </div>
             </div>
           </div>
-
-          
 
           <div className="table-container">
             {loading ? (
@@ -598,11 +618,8 @@ const Users = () => {
       {showRequestModal && selectedRequest && (
             <div className="popup-overlay">
               <div className="register-container">
-
-                {/* HEADER */}
                 <div className="register-header">
                   <span className="register-text">Request Details</span>
-
                   <span
                     className="register-close-btn"
                     onClick={() => setShowRequestModal(false)}
@@ -610,22 +627,17 @@ const Users = () => {
                     <FiX />
                   </span>
                 </div>
-
-                {/* BODY */}
                 <div className="register-form">
-
                   <div className="form-row">
                     <div className="input-group">
                       <label>Name</label>
                       <input value={getFullName(selectedRequest)} disabled />
                     </div>
-
                     <div className="input-group">
                       <label>Email</label>
                       <input value={selectedRequest.email} disabled />
                     </div>
                   </div>
-
                   <div className="form-row">
                     <div className="input-group">
                       <label>Message</label>
@@ -635,16 +647,12 @@ const Users = () => {
                         className="message-box"
                       />
                     </div>
-
                     <div className="input-group">
                       <label>Status</label>
                       <input value={selectedRequest.status} disabled />
                     </div>
                   </div>
-
-                  {/* ACTION BUTTONS */}
                   <div className="form-actions">
-
                     <button
                       className="btn add"
                       onClick={async () => {
@@ -662,7 +670,6 @@ const Users = () => {
                             text: "Request has been approved",
                             confirmButtonText: "OK"
                           }).then(() => {
-                           
                             setShowRequestModal(false);
                             setUserFromRequest(selectedRequest);
                             setShowAddModal(true);
@@ -676,14 +683,12 @@ const Users = () => {
                     >
                       Approve
                     </button>
-
                     <button
                       className="btn cancel"
                       onClick={() => setShowRequestModal(false)}
                     >
                       Close
                     </button>
-
                   </div>
                 </div>
               </div>

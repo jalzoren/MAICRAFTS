@@ -20,6 +20,8 @@ const Login = () => {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [isSetup, setIsSetup] = useState(false);
   const [qrCode, setQrCode] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockMinutesLeft, setLockMinutesLeft] = useState(0);
   const auth = useAuth();
   const from = location.state?.from?.pathname || "/";
 
@@ -76,6 +78,35 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle locked account
+        if (data.isLocked) {
+          setIsLocked(true);
+          setLockMinutesLeft(data.minutesLeft || 0);  // ✅ This will now have value
+          setIsLoading(false);
+          
+          Swal.fire({
+            icon: "error",
+            title: "Account Locked",
+            text: data.message || "Your account is temporarily locked.",
+            confirmButtonText: "OK",
+            confirmButtonColor: "#d33"
+          });
+          return;
+        }
+        
+        // Handle remaining attempts
+        if (data.remainingAttempts !== undefined) {
+          setIsLoading(false);
+          Swal.fire({
+            icon: "warning",
+            title: "Invalid Credentials",
+            text: data.message || `Invalid email or password. ${data.remainingAttempts} attempt(s) remaining.`,
+            confirmButtonText: "Try Again",
+            confirmButtonColor: "#3085d6"
+          });
+          return;
+        }
+        
         if (data.requiresVerification) {
           setIsLoading(false);
           Swal.fire({
@@ -87,6 +118,7 @@ const Login = () => {
           });
           return;
         }
+        
         throw new Error(data.message);
       }
 
@@ -121,72 +153,72 @@ const Login = () => {
     }
   };
 
-    const handleVerifyOTP = async () => {
-      if (otp.length !== 6) {
-        Swal.fire("Error", "OTP must be 6 digits", "error");
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      Swal.fire("Error", "OTP must be 6 digits", "error");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch("http://localhost:5000/login/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: formData.email, otp }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.message?.toLowerCase().includes("expired")) {
+          Swal.fire({
+            icon: "warning",
+            title: "Code Expired",
+            text: data.message,
+            confirmButtonText: "Try Again",
+            confirmButtonColor: "#3085d6"
+          });
+          setOtp("");
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "Invalid Code",
+            text: data.message,
+            confirmButtonText: "OK",
+            confirmButtonColor: "#3085d6"
+          });
+        }
+        setIsLoading(false);
         return;
       }
-      setIsLoading(true);
-      try {
-        const response = await fetch("http://localhost:5000/login/verify-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: formData.email, otp }),
-        });
-        const data = await response.json();
 
-        if (!response.ok) {
-          if (data.message?.toLowerCase().includes("expired")) {
-            Swal.fire({
-              icon: "warning",
-              title: "Code Expired",
-              text: data.message,
-              confirmButtonText: "Try Again",
-              confirmButtonColor: "#3085d6"
-            });
-            setOtp("");
-          } else {
-            Swal.fire({
-              icon: "error",
-              title: "Invalid Code",
-              text: data.message,
-              confirmButtonText: "OK",
-              confirmButtonColor: "#3085d6"
-            });
-          }
-          setIsLoading(false);
-          return;
-        }
-
-        if (data.user) {
-          auth.login(data.user);
-        }
-
-        await Swal.fire({
-          icon: "success",
-          title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
-          text: data.setupComplete
-            ? "Google Authenticator is now connected."
-            : `Welcome back, ${data.user?.name || ""}!`,
-          timer: 1500,
-          showConfirmButton: false,
-        });
-
-        const userRole = data.user?.role?.toLowerCase();
-        const sessionParam = encodeURIComponent(JSON.stringify(data.user));
-
-        if (userRole === "super_admin") {
-          window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
-        } else if (userRole === "seller") {
-          window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
-        } else {
-          window.location.href = "http://localhost:5173/";
-        }
-      } catch (error) {
-        setIsLoading(false);
-        Swal.fire("Error", error.message, "error");
+      if (data.user) {
+        auth.login(data.user);
       }
-    };
+
+      await Swal.fire({
+        icon: "success",
+        title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
+        text: data.setupComplete
+          ? "Google Authenticator is now connected."
+          : `Welcome back, ${data.user?.name || ""}!`,
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      const userRole = data.user?.role?.toLowerCase();
+      const sessionParam = encodeURIComponent(JSON.stringify(data.user));
+
+      if (userRole === "super_admin") {
+        window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
+      } else if (userRole === "seller") {
+        window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
+      } else {
+        window.location.href = "http://localhost:5173/";
+      }
+    } catch (error) {
+      setIsLoading(false);
+      Swal.fire("Error", error.message, "error");
+    }
+  };
 
   // Show OTP screen if needed
   if (isOtpSent) {
@@ -288,6 +320,20 @@ const Login = () => {
 
           <h2 className="login-title">LOGIN</h2>
 
+          {isLocked && (
+            <div className="lock-warning" style={{
+              backgroundColor: "#ffebee",
+              color: "#c62828",
+              padding: "10px",
+              borderRadius: "8px",
+              marginBottom: "20px",
+              textAlign: "center",
+              fontSize: "14px"
+            }}>
+              ⚠️ Account locked. Try again in {lockMinutesLeft} minute(s).
+            </div>
+          )}
+
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label className="form-label" htmlFor="email">
@@ -303,7 +349,7 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleChange}
                   className="input-field"
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   autoComplete="username"
                 />
               </div>
@@ -324,14 +370,14 @@ const Login = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="input-field"
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
+                  disabled={isLoading || isLocked}
                 >
                   {showPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -349,8 +395,19 @@ const Login = () => {
               </div>
             )}
 
-            <button type="submit" className="login-btn" disabled={isLoading}>
-              {isLoading ? <span className="loading-spinner"></span> : "LOGIN"}
+            <button 
+              type="submit" 
+              className={`login-btn ${isLocked ? 'locked-btn' : ''}`} 
+              disabled={isLoading || isLocked}
+              style={isLocked ? { backgroundColor: "#9e9e9e", cursor: "not-allowed" } : {}}
+            >
+              {isLoading ? (
+                <span className="loading-spinner"></span>
+              ) : isLocked ? (
+                `LOCKED - Try again in ${lockMinutesLeft}m`
+              ) : (
+                "LOGIN"
+              )}
             </button>
           </form>
 
