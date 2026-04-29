@@ -136,21 +136,20 @@ const Login = () => {
         const data = await response.json();
 
         if (!response.ok) {
-          // Better error handling for expired vs invalid codes
-          if (data.message?.toLowerCase().includes("expired") || data.hint) {
+          if (data.message?.toLowerCase().includes("expired")) {
             Swal.fire({
               icon: "warning",
               title: "Code Expired",
-              html: `${data.message}<br/><br/><small style="color: #666;">${data.hint || "Generate a new code in Google Authenticator and try again immediately."}</small>`,
+              text: data.message,
               confirmButtonText: "Try Again",
               confirmButtonColor: "#3085d6"
             });
-            setOtp(""); // Clear the expired OTP
+            setOtp("");
           } else {
             Swal.fire({
               icon: "error",
               title: "Invalid Code",
-              text: data.message || "Please check your Google Authenticator code and try again",
+              text: data.message,
               confirmButtonText: "OK",
               confirmButtonColor: "#3085d6"
             });

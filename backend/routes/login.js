@@ -121,16 +121,12 @@ router.post("/verify-otp", async (req, res) => {
     });
 
     if (checkWithWindow) {
-      // Code is valid but has time drift
       return res.status(400).json({ 
-        message: "Code expired. Please generate a NEW code in Google Authenticator and try again immediately.",
-        hint: "The code you entered was valid but submitted too late. Open Google Authenticator and enter the CURRENT 6-digit code."
+        message: "Code expired. Please generate a NEW code in Google Authenticator and try again immediately."
       });
     } else {
-      // Completely invalid code
       return res.status(400).json({ 
-        message: "Invalid OTP code. Please check your Google Authenticator and enter the correct 6-digit code.",
-        hint: "Make sure you're entering the current code from Google Authenticator"
+        message: "Invalid OTP code. Please check your Google Authenticator and enter the correct 6-digit code."
       });
     }
   }
