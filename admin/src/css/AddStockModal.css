@@ -1,0 +1,125 @@
+.addstock-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1002;
+  animation: fadeIn 0.2s ease;
+}
+
+.addstock-modal {
+  background: white;
+  border-radius: 16px;
+  width: 450px;
+  max-width: 90vw;
+  animation: slideUp 0.3s ease;
+}
+
+.addstock-modal-header {
+  background: linear-gradient(135deg, #E6BB71 0%, #c9a34f 100%);
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 16px 16px 0 0;
+}
+
+.addstock-modal-header h3 {
+  margin: 0;
+  color: #462C14;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.addstock-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #462C14;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.addstock-close-btn:hover {
+  background: rgba(70, 44, 20, 0.1);
+}
+
+.addstock-modal-body {
+  padding: 24px;
+}
+
+.addstock-form-group {
+  margin-bottom: 20px;
+}
+
+.addstock-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #462C14;
+  font-size: 14px;
+}
+
+.addstock-form-group input,
+.addstock-form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.2s;
+}
+
+.addstock-form-group input:focus,
+.addstock-form-group textarea:focus {
+  outline: none;
+  border-color: #E6BB71;
+  box-shadow: 0 0 0 3px rgba(230, 187, 113, 0.1);
+}
+
+.addstock-modal-footer {
+  padding: 20px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.addstock-cancel-btn {
+  background: transparent;
+  border: 2px solid #ff4444;
+  color: #ff4444;
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.addstock-cancel-btn:hover {
+  background: #ff4444;
+  color: white;
+}
+
+.addstock-submit-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.addstock-submit-btn:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+}
