@@ -11,7 +11,7 @@ import { useRef } from "react";
 import PersonalInfoTab from "./settings/PersonalInfoTab";
 import SecurityTab     from "./settings/SecurityTab";
 import OrdersTab       from "./settings/OrdersTab";
-import NotifTab        from "./settings/NotifTab";
+//import NotifTab        from "./settings/NotifTab";
 
 import "../css/Settings.css";
 
@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { key: "personal", label: "Personal Info",    icon: <FiUser /> },
   { key: "security", label: "Account Security", icon: <BsShieldLock /> },
   { key: "orders",   label: "List of Orders",   icon: <BsBoxSeam /> },
-  { key: "notif",    label: "Notification",     icon: <BsBell /> },
+  //{ key: "notif",    label: "Notification",     icon: <BsBell /> },
 ];
 
 const Settings = () => {
@@ -44,7 +44,7 @@ const Settings = () => {
     personal: <PersonalInfoTab user={user || {}} />,
     security: <SecurityTab     user={user || {}} />,
     orders:   <OrdersTab />,
-    notif:    <NotifTab />,
+    //notif:    <NotifTab />,
   };
 
   // ── Upload profile photo to Supabase Storage ──

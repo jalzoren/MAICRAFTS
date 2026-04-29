@@ -1,97 +1,148 @@
 // backend/routes/userRoutes.js
 import express from "express";
 import bcrypt from "bcrypt";
-import supabase from "../supabaseClient.js";
+import supabase, { supabaseAdmin } from "../supabaseClient.js";
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
+import { sendWelcomeEmail } from "../utils/mailer.js";
+import crypto from "crypto";
 
 const router = express.Router();
 
 // ADMIN AND SELLER ENDPOINTS -----------------------------------------------------
-// GET all users
+// GET all admin and seller users
 router.get("/users", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("admin")
+      .from("users")
       .select("*")
+      .or("role.eq.admin,role.eq.super_admin")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    const usersWithoutPassword = data.map(user => {
-      const { password_hash, ...userData } = user;
-      return userData;
-    });
-
-    res.json(usersWithoutPassword);
+    res.json(data);
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
 
-// CREATE user
+// CREATE admin/seller user
 router.post("/users", async (req, res) => {
+  let createdAuthUserId = null;
+  
   try {
-    const { username, lastName, firstName, middleName, extension, email, role, password } = req.body;
+    const { firstName, lastName, middleName, email, role} = req.body;
+    const tempPassword = crypto.randomBytes(6).toString("base64url");
 
-    console.log("Creating user:", { email, role, username });
-
-    // Check if username exists
-    const { data: existingUsername } = await supabase
-      .from("admin")
-      .select("username")
-      .eq("username", username.toLowerCase())
-      .single();
-
-    if (existingUsername) {
-      return res.status(400).json({ error: "Username already taken" });
+    if (!email || !role) {
+      return res.status(400).json({ error: "Email, password, and role are required" });
     }
 
-    // Check if email exists
-    const { data: existingEmail } = await supabase
-      .from("admin")
-      .select("email")
-      .eq("email", email.toLowerCase())
-      .single();
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log("Creating admin/seller user:", { email: normalizedEmail, role });
 
-    if (existingEmail) {
-      return res.status(400).json({ error: "User with this email already exists" });
+    // Check if email already exists in users table
+    try {
+      const { data: existingUsers, error: checkError } = await supabase
+        .from("users")
+        .select("id, email")
+        .eq("email", normalizedEmail);
+
+      if (checkError) {
+        console.error("Error checking existing email:", checkError);
+      } else if (existingUsers && existingUsers.length > 0) {
+        return res.status(400).json({ error: "User with this email already exists" });
+      }
+    } catch (checkErr) {
+      console.error("Exception checking email:", checkErr);
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    console.log("Password hashed successfully");
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "Service role key not configured on backend" });
+    }
 
-    // Insert user
-    const { data, error } = await supabase
-      .from("admin")
-      .insert([{
-        username: username.toLowerCase(),
-        last_name: lastName,
-        first_name: firstName,
-        middle_name: middleName || null,
-        extension: extension || null,
-        email: email.toLowerCase(),
-        role: role,
-        password_hash: hashedPassword,
-        status: "active",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: tempPassword,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      console.error("Supabase auth error:", authError);
+      return res.status(400).json({ error: authError.message || "Failed to create auth user" });
+    }
+
+    if (!authData?.user?.id) {
+      return res.status(400).json({ error: "Auth user created but no ID returned" });
+    }
+
+    createdAuthUserId = authData.user.id;
+    console.log("Auth user created with ID:", createdAuthUserId);
+
+    const insertData = {
+      id: authData.user.id,
+      first_name: firstName?.trim() || null,
+      last_name: lastName?.trim() || null,
+      middle_name: middleName?.trim() || null,
+      email: normalizedEmail,
+      role: role.toLowerCase(),
+      is_verified: true,
+      is_active: true,
+    };
+
+    console.log("Inserting user profile:", insertData);
+
+    const { data: newUser, error: userError } = await supabase
+      .from("users")
+      .insert([insertData])
       .select();
 
-    if (error) {
-      console.error("Supabase insert error:", error);
-      return res.status(500).json({ error: error.message });
+    if (userError) {
+      console.error("Supabase insert error:", userError);
+      console.error("Insert error details:", userError.details);
+      console.error("Insert error hint:", userError.hint);
+      
+      // Rollback auth user if profile creation fails
+      try {
+        if (supabaseAdmin) {
+          await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+          console.log("Rolled back auth user");
+        }
+      } catch (deleteErr) {
+        console.error("Failed to rollback auth user:", deleteErr);
+      }
+      
+      return res.status(400).json({ error: userError.message || "Failed to create user profile" });
     }
 
+    if (!newUser || newUser.length === 0) {
+      return res.status(400).json({ error: "User created but no data returned" });
+    }
+
+    await sendWelcomeEmail({
+      email: normalizedEmail,
+      fullName: `${firstName || ""} ${lastName || ""}`.trim(),
+      password: tempPassword,
+    });
+
     console.log("User created successfully!");
-    const { password_hash, ...userWithoutPassword } = data[0];
-    res.status(201).json(userWithoutPassword);
+    res.status(201).json(newUser[0]);
   } catch (err) {
     console.error("Error creating user:", err);
-    res.status(500).json({ error: "Internal server error" });
+    
+    // Attempt to rollback auth user if we created one
+    if (createdAuthUserId && supabaseAdmin) {
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
+        console.log("Cleaned up auth user on exception");
+      } catch (deleteErr) {
+        console.error("Failed to cleanup auth user:", deleteErr);
+      }
+    }
+    
+    res.status(500).json({ error: "Internal server error", message: err.message });
   }
 });
 
@@ -101,8 +152,12 @@ router.put("/users/:id/role", async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
+    if (!role) {
+      return res.status(400).json({ error: "Role is required" });
+    }
+
     const { data, error } = await supabase
-      .from("admin")
+      .from("users")
       .update({ 
         role: role,
         updated_at: new Date().toISOString()
@@ -111,12 +166,45 @@ router.put("/users/:id/role", async (req, res) => {
       .select();
 
     if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    const { password_hash, ...userWithoutPassword } = data[0];
-    res.json(userWithoutPassword);
+    res.json(data[0]);
   } catch (err) {
     console.error("Error updating role:", err);
     res.status(500).json({ error: "Failed to update role" });
+  }
+});
+
+// LOCK/UNLOCK user (update is_active status)
+router.put("/users/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_active } = req.body;
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ error: "is_active must be a boolean" });
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .update({ 
+        is_active: is_active,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select();
+
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(data[0]);
+  } catch (err) {
+    console.error("Error updating user status:", err);
+    res.status(500).json({ error: "Failed to update user status" });
   }
 });
 
@@ -125,12 +213,19 @@ router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
-      .from("admin")
+    // Delete user profile
+    const { error: profileError } = await supabase
+      .from("users")
       .delete()
       .eq("id", id);
 
-    if (error) throw error;
+    if (profileError) throw profileError;
+
+    // Delete auth user
+    const { error: authError } = await supabase.auth.admin.deleteUser(id);
+    if (authError) {
+      console.warn("Note: Auth user deletion may have failed, but profile was deleted:", authError.message);
+    }
 
     res.json({ message: "User deleted successfully" });
   } catch (err) {

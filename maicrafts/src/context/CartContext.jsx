@@ -1,4 +1,4 @@
-// CartContext.jsx
+// maicrafts/src/context/CartContext.jsx
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -12,15 +12,13 @@ export const useCart = () => {
 
 const GUEST_CART_KEY = "mc_guest_cart";
 
-// ─────────────────────────────────────────────
 // CartProvider
-// ─────────────────────────────────────────────
 export const CartProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
-  const [items, setItems]         = useState([]);  // [{ product_id, name, price, image_url, quantity, note }]
+  const [items, setItems] = useState([]);
   const [isCartLoading, setIsCartLoading] = useState(false);
 
-  // ── Load cart when auth state is known ──
+  // Load cart when auth state is known
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       loadUserCart(user.id);
@@ -29,14 +27,14 @@ export const CartProvider = ({ children }) => {
     }
   }, [isAuthenticated, user?.id]);
 
-  // ── When user logs in: merge guest cart into user DB cart ──
+  // When user logs in: merge guest cart into user DB cart
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       mergeGuestCartOnLogin(user.id);
     }
   }, [isAuthenticated]);
 
-  // ── Guest cart: localStorage ──
+  // Guest cart: localStorage
   const loadGuestCart = () => {
     try {
       const raw = localStorage.getItem(GUEST_CART_KEY);
@@ -48,35 +46,34 @@ export const CartProvider = ({ children }) => {
 
   const saveGuestCart = (newItems) => {
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(newItems));
-    window.dispatchEvent(new Event("cart-updated"));   // keep Navbar badge in sync
+    window.dispatchEvent(new Event("cart-updated"));
   };
 
-  // ── User cart: fetch from DB ──
+  // User cart: fetch from DB
   const loadUserCart = async (userId) => {
-  setIsCartLoading(true);
-  try {
-    const res = await fetch(`http://localhost:5000/api/cart/${userId}`);
+    setIsCartLoading(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/cart/${userId}`);
 
-    // ── Cart route not built yet — silently fall back to guest cart ──
-    if (res.status === 404) {
+      if (res.status === 404) {
+        loadGuestCart();
+        return;
+      }
+
+      const data = await res.json();
+      if (res.ok) {
+        setItems(data.cart || []);
+        window.dispatchEvent(new Event("cart-updated"));
+      }
+    } catch (err) {
+      console.error("Failed to load user cart:", err);
       loadGuestCart();
-      return;
+    } finally {
+      setIsCartLoading(false);
     }
+  };
 
-    const data = await res.json();
-    if (res.ok) {
-      setItems(data.cart || []);
-      window.dispatchEvent(new Event("cart-updated"));
-    }
-  } catch (err) {
-    console.error("Failed to load user cart:", err);
-    loadGuestCart();
-  } finally {
-    setIsCartLoading(false);
-  }
-};
-
-  // ── Merge: when user logs in, push any guest items to their DB cart ──
+  // Merge: when user logs in, push any guest items to their DB cart
   const mergeGuestCartOnLogin = async (userId) => {
     try {
       const raw = localStorage.getItem(GUEST_CART_KEY);
@@ -89,23 +86,19 @@ export const CartProvider = ({ children }) => {
         body: JSON.stringify({ userId, guestItems }),
       });
 
-      localStorage.removeItem(GUEST_CART_KEY);   // clear guest cart after merge
+      localStorage.removeItem(GUEST_CART_KEY);
       await loadUserCart(userId);
     } catch (err) {
       console.error("Cart merge failed:", err);
     }
   };
 
-  // ─────────────────────────────────────────
   // Cart Actions
-  // ─────────────────────────────────────────
-
   const addItem = useCallback(async (product, quantity = 1, note = "") => {
     if (!isAuthenticated) {
-      // Guest: update localStorage
       setItems((prev) => {
         const existing = prev.find((i) => i.product_id === product.product_id);
-        const updated  = existing
+        const updated = existing
           ? prev.map((i) => i.product_id === product.product_id
               ? { ...i, quantity: i.quantity + quantity }
               : i)
@@ -116,13 +109,12 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    // Logged in: persist to DB
     try {
       await fetch("http://localhost:5000/api/cart", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id:    user.id,
+          user_id: user.id,
           product_id: product.product_id,
           quantity,
           note,
@@ -194,7 +186,7 @@ export const CartProvider = ({ children }) => {
     }
   }, [isAuthenticated, user?.id]);
 
-  const totalCount  = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
+  const totalCount = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
   const totalAmount = items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
 
   return (
@@ -212,3 +204,5 @@ export const CartProvider = ({ children }) => {
     </CartContext.Provider>
   );
 };
+
+// ✅ NO default export at the bottom!

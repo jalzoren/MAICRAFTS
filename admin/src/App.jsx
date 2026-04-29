@@ -1,83 +1,100 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Users from "./pages/admin/Users";
-import Dashboard from "./pages/seller/SellerDashboard"; // Seller dashboard
-import Products from "./pages/seller/Products"; // Product management
-import OrderManagement from "./pages/seller/OrderManagement"; // Order management for seller
-import Login from "./auth/Login";
+import Dashboard from "./pages/seller/SellerDashboard";
+import Products from "./pages/seller/Products";
+import OrderManagement from "./pages/seller/OrderManagement";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import "./App.css";
 import OrderDetails from "./pages/seller/OrderDetails";
+import Settings from "./pages/admin/Settings";
+import "./App.css";
 
-// Layout wrapper with authentication
+const SessionHandler = () => {
+  const { setUserFromUrl } = useAuth();
+  const location = useLocation();
+  const [urlProcessed, setUrlProcessed] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const sessionParam = params.get("session");
+    if (sessionParam && !urlProcessed) {
+      try {
+        const user = JSON.parse(decodeURIComponent(sessionParam));
+        console.log("✅ Session received from URL:", user);
+        setUserFromUrl(user);
+        window.history.replaceState({}, "", location.pathname);
+        setUrlProcessed(true);
+      } catch (err) {
+        console.error("Failed to parse session:", err);
+        setUrlProcessed(true);
+      }
+    } else if (!sessionParam) {
+      setUrlProcessed(true);
+    }
+  }, [setUserFromUrl, urlProcessed]);
+
+  return null;
+};
+
 const AppLayout = () => {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-      </div>
-    );
-  }
-  
+  const { user, loading, sessionReady } = useAuth();
+
+  if (!sessionReady || loading) return <div className="loading-spinner">Loading...</div>;
   if (!user) {
-    return <Navigate to="/" replace />;
+    window.location.href = "http://localhost:5173/login";
+    return null;
   }
-  
   return <MainLayout />;
 };
 
 function App() {
   return (
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Login />} />
-          
-          {/* Protected routes with MainLayout */}
-          <Route path="/" element={<AppLayout />}>
-            {/* Super Admin Routes */}
-            <Route path="/admin/dashboard" element={
-              <ProtectedRoute allowedRoles={['Super Admin']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/users" element={
-              <ProtectedRoute allowedRoles={['Super Admin']}>
-                <Users />
-              </ProtectedRoute>
-            } />
-
-            {/* Seller Routes */}
-            <Route path="/seller/dashboard" element={
-              <ProtectedRoute allowedRoles={['seller']}>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/seller/products" element={
-              <ProtectedRoute allowedRoles={['seller']}>
-                <Products />
-              </ProtectedRoute>
-            } />
-            <Route path="/seller/orders" element={
-              <ProtectedRoute allowedRoles={['seller']}>
-                <OrderManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/seller/orders/:id" element={
-              <ProtectedRoute allowedRoles={['seller']}>
-                <OrderDetails />
-              </ProtectedRoute>
-            } />
-            
-            {/* Default redirect */}
-            <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
-          </Route>
-        </Routes>
-      </AuthProvider>
+    <AuthProvider>
+      <SessionHandler />
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route path="/admin/dashboard" element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/users" element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <Users />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/settings" element={
+            <ProtectedRoute allowedRoles={["super_admin"]}>
+              <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/seller/dashboard" element={
+            <ProtectedRoute allowedRoles={["seller"]}>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/seller/products" element={
+            <ProtectedRoute allowedRoles={["seller"]}>
+              <Products />
+            </ProtectedRoute>
+          } />
+          <Route path="/seller/orders" element={
+            <ProtectedRoute allowedRoles={["seller"]}>
+              <OrderManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/seller/orders/:id" element={
+            <ProtectedRoute allowedRoles={["seller"]}>
+              <OrderDetails />
+            </ProtectedRoute>
+          } />
+          <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
+        </Route>
+      </Routes>
+    </AuthProvider>
   );
 }
 

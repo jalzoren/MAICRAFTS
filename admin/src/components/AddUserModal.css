@@ -20,7 +20,7 @@
 
 /* Header */
 .register-header {
-  background: var(--color-primary-dark, #01311d);
+  background: #462C14;
   color: white;
   display: flex;
   justify-content: space-between;
@@ -59,7 +59,7 @@
   font-size: 13px;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #01311d;
+  color:#462C14;
 }
 
 .input-group input,
@@ -74,7 +74,7 @@
 .input-group input:focus,
 .input-group select:focus {
   outline: none;
-  border-color: #548772;
+  border-color: #6b441f;
   background: white;
 }
 
@@ -130,12 +130,12 @@
 }
 
 .btn.add {
-  background: #01311d;
+  background: #462C14;
   color: white;
 }
 
 .btn.add:hover {
-  background: #548772;
+  background: #2c1c0d;
 }
 
 .btn.cancel {
@@ -180,4 +180,19 @@
   .btn {
     width: 100%;
   }
+}
+
+
+.message-box {
+  width: 100%;
+  min-height: 100px;
+  max-height: 180px;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #f9f9f9;
+  resize: none;        /* prevents stretching */
+  overflow-y: auto;    /* scroll if long */
+  font-family: 'Poppins', sans-serif;
 }

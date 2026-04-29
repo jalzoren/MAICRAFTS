@@ -187,54 +187,7 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Demo Credentials with Quick Fill Buttons */}
-          <div className="signup-section">
-            <p style={{ fontSize: '12px', color: '#4b2e16', marginBottom: '10px', fontWeight: 'bold' }}>
-              Demo Credentials:
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <div>
-                  <strong>Admin:</strong> admin@maicrafts.com / admin123
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => fillDemoCredentials('admin')}
-                  style={{
-                    padding: '4px 12px',
-                    fontSize: '11px',
-                    backgroundColor: '#4a2c0c',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Use Admin
-                </button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                <div>
-                  <strong>Seller:</strong> seller@maicrafts.com / seller123
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => fillDemoCredentials('seller')}
-                  style={{
-                    padding: '4px 12px',
-                    fontSize: '11px',
-                    backgroundColor: '#4a2c0c',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Use Seller
-                </button>
-              </div>
-            </div>
-          </div>
+        
         </div>
       </div>
     </div>

@@ -20,17 +20,19 @@
         return res.status(500).send("Database error");
       }
 
-      if (!verification) {
-        return res.redirect("http://localhost:5173/login?error=invalid_token");
-      }
+      const CLIENT_URL = process.env.CLIENT_URL;
 
-      if (verification.is_used) {
-        return res.redirect("http://localhost:5173/login?message=already_verified");
-      }
+        if (!verification) {
+          return res.redirect(`${CLIENT_URL}/login?error=invalid_token`);
+        }
 
-      if (new Date(verification.expires_at) < new Date()) {
-        return res.redirect("http://localhost:5173/login?error=expired");
-      }
+        if (verification.is_used) {
+          return res.redirect(`${CLIENT_URL}/login?message=already_verified`);
+        }
+
+        if (new Date(verification.expires_at) < new Date()) {
+          return res.redirect(`${CLIENT_URL}/login?error=expired`);
+        }
 
       await supabase
         .from("users")

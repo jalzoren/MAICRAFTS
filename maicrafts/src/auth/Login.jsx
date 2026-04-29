@@ -8,7 +8,7 @@ import "./css/Login.css";
 
 const Login = () => {
   const navigate = useNavigate();
-  const location  = useLocation();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: location.state?.prefillEmail || "",
     password: "",
@@ -64,7 +64,6 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Call login endpoint
       const response = await fetch("http://localhost:5000/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,7 +76,6 @@ const Login = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Check if it's a verification error
         if (data.requiresVerification) {
           setIsLoading(false);
           Swal.fire({
@@ -92,9 +90,7 @@ const Login = () => {
         throw new Error(data.message);
       }
 
-      // Handle 2FA setup or verification
       if (data.isSetup) {
-        // First time user - show QR code for setup
         setIsLoading(false);
         setIsSetup(true);
         setQrCode(data.qrCode);
@@ -107,7 +103,6 @@ const Login = () => {
           confirmButtonText: "Continue"
         });
       } else if (data.requiresOTP) {
-        // User has 2FA enabled - show OTP input
         setIsLoading(false);
         setIsSetup(false);
         setIsOtpSent(true);
@@ -127,60 +122,66 @@ const Login = () => {
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length !== 6) {
-      Swal.fire("Error", "OTP must be 6 digits", "error");
+  if (otp.length !== 6) {
+    Swal.fire("Error", "OTP must be 6 digits", "error");
+    return;
+  }
+  setIsLoading(true);
+  try {
+    const response = await fetch("http://localhost:5000/login/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: formData.email, otp }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (data.message?.toLowerCase().includes("expired")) {
+        Swal.fire({
+          icon: "warning",
+          title: "OTP Expired",
+          text: "The code has expired. Please enter the current code.",
+          confirmButtonText: "OK",
+        });
+        setOtp("");
+      } else {
+        throw new Error(data.message);
+      }
+      setIsLoading(false);
       return;
     }
-    setIsLoading(true);
-    try {
-      const response = await fetch("http://localhost:5000/login/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: formData.email, otp }),
-      });
-      const data = await response.json();
 
-      if (!response.ok) {
-        if (data.message.toLowerCase().includes("expired")) {
-          Swal.fire({
-            icon: "warning",
-            title: "OTP Expired",
-            text: "The code has expired. Please enter the current code.",
-            confirmButtonText: "OK",
-          });
-          setOtp("");
-        } else {
-          throw new Error(data.message);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // ✅ Save session — this is the key addition
-      if (data.user) {
-        auth.login(data.user);
-      }
-
-      const title = data.setupComplete ? "Setup Complete!" : "Login Successful!";
-      const text  = data.setupComplete
-        ? "Google Authenticator is now connected."
-        : `Welcome back, ${data.user?.name || ""}!`;
-
-      await Swal.fire({
-        icon: "success",
-        title,
-        text,
-        timer: 1500,
-        showConfirmButton: false,
-      });
-
-      navigate(from, { replace: true });   // ← send back to intended page
-
-    } catch (error) {
-      setIsLoading(false);
-      Swal.fire("Error", error.message, "error");
+    // Save session to localStorage for the customer app
+    if (data.user) {
+      auth.login(data.user);
     }
-  };
+
+    await Swal.fire({
+      icon: "success",
+      title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
+      text: data.setupComplete
+        ? "Google Authenticator is now connected."
+        : `Welcome back, ${data.user?.name || ""}!`,
+      timer: 1500,
+      showConfirmButton: false,
+    });
+
+    // ----- FIXED REDIRECT WITH SESSION PARAMETER -----
+    const userRole = data.user?.role?.toLowerCase();
+    const sessionParam = encodeURIComponent(JSON.stringify(data.user));
+
+    if (userRole === "super_admin") {
+      window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
+    } else if (userRole === "seller") {
+      window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
+    } else {
+      window.location.href = "http://localhost:5173/";
+    }
+  } catch (error) {
+    setIsLoading(false);
+    Swal.fire("Error", error.message, "error");
+  }
+};
 
   // Show OTP screen if needed
   if (isOtpSent) {
@@ -293,11 +294,12 @@ const Login = () => {
                   type="text"
                   id="email"
                   name="email"
-                  placeholder="Enter your Email or Phone Number"
+                  placeholder="Enter your Email"
                   value={formData.email}
                   onChange={handleChange}
                   className="input-field"
                   disabled={isLoading}
+                  autoComplete="username"
                 />
               </div>
               {errors.email && <span className="form-error">{errors.email}</span>}
@@ -318,6 +320,7 @@ const Login = () => {
                   onChange={handleChange}
                   className="input-field"
                   disabled={isLoading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
