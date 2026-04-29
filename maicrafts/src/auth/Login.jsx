@@ -121,67 +121,73 @@ const Login = () => {
     }
   };
 
-  const handleVerifyOTP = async () => {
-  if (otp.length !== 6) {
-    Swal.fire("Error", "OTP must be 6 digits", "error");
-    return;
-  }
-  setIsLoading(true);
-  try {
-    const response = await fetch("http://localhost:5000/login/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: formData.email, otp }),
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      if (data.message?.toLowerCase().includes("expired")) {
-        Swal.fire({
-          icon: "warning",
-          title: "OTP Expired",
-          text: "The code has expired. Please enter the current code.",
-          confirmButtonText: "OK",
-        });
-        setOtp("");
-      } else {
-        throw new Error(data.message);
+    const handleVerifyOTP = async () => {
+      if (otp.length !== 6) {
+        Swal.fire("Error", "OTP must be 6 digits", "error");
+        return;
       }
-      setIsLoading(false);
-      return;
-    }
+      setIsLoading(true);
+      try {
+        const response = await fetch("http://localhost:5000/login/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: formData.email, otp }),
+        });
+        const data = await response.json();
 
-    // Save session to localStorage for the customer app
-    if (data.user) {
-      auth.login(data.user);
-    }
+        if (!response.ok) {
+          // Better error handling for expired vs invalid codes
+          if (data.message?.toLowerCase().includes("expired") || data.hint) {
+            Swal.fire({
+              icon: "warning",
+              title: "Code Expired",
+              html: `${data.message}<br/><br/><small style="color: #666;">${data.hint || "Generate a new code in Google Authenticator and try again immediately."}</small>`,
+              confirmButtonText: "Try Again",
+              confirmButtonColor: "#3085d6"
+            });
+            setOtp(""); // Clear the expired OTP
+          } else {
+            Swal.fire({
+              icon: "error",
+              title: "Invalid Code",
+              text: data.message || "Please check your Google Authenticator code and try again",
+              confirmButtonText: "OK",
+              confirmButtonColor: "#3085d6"
+            });
+          }
+          setIsLoading(false);
+          return;
+        }
 
-    await Swal.fire({
-      icon: "success",
-      title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
-      text: data.setupComplete
-        ? "Google Authenticator is now connected."
-        : `Welcome back, ${data.user?.name || ""}!`,
-      timer: 1500,
-      showConfirmButton: false,
-    });
+        if (data.user) {
+          auth.login(data.user);
+        }
 
-    // ----- FIXED REDIRECT WITH SESSION PARAMETER -----
-    const userRole = data.user?.role?.toLowerCase();
-    const sessionParam = encodeURIComponent(JSON.stringify(data.user));
+        await Swal.fire({
+          icon: "success",
+          title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
+          text: data.setupComplete
+            ? "Google Authenticator is now connected."
+            : `Welcome back, ${data.user?.name || ""}!`,
+          timer: 1500,
+          showConfirmButton: false,
+        });
 
-    if (userRole === "super_admin") {
-      window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
-    } else if (userRole === "seller") {
-      window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
-    } else {
-      window.location.href = "http://localhost:5173/";
-    }
-  } catch (error) {
-    setIsLoading(false);
-    Swal.fire("Error", error.message, "error");
-  }
-};
+        const userRole = data.user?.role?.toLowerCase();
+        const sessionParam = encodeURIComponent(JSON.stringify(data.user));
+
+        if (userRole === "super_admin") {
+          window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
+        } else if (userRole === "seller") {
+          window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
+        } else {
+          window.location.href = "http://localhost:5173/";
+        }
+      } catch (error) {
+        setIsLoading(false);
+        Swal.fire("Error", error.message, "error");
+      }
+    };
 
   // Show OTP screen if needed
   if (isOtpSent) {

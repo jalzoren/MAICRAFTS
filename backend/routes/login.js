@@ -101,15 +101,38 @@ router.post("/verify-otp", async (req, res) => {
   }
 
   const isSetup = !(user.is_2fa_enabled);
-  const verified = speakeasy.totp.verify({
+  
+  // First, verify with window: 0
+  let verified = speakeasy.totp.verify({
     secret: secret,
     encoding: 'base32',
     token: otp,
     window: 0,
   });
 
+  // If not verified, check if it's a time sync issue
   if (!verified) {
-    return res.status(400).json({ message: "Invalid or expired OTP code. Please try again." });
+    // Try with window 1 to see if code is valid but slightly delayed
+    const checkWithWindow = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: otp,
+      window: 1,
+    });
+
+    if (checkWithWindow) {
+      // Code is valid but has time drift
+      return res.status(400).json({ 
+        message: "Code expired. Please generate a NEW code in Google Authenticator and try again immediately.",
+        hint: "The code you entered was valid but submitted too late. Open Google Authenticator and enter the CURRENT 6-digit code."
+      });
+    } else {
+      // Completely invalid code
+      return res.status(400).json({ 
+        message: "Invalid OTP code. Please check your Google Authenticator and enter the correct 6-digit code.",
+        hint: "Make sure you're entering the current code from Google Authenticator"
+      });
+    }
   }
 
   if (isSetup) {
