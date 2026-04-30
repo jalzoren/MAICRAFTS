@@ -223,6 +223,35 @@ const PasswordComplexitySection = () => {
     return password.split('').sort(() => Math.random() - 0.5).join('');
   };
 
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+  
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/password-settings");
+      const data = await res.json();
+  
+      if (res.ok && data) {
+        setSettings({
+          minLength: data.min_length,
+          requireUppercase: data.require_uppercase,
+          uppercaseMinCount: data.uppercase_min_count,
+          requireLowercase: data.require_lowercase,
+          lowercaseMinCount: data.lowercase_min_count,
+          requireNumber: data.require_number,
+          numberMinCount: data.number_min_count,
+          requireSpecialChar: data.require_special_char,
+          specialCharMinCount: data.special_char_min_count,
+          specialCharSet: data.special_char_set,
+          expiresInDays: data.expires_in_days,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load password settings", err);
+    }
+  };
+
   return (
     <div className="ss-section">
       <div className="ss-section-header">PASSWORD COMPLEXITY</div>
@@ -289,7 +318,7 @@ const LoginAttemptsSection = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/login-settings");
+      const response = await fetch("http://localhost:5000/api/settings/login-settings");
       const data = await response.json();
       if (response.ok && data) {
         setSettings({
@@ -328,7 +357,7 @@ const LoginAttemptsSection = () => {
     setSaving(true);
     
     try {
-      const response = await fetch("http://localhost:5000/api/login-settings", {
+      const response = await fetch("http://localhost:5000/api/settings/login-settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)
