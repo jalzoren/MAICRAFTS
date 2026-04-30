@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OrderDetails from "./pages/seller/OrderDetails";
 import Settings from "./pages/admin/Settings";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import "./App.css";
 
 const SessionHandler = () => {
@@ -71,6 +72,14 @@ function App() {
               <Settings />
             </ProtectedRoute>
           } />
+          <Route
+            path="/admin/audit-logs"
+            element={
+              <ProtectedRoute allowedRoles={["super_admin"]}>
+                <AdminAuditLogs />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/seller/dashboard" element={
             <ProtectedRoute allowedRoles={["seller"]}>
               <Dashboard />

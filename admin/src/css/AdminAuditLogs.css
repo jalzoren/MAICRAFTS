@@ -1,0 +1,49 @@
+
+/* Page uses same system style */
+.audit-table-wrapper {
+    overflow-x: auto;
+  }
+  
+  /* TABLE */
+  .ss-audit-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Raleway', sans-serif;
+    font-size: 0.85rem;
+  }
+  
+  /* HEADER */
+  .ss-audit-table thead {
+    background: #3e2410;
+    color: #e8bb71;
+  }
+  
+  .ss-audit-table th {
+    text-align: left;
+    padding: 12px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  
+  /* ROWS */
+  .ss-audit-table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0e0c0;
+    color: #3a2710;
+  }
+  
+  /* ACTION BADGE */
+  .audit-badge {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: #e8bb7120;
+    color: #4a3018;
+    border: 1px solid #e8bb7140;
+  }
+
+
+ 

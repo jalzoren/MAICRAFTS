@@ -16,6 +16,7 @@ const Sidebar = () => {
         { path: '/admin/dashboard', label: 'Dashboard', icon: FiHome },
         { path: '/admin/users', label: 'User Management', icon: FiUsers },
         { path: '/admin/settings', label: 'System Settings', icon: FiSettings },
+        { path: '/admin/audit-logs', label: 'Audit Logs', icon: FiBox }, 
       ];
     } else if (user?.role?.toLowerCase() === 'seller') {
       return [

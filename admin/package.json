@@ -16,6 +16,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.13",
     "apexcharts": "^5.3.6",
+    "axios": "^1.15.2",
     "bcrypt": "^6.0.0",
     "bootstrap": "^5.3.8",
     "boxicons": "^2.1.4",
