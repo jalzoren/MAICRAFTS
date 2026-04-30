@@ -12,6 +12,7 @@ import userRoutes from './routes/userRoutes.js';
 import addressRoutes from './routes/addressRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import contactAdminRoute from "./routes/contactAdmin.js";
+import settingsRoutes from './routes/settings.js';
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/api', userRoutes);
 app.use('/api/address', addressRoutes);
 app.use('/api', productRoutes); 
 app.use("/api", contactAdminRoute);
+app.use('/api', settingsRoutes);
 
 const PORT = 5000;
 app.listen(PORT, () => {

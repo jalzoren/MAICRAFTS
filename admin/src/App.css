@@ -156,16 +156,7 @@
   color: var(--brown-dark);
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 1rem 1.2rem;
-  border: 2px solid var(--border);
-  border-radius: 14px;
-  font-size: 1rem;
-  transition: all 0.3s;
-}
+
 
 .form-group input:focus,
 .form-group select:focus,

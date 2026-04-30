@@ -1,0 +1,102 @@
+.history-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  animation: fadeIn 0.2s ease;
+}
+
+.history-modal {
+  background: white;
+  border-radius: 16px;
+  width: 800px;
+  max-width: 95vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp 0.3s ease;
+}
+
+.history-modal-header {
+  background: linear-gradient(135deg, #E6BB71 0%, #c9a34f 100%);
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 16px 16px 0 0;
+}
+
+.history-modal-header h3 {
+  margin: 0;
+  color: #462C14;
+  font-size: 18px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+}
+
+.history-close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #462C14;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.history-close-btn:hover {
+  background: rgba(70, 44, 20, 0.1);
+}
+
+.history-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.current-stock-summary {
+  background: #f5f5f5;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 16px;
+  color: #462C14;
+}
+
+.history-table-container {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.history-table th {
+  background: #fafafa;
+  font-weight: 600;
+  color: #462C14;
+  font-size: 13px;
+}
+
+.positive-change {
+  color: #4CAF50;
+  font-weight: 600;
+}
+
+.negative-change {
+  color: #ff4444;
+  font-weight: 600;
+}
