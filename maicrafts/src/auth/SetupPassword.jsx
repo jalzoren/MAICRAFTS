@@ -22,6 +22,7 @@ const SetupPassword = () => {
   const [email, setEmail] = useState("");
   
   const [captchaValue, setCaptchaValue] = useState(null);
+  const [policy, setPolicy] = useState(null);
 
   const handleCaptchaChange = (value) => {
     setCaptchaValue(value); // value will be null if user unchecks captcha
@@ -37,6 +38,55 @@ const SetupPassword = () => {
       navigate("/signup"); // fallback if user skips step
     }
   }, []);
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/password-settings");
+        const data = await res.json();
+  
+        if (res.ok) {
+          setPolicy(data);
+        }
+      } catch (err) {
+        console.error("Failed to load policy", err);
+      }
+    };
+  
+    fetchPolicy();
+  }, []);
+
+  const validatePasswordByPolicy = (password) => {
+    if (!policy) return true;
+  
+    if (password.length < policy.min_length) return false;
+  
+    if (policy.require_uppercase) {
+      const count = (password.match(/[A-Z]/g) || []).length;
+      if (count < policy.uppercase_min_count) return false;
+    }
+  
+    if (policy.require_lowercase) {
+      const count = (password.match(/[a-z]/g) || []).length;
+      if (count < policy.lowercase_min_count) return false;
+    }
+  
+    if (policy.require_number) {
+      const count = (password.match(/[0-9]/g) || []).length;
+      if (count < policy.number_min_count) return false;
+    }
+  
+    if (policy.require_special_char) {
+      const regex = new RegExp(
+        `[${policy.special_char_set.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}]`,
+        "g"
+      );
+      const count = (password.match(regex) || []).length;
+      if (count < policy.special_char_min_count) return false;
+    }
+  
+    return true;
+  };
 
   const checkPasswordStrength = (password) => {
     if (!password) return "";
@@ -179,14 +229,15 @@ const SetupPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
-    if (!validateForm()) {
-      const errorMessage = Object.values(errors)[0] || "Please check your input";
-      showValidationAlert(errorMessage);
+    if (!captchaValue) {
+      showValidationAlert("Please complete the CAPTCHA before continuing");
       return;
     }
   
-    if (!captchaValue) {
-      showValidationAlert("Please complete the CAPTCHA before continuing");
+    if (!validateForm()) return;
+  
+    if (!validatePasswordByPolicy(formData.password)) {
+      showValidationAlert("Password does not meet system requirements");
       return;
     }
   
@@ -229,7 +280,13 @@ const SetupPassword = () => {
     return `${maskedLocal}@${domain}`;
   };
 
-
+  
+  const upperCount = (formData.password.match(/[A-Z]/g) || []).length;
+  const lowerCount = (formData.password.match(/[a-z]/g) || []).length;
+  const numCount = (formData.password.match(/\d/g) || []).length;
+  const specialCount = [...formData.password].filter(ch =>
+    policy.special_char_set.includes(ch)
+  ).length;
 
   return (
     <div className="setup-password-page">
@@ -332,21 +389,37 @@ const SetupPassword = () => {
               <div className="password-requirements">
                 <span className="requirement-title">Password requirements:</span>
                 <ul className="requirement-list">
-                  <li className={formData.password?.length >= 8 ? "met" : ""}>
-                    • At least 8 characters
-                  </li>
-                  <li className={/[A-Z]/.test(formData.password) ? "met" : ""}>
-                    • At least one uppercase letter
-                  </li>
-                  <li className={/[a-z]/.test(formData.password) ? "met" : ""}>
-                    • At least one lowercase letter
-                  </li>
-                  <li className={/\d/.test(formData.password) ? "met" : ""}>
-                    • At least one number
-                  </li>
-                  <li className={/[!@#$%^&*(),.?":{}|<>]/.test(formData.password) ? "met" : ""}>
-                    • At least one special character (recommended)
-                  </li>
+                {policy && (
+                    <>
+                      <li className={formData.password?.length >= policy.min_length ? "met" : ""}>
+                        • At least {policy.min_length} characters
+                      </li>
+
+                      {policy.require_uppercase && (
+                        <li className={upperCount >= policy.uppercase_min_count ? "met" : ""}>
+                          • At least {policy.uppercase_min_count} uppercase letter(s)
+                        </li>
+                      )}
+
+                      {policy.require_lowercase && (
+                        <li className={lowerCount >= policy.lowercase_min_count ? "met" : ""}>
+                          • At least {policy.lowercase_min_count} lowercase letter(s)
+                        </li>
+                      )}
+
+                      {policy.require_number && (
+                        <li className={numCount >= policy.number_min_count ? "met" : ""}>
+                          • At least {policy.number_min_count} number(s)
+                        </li>
+                      )}
+
+                      {policy.require_special_char && (
+                        <li className={specialCount >= policy.special_char_min_count ? "met" : ""}>
+                          • At least {policy.special_char_min_count} special character(s)
+                        </li>
+                      )}
+                    </>
+                  )}
                 </ul>
               </div>
             </div>
