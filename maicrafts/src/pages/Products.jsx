@@ -1,9 +1,8 @@
-// src/pages/Products.jsx
-import { useState, useMemo } from "react";
+// src/pages/Products.jsx (CUSTOMER SIDE)
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import "../css/Products.css";
 import FloatingCart from "../components/FloatingCart.jsx";
-import { products } from "../data/productsData";
 
 const Products = () => {
   const [sortBy, setSortBy] = useState("Popular");
@@ -11,16 +10,62 @@ const Products = () => {
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [cartItems, setCartItems] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // STATE FOR BACKEND DATA
+  const [products, setProducts] = useState([]);
 
-  const occasions = ["Valentine's Day", "Mother's Day", "Birthday", "Anniversary", "Graduation", "Christmas"];
-  const categories = ["Preserved Flowers", "Crochet Gifts", "Luxury Gifts", "Accessories"];
+  // FETCH PRODUCTS FROM YOUR BACKEND
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/products');
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Products fetched:', data.data);
+        setProducts(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    }
+  };
+
+  // Extract unique occasions from variations
+  const occasions = useMemo(() => {
+    const occSet = new Set();
+    products.forEach(product => {
+      if (product.variations && Array.isArray(product.variations)) {
+        product.variations.forEach(variation => {
+          if (variation.occasion) {
+            occSet.add(variation.occasion);
+          }
+        });
+      }
+    });
+    return Array.from(occSet);
+  }, [products]);
+
+  // Extract unique categories
+  const categories = useMemo(() => {
+    const catSet = new Set();
+    products.forEach(product => {
+      if (product.category) catSet.add(product.category);
+    });
+    return Array.from(catSet);
+  }, [products]);
 
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = products.filter((product) => {
-      const occasionMatch =
-        selectedOccasions.length === 0 ||
-        selectedOccasions.some((occ) => product.occasion.includes(occ));
-  
+      // Handle occasion filtering from variations
+      let occasionMatch = true;
+      if (selectedOccasions.length > 0) {
+        const productOccasions = product.variations?.map(v => v.occasion).filter(Boolean) || [];
+        occasionMatch = selectedOccasions.some(occ => productOccasions.includes(occ));
+      }
+
       const categoryMatch =
         selectedCategories.length === 0 ||
         selectedCategories.includes(product.category);
@@ -29,17 +74,17 @@ const Products = () => {
     });
   
     if (sortBy === "Price: Low to High") {
-      filtered = filtered.sort((a, b) => a.price - b.price);
+      filtered = [...filtered].sort((a, b) => a.price - b.price);
     } else if (sortBy === "Price: High to Low") {
-      filtered = filtered.sort((a, b) => b.price - a.price);
+      filtered = [...filtered].sort((a, b) => b.price - a.price);
     } else if (sortBy === "Latest") {
-      filtered = filtered.sort((a, b) => b.id.localeCompare(a.id));
+      filtered = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } else if (sortBy === "Name: A-Z") {
-      filtered = filtered.sort((a, b) => a.id.localeCompare(b.id));
+      filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     }
   
     return filtered;
-  }, [selectedOccasions, selectedCategories, sortBy]);
+  }, [selectedOccasions, selectedCategories, sortBy, products]);
 
   const handleOccasionChange = (occasion) => {
     setSelectedOccasions((prev) =>
@@ -81,7 +126,6 @@ const Products = () => {
   return (
     <>
       {/* HERO SECTION */}
-
       <section className="hero-wrapper d-flex align-items-center justify-content-center">
         <video
           autoPlay
@@ -98,10 +142,6 @@ const Products = () => {
               <p className="hero-desc lead mb-4">
                 Order your Gift Now!
               </p>
-           {/* This works perfectly now 
-              <Link to="/?customize=true" className="btn hero-btn-primary">
-                Customize!
-              </Link>*/}
             </div>
           </div>
         </div>
@@ -151,52 +191,58 @@ const Products = () => {
                 )}
 
                 {/* Occasion Filter */}
-                <div className="filter-group">
-                  <h5 className="filter-group-title">
-                    <i className="fas fa-calendar-alt me-2"></i>
-                    Occasion
-                  </h5>
-                  <div className="filter-options">
-                    {occasions.map((occ) => (
-                      <label key={occ} className="filter-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedOccasions.includes(occ)}
-                          onChange={() => handleOccasionChange(occ)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="filter-label-text">{occ}</span>
-                        <span className="filter-item-count">
-                          ({products.filter(p => p.occasion.includes(occ)).length})
-                        </span>
-                      </label>
-                    ))}
+                {occasions.length > 0 && (
+                  <div className="filter-group">
+                    <h5 className="filter-group-title">
+                      <i className="fas fa-calendar-alt me-2"></i>
+                      Occasion
+                    </h5>
+                    <div className="filter-options">
+                      {occasions.map((occ) => (
+                        <label key={occ} className="filter-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedOccasions.includes(occ)}
+                            onChange={() => handleOccasionChange(occ)}
+                          />
+                          <span className="checkbox-custom"></span>
+                          <span className="filter-label-text">{occ}</span>
+                          <span className="filter-item-count">
+                            ({products.filter(p => 
+                              p.variations?.some(v => v.occasion === occ)
+                            ).length})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Category Filter */}
-                <div className="filter-group">
-                  <h5 className="filter-group-title">
-                    <i className="fas fa-boxes me-2"></i>
-                    Category
-                  </h5>
-                  <div className="filter-options">
-                    {categories.map((cat) => (
-                      <label key={cat} className="filter-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(cat)}
-                          onChange={() => handleCategoryChange(cat)}
-                        />
-                        <span className="checkbox-custom"></span>
-                        <span className="filter-label-text">{cat}</span>
-                        <span className="filter-item-count">
-                          ({products.filter(p => p.category === cat).length})
-                        </span>
-                      </label>
-                    ))}
+                {categories.length > 0 && (
+                  <div className="filter-group">
+                    <h5 className="filter-group-title">
+                      <i className="fas fa-boxes me-2"></i>
+                      Category
+                    </h5>
+                    <div className="filter-options">
+                      {categories.map((cat) => (
+                        <label key={cat} className="filter-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedCategories.includes(cat)}
+                            onChange={() => handleCategoryChange(cat)}
+                          />
+                          <span className="checkbox-custom"></span>
+                          <span className="filter-label-text">{cat}</span>
+                          <span className="filter-item-count">
+                            ({products.filter(p => p.category === cat).length})
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Active Filters Tags */}
                 {activeFiltersCount > 0 && (
@@ -257,47 +303,56 @@ const Products = () => {
               </div>
 
               {/* Products Grid */}
-                {filteredAndSortedProducts.length > 0 ? (
-                  <div className="products-grid">
-                    {filteredAndSortedProducts.map((product) => {
-                      // Determine the correct route based on category
-                      const isCrochet = product.category.toLowerCase().includes("crochet");
-                      const productRoute = isCrochet ? `/crochet/${product.id}` : `/product/${product.id}`;
-                      
-                      return (
-                        <Link
-                          key={product.id}
-                          to={productRoute}
-                          className="product-card"
-                        >
-                          <div className="product-image-container">
-                            <img 
-                              src={product.img} 
-                              alt={product.title} 
-                              className="product-image" 
-                              loading="lazy"
-                            />
-                            <div className="product-hover-overlay">
-                              <span className="quick-view-text">
-                                <i className="fas fa-eye me-2"></i>
-                                Quick View
-                              </span>
-                            </div>
+              {filteredAndSortedProducts.length > 0 ? (
+                <div className="products-grid">
+                  {filteredAndSortedProducts.map((product) => {
+                    // Get the main image URL
+                    const mainImageUrl = product.mainImage || product.image || 'https://via.placeholder.com/300x300?text=🌸';
+                    
+                    // Determine route based on category (crochet vs regular)
+                    const isCrochet = product.category?.toLowerCase().includes("crochet");
+                    const productRoute = isCrochet ? `/crochet/${product.id}` : `/product/${product.id}`;
+                    
+                    return (
+                      <Link
+                        key={product.id}
+                        to={productRoute}
+                        className="product-card"
+                      >
+                        <div className="product-image-container">
+                          <img 
+                            src={mainImageUrl} 
+                            alt={product.name} 
+                            className="product-image" 
+                            loading="lazy"
+                          />
+                          <div className="product-hover-overlay">
+                            <span className="quick-view-text">
+                              <i className="fas fa-eye me-2"></i>
+                              Quick View
+                            </span>
                           </div>
-                          
-                          <div className="product-info">
-                            <h3 className="product-name">
-                              {product.title} {/* Using title instead of ID */}
-                            </h3>
-                            <div className="product-price-container">
-                              <span className="product-price">₱{product.price.toFixed(2)}</span>
-                            </div>
+                        </div>
+                        
+                        <div className="product-info">
+                          <h3 className="product-name">
+                            {product.name}
+                          </h3>
+                          <div className="product-price-container">
+                            <span className="product-price">₱{Number(product.price).toFixed(2)}</span>
                           </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                ) : (
+                          {product.stock <= 5 && product.stock > 0 && (
+                            <span className="low-stock-badge">Low Stock</span>
+                          )}
+                          {product.stock === 0 && (
+                            <span className="out-of-stock-badge">Out of Stock</span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
                 <div className="empty-state">
                   <div className="empty-state-icon">
                     <i className="fas fa-search"></i>
@@ -324,6 +379,8 @@ const Products = () => {
         ></div>
       )}
 
+      {/* Floating Cart Component */}
+      <FloatingCart cartItems={cartItems} removeItem={removeItem} />
     </>
   );
 };
