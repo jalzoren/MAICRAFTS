@@ -1,49 +1,206 @@
 
 /* Page uses same system style */
+.audit-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 1.15rem;
+}
+
+.audit-summary-card {
+  background: linear-gradient(180deg, #fffaf0 0%, #f8ead0 100%);
+  border: 1px solid #ead7ae;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 10px 24px rgba(62, 36, 16, 0.06);
+}
+
+.audit-summary-card span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #7a5c3a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.audit-summary-card strong {
+  color: #3e2410;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.audit-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.audit-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid #ead9b6;
+  background: #fff9ee;
+  color: #5c3b1a;
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.84rem;
+  box-shadow: 0 4px 14px rgba(62, 36, 16, 0.06);
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.audit-tab:hover {
+  transform: translateY(-1px);
+}
+
+.audit-tab.active {
+  background: #3e2410;
+  color: #e8bb71;
+  border-color: #3e2410;
+}
+
+.audit-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: rgba(232, 187, 113, 0.18);
+  font-size: 0.78rem;
+}
+
+.audit-tab.active .audit-tab-count {
+  background: rgba(232, 187, 113, 0.24);
+  color: #f7e3b6;
+}
+
+.audit-error {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: #fff1f0;
+  color: #9b2c2c;
+  border: 1px solid #ffd1cd;
+  font-size: 0.9rem;
+}
+
 .audit-table-wrapper {
-    overflow-x: auto;
-  }
-  
-  /* TABLE */
-  .ss-audit-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: 'Raleway', sans-serif;
-    font-size: 0.85rem;
-  }
-  
-  /* HEADER */
-  .ss-audit-table thead {
-    background: #3e2410;
-    color: #e8bb71;
-  }
-  
-  .ss-audit-table th {
-    text-align: left;
-    padding: 12px;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  
-  /* ROWS */
-  .ss-audit-table td {
-    padding: 12px;
-    border-bottom: 1px solid #f0e0c0;
-    color: #3a2710;
-  }
-  
-  /* ACTION BADGE */
-  .audit-badge {
-    display: inline-block;
-    padding: 0.25rem 0.6rem;
-    border-radius: 20px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    background: #e8bb7120;
-    color: #4a3018;
-    border: 1px solid #e8bb7140;
-  }
+  overflow-x: auto;
+  border: 1px solid #f0e0c0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(62, 36, 16, 0.06);
+}
+
+/* TABLE */
+.ss-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Raleway', sans-serif;
+  font-size: 0.85rem;
+}
+
+/* HEADER */
+.ss-audit-table thead {
+  background: #3e2410;
+  color: #e8bb71;
+}
+
+.ss-audit-table th {
+  text-align: left;
+  padding: 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ROWS */
+.ss-audit-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0e0c0;
+  color: #3a2710;
+}
+
+.ss-audit-table tbody tr:hover {
+  background: #fffaf2;
+}
+
+.audit-empty-cell {
+  padding: 1.6rem 1rem !important;
+  text-align: center;
+  color: #7a5c3a;
+  font-style: italic;
+}
+
+/* ROLE BADGES */
+.role-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #e8bb7120;
+  color: #4a3018;
+  border: 1px solid #e8bb7140;
+}
+
+.role-badge.admin,
+.role-badge.super_admin {
+  background: #3e2410;
+  color: #e8bb71;
+  border-color: #3e241040;
+}
+
+.role-badge.seller,
+.role-badge.editor {
+  background: #fff0e5;
+  color: #9a5a25;
+  border-color: #f1c59a;
+}
+
+.role-badge.customer,
+.role-badge.viewer {
+  background: #eef7ff;
+  color: #245c8a;
+  border-color: #cde6fb;
+}
+
+/* ACTION BADGE */
+.audit-badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #e8bb7120;
+  color: #4a3018;
+  border: 1px solid #e8bb7140;
+}
+
+.audit-badge.login {
+  background: #e9f8ef;
+  color: #146a3a;
+  border-color: #b8e6c8;
+}
+
+.audit-badge.logout {
+  background: #fff0ef;
+  color: #a12f2f;
+  border-color: #f7c3be;
+}
+
+.audit-badge.unknown {
+  background: #f3f3f3;
+  color: #666;
+  border-color: #ddd;
+}
 
 
  

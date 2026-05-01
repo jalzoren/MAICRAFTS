@@ -14,6 +14,7 @@ import productRoutes from './routes/productRoutes.js';
 import contactAdminRoute from "./routes/contactAdmin.js";
 import settingsRoutes from './routes/settings.js';
 import settingsPassword from './routes/passwordSettings.js';
+import auditLogsRoute from './routes/auditLogs.js';
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use('/api', userRoutes);
 app.use('/api/address', addressRoutes);
 app.use('/api', productRoutes); 
 app.use("/api", contactAdminRoute);
+app.use("/api", auditLogsRoute);
 app.use('/api/settings', settingsRoutes);              
 app.use('/api/password-settings', settingsPassword);  
 

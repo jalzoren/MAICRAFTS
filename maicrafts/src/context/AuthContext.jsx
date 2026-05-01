@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 const SESSION_KEY = "mc_session";
+const AUDIT_LOG_URL = "http://localhost:5000/api/audit-logs";
 
 // Helper functions
 const readSession = () => {
@@ -28,6 +29,51 @@ const writeSession = (user) => {
 };
 
 const clearSession = () => localStorage.removeItem(SESSION_KEY);
+
+const buildDisplayName = (profile) => {
+  if (!profile) return "Unknown User";
+
+  return (
+    profile.name ||
+    profile.full_name ||
+    [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+    profile.email ||
+    "Unknown User"
+  );
+};
+
+const queueLogoutAuditLog = (user) => {
+  if (!user) return;
+
+  const displayName = buildDisplayName(user);
+  const payload = {
+    user_id: user.id,
+    user_name: displayName,
+    user_role: user.role || "customer",
+    action: "LOGOUT",
+    module: "Authentication",
+    description: "User logged out successfully.",
+  };
+
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      navigator.sendBeacon(AUDIT_LOG_URL, body);
+      return;
+    }
+
+    void fetch(AUDIT_LOG_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch((error) => {
+      console.error("Failed to record logout audit log:", error);
+    });
+  } catch (error) {
+    console.error("Failed to record logout audit log:", error);
+  }
+};
 
 const normalizeUser = (raw) => ({
   id: raw.id,
@@ -73,11 +119,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(() => {
+    queueLogoutAuditLog(user);
     clearSession();
     setUser(null);
     window.dispatchEvent(new Event("user-updated"));
     window.location.href = 'http://localhost:5173/login';
-  }, []);
+  }, [user]);
 
   const refreshUser = useCallback(async () => {
     if (!user?.id) return;

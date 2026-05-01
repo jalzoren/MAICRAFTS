@@ -3,9 +3,31 @@ import express from 'express';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import supabase from '../supabaseClient.js';
+import { recordAuditLog } from '../utils/auditLogger.js';
 
 const router = express.Router();
 const tempSetup = {};
+
+const buildDisplayName = (userData) => {
+  if (!userData) return "Unknown User";
+
+  return [userData.first_name, userData.last_name]
+    .filter(Boolean)
+    .join(" ") || userData.email || "Unknown User";
+};
+
+const queueLoginAuditLog = (userData, description) => {
+  void recordAuditLog({
+    userId: userData?.id,
+    userName: buildDisplayName(userData),
+    userRole: userData?.role || "customer",
+    action: "LOGIN",
+    module: "Authentication",
+    description,
+  }).catch((error) => {
+    console.error("Audit log error:", error);
+  });
+};
 
 // Remove the global variables and loadLoginSettings function
 // Instead, create a function that fetches fresh settings
@@ -320,6 +342,8 @@ router.post("/verify-otp", async (req, res) => {
       .eq('email', username)
       .single();
 
+      queueLoginAuditLog(userData, "User completed login and 2FA setup.");
+
     return res.json({
       message: "Setup successful!",
       setupComplete: true,
@@ -333,6 +357,8 @@ router.post("/verify-otp", async (req, res) => {
     .select('id, first_name, last_name, middle_name, email, contact_number, role')
     .eq('email', username)
     .single();
+
+  queueLoginAuditLog(userData, "User logged in successfully.");
 
   res.json({
     message: "Login successful",
