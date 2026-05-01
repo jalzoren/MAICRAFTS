@@ -1,7 +1,13 @@
 {
+  "scripts": {
+    "dev": "concurrently \"cd maicrafts && npm run dev\" \"cd admin && npm run dev\" \"cd backend && node server.js\""
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "nodemailer": "^7.0.11"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
