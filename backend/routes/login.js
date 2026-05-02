@@ -29,9 +29,6 @@ const queueLoginAuditLog = (userData, description) => {
   });
 };
 
-// Remove the global variables and loadLoginSettings function
-// Instead, create a function that fetches fresh settings
-
 async function getCurrentSettings() {
   try {
     const { data, error } = await supabase
@@ -182,7 +179,6 @@ router.post("/", async (req, res) => {
     const MAX_ATTEMPTS = settings.maxAttempts;
     const LOCKOUT_MINUTES = settings.lockoutMinutes;
     
-    console.log(`Login attempt for ${username} - Settings: ${MAX_ATTEMPTS} attempts, ${LOCKOUT_MINUTES} min lockout`);
 
     const attemptRecord = await getLoginAttempts(username);
     if (attemptRecord.is_locked && attemptRecord.locked_until) {
