@@ -72,12 +72,51 @@ router.post("/set-password", async (req, res) => {
       to: email,
       subject: "Your OTP Code",
       html: `
-        <div style="font-family: Arial; text-align:center;">
-          <h2>Verification Code</h2>
-          <h1 style="letter-spacing:6px;">${otp}</h1>
-          <p>This code expires in 5 minutes.</p>
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto;
+                  border: 1px solid #e0c896; border-radius: 12px; overflow: hidden;">
+        
+        <!-- Header -->
+        <div style="background: #4b2e16; padding: 24px; text-align: center;">
+          <h1 style="color: #E6BB71; margin: 0; letter-spacing: 4px;">MAICRAFTS</h1>
         </div>
-      `,
+    
+        <!-- Body -->
+        <div style="background: #E6BB71; padding: 32px; text-align: center;">
+          
+          <h2 style="color: #4b2e16; margin-top: 0;">Verification Code</h2>
+          
+          <p style="color: #4b2e16; margin-bottom: 20px;">
+            Use the code below to verify your email address.
+          </p>
+    
+          <!-- OTP BOX -->
+          <div style="display: inline-block; padding: 16px 28px;
+                      background: #fff3d6; border: 2px dashed #4b2e16;
+                      border-radius: 10px; margin-bottom: 20px;">
+            <h1 style="letter-spacing: 8px; margin: 0; color: #4b2e16;">
+              ${otp}
+            </h1>
+          </div>
+    
+          <p style="color: #7a5c3a; font-size: 13px; margin-top: 16px;">
+            This code will expire in <b>5 minutes</b>.
+          </p>
+    
+          <p style="color: #7a5c3a; font-size: 12px; margin-top: 20px;">
+            If you did not request this code, you can safely ignore this email.
+          </p>
+    
+        </div>
+    
+        <!-- Footer -->
+        <div style="background: #4b2e16; padding: 16px; text-align: center;">
+          <p style="color: #E6BB71; font-size: 12px; margin: 0;">
+            © ${new Date().getFullYear()} Maicrafts. All rights reserved.
+          </p>
+        </div>
+    
+      </div>
+    `,
     });
 
     return res.json({
