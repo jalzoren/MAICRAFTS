@@ -1,4 +1,3 @@
-// admin/src/components/LockedAccounts.jsx
 import React, { useState, useEffect } from "react";
 import { FiUnlock, FiClock, FiAlertCircle } from "react-icons/fi";
 import Swal from "sweetalert2";
@@ -8,7 +7,6 @@ const LockedAccounts = ({ onUnlock }) => {
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update current time every second for live countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -19,14 +17,11 @@ const LockedAccounts = ({ onUnlock }) => {
   const fetchLockedAccounts = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:5000/login/locked-accounts");
+      const response = await fetch("http://localhost:5000/api/settings/locked-accounts");
       const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
-      
       setLockedAccounts(data);
     } catch (err) {
-      console.error("Error fetching locked accounts:", err);
+      console.error("Error:", err);
       Swal.fire("Error", "Failed to fetch locked accounts", "error");
     } finally {
       setLoading(false);
@@ -35,45 +30,39 @@ const LockedAccounts = ({ onUnlock }) => {
 
   useEffect(() => {
     fetchLockedAccounts();
-    // Refresh list every 30 seconds to get new locked accounts
-    const refreshInterval = setInterval(() => {
-      fetchLockedAccounts();
-    }, 30000);
-    return () => clearInterval(refreshInterval);
+    const interval = setInterval(fetchLockedAccounts, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleUnlock = async (email, userName) => {
     const result = await Swal.fire({
       title: "Unlock Account?",
-      text: `Are you sure you want to unlock ${userName || email}?`,
+      text: `Unlock ${userName || email}?`,
       icon: "question",
       showCancelButton: true,
       confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
       confirmButtonText: "Yes, unlock it!"
     });
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch("http://localhost:5000/login/unlock-account", {
+        const response = await fetch("http://localhost:5000/api/settings/unlock-account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email })
         });
 
-        if (!response.ok) throw new Error("Failed to unlock");
+        if (!response.ok) throw new Error("Failed");
 
-        Swal.fire("Unlocked!", "Account has been unlocked successfully.", "success");
+        Swal.fire("Unlocked!", "Account unlocked successfully.", "success");
         fetchLockedAccounts();
         if (onUnlock) onUnlock();
       } catch (err) {
-        console.error("Error unlocking:", err);
-        Swal.fire("Error", "Failed to unlock account", "error");
+        Swal.fire("Error", "Failed to unlock", "error");
       }
     }
   };
 
-  // Format date to Philippine Time
   const formatPHTime = (dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString('en-PH', {
@@ -88,34 +77,17 @@ const LockedAccounts = ({ onUnlock }) => {
     });
   };
 
-  // Get live time left (updates every second because currentTime changes)
   const getTimeLeft = (lockedUntil) => {
     const lockEnd = new Date(lockedUntil);
     const diffMs = lockEnd - currentTime;
-    
     if (diffMs <= 0) return "Expired";
-    
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
-    
-    if (diffDays > 0) {
-      return `${diffDays}d ${diffHours}h ${diffMins}m ${diffSecs}s`;
-    }
-    if (diffHours > 0) {
-      return `${diffHours}h ${diffMins}m ${diffSecs}s`;
-    }
-    if (diffMins > 0) {
-      return `${diffMins}m ${diffSecs}s`;
-    }
-    return `${diffSecs}s`;
+    const mins = Math.floor(diffMs / 60000);
+    const secs = Math.floor((diffMs % 60000) / 1000);
+    return `${mins}m ${secs}s`;
   };
 
-  // Remove expired accounts from list
   const activeLockedAccounts = lockedAccounts.filter(account => {
-    const lockEnd = new Date(account.locked_until);
-    return lockEnd > currentTime;
+    return new Date(account.locked_until) > currentTime;
   });
 
   return (
@@ -146,7 +118,7 @@ const LockedAccounts = ({ onUnlock }) => {
               {activeLockedAccounts.map((account, index) => (
                 <tr key={account.id}>
                   <td>{index + 1}</td>
-                  <td>{account.user?.first_name || ''} {account.user?.last_name || ''}</td>
+                  <td>{account.user?.first_name} {account.user?.last_name}</td>
                   <td>{account.email}</td>
                   <td>
                     <span className={`role-badge ${account.user?.role}`}>
@@ -156,32 +128,19 @@ const LockedAccounts = ({ onUnlock }) => {
                   <td><span style={{ fontWeight: "bold", color: "#e74c3c" }}>{account.attempt_count}</span></td>
                   <td>{formatPHTime(account.locked_until)}</td>
                   <td>
-                    <span style={{ display: "flex", alignItems: "center", gap: "5px", fontFamily: "monospace", fontWeight: "bold" }}>
-                      <FiClock size={14} /> 
-                      {getTimeLeft(account.locked_until)}
+                    <span style={{ display: "flex", alignItems: "center", gap: "5px", fontFamily: "monospace" }}>
+                      <FiClock size={14} /> {getTimeLeft(account.locked_until)}
                     </span>
-                   </td>
+                  </td>
                   <td>
                     <button
-                      className="action-btn"
                       onClick={() => handleUnlock(account.email, account.user?.first_name)}
-                      title="Unlock Account"
-                      style={{ 
-                        background: "#2ecc71", 
-                        color: "white", 
-                        border: "none", 
-                        padding: "6px 12px", 
-                        borderRadius: "4px", 
-                        cursor: "pointer", 
-                        display: "flex", 
-                        alignItems: "center", 
-                        gap: "5px" 
-                      }}
+                      style={{ background: "#2ecc71", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
                     >
                       <FiUnlock /> Unlock
                     </button>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

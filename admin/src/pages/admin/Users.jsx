@@ -24,6 +24,7 @@ const Users = () => {
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [userFromRequest, setUserFromRequest] = useState(null);
   const [lockedAccountsCount, setLockedAccountsCount] = useState(0);
+  const [actualLockedUsers, setActualLockedUsers] = useState([]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -71,11 +72,21 @@ const Users = () => {
     }
   };
 
-  const fetchLockedAccountsCount = async () => {
+  // In Users.jsx, update the fetchLockedAccountsCount function
+const fetchLockedAccountsCount = async () => {
     try {
-      const response = await fetch("http://localhost:5000/login/locked-accounts");
+      // Change this URL to match your settings route
+      const response = await fetch("http://localhost:5000/api/settings/locked-accounts");
       const data = await response.json();
-      setLockedAccountsCount(data.length);
+      
+      const currentTime = new Date();
+      const activeLocks = data.filter(account => {
+        const lockEnd = new Date(account.locked_until);
+        return lockEnd > currentTime;
+      });
+      
+      setLockedAccountsCount(activeLocks.length);
+      setActualLockedUsers(activeLocks);
     } catch (err) {
       console.error("Error fetching locked count:", err);
     }
@@ -85,12 +96,19 @@ const Users = () => {
     fetchUsers();
     fetchRequests();
     fetchLockedAccountsCount();
+    
+    // Refresh locked accounts count every 10 seconds for real-time updates
+    const interval = setInterval(() => {
+      fetchLockedAccountsCount();
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate statistics
   const totalUsers = users.length;
   const activeUsers = users.filter(user => user.status === 'active' && !user.isLocked).length;
-  const lockedAccounts = users.filter(user => user.isLocked || user.status === 'inactive').length;
+  const lockedAccounts = lockedAccountsCount; // Use actual locked accounts count from API
   const adminUsers = users.filter(user => user.role === 'admin' || user.role === 'super_admin').length;
 
   const filteredUsers = users.filter(user => {
@@ -192,6 +210,9 @@ const Users = () => {
         setUsers(users.map(u => 
           u.id === userId ? { ...u, isLocked: !u.isLocked, status: !u.isLocked ? 'inactive' : 'active' } : u
         ));
+        
+        // Refresh locked accounts count after lock/unlock
+        await fetchLockedAccountsCount();
         
         Swal.fire({
           icon: 'success',
