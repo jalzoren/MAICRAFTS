@@ -1,6 +1,7 @@
 // backend/routes/settings.js
 import express from 'express';
 import supabase, { supabaseAdmin } from '../supabaseClient.js';
+import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
@@ -33,6 +34,8 @@ router.post("/login-settings", async (req, res) => {
       })
       .eq('setting_key', 'login_attempts');
     
+    let finalError = updateError;
+
     if (updateError && updateError.code === 'PGRST116') {
       const { error: insertError } = await supabaseAdmin
         .from('system_settings')
@@ -42,12 +45,22 @@ router.post("/login-settings", async (req, res) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
-      
-      if (insertError) throw insertError;
-    } else if (updateError) {
-      throw updateError;
+
+      finalError = insertError;
     }
-    
+
+    if (finalError) throw finalError;
+
+    // ✅ AUDIT LOG (ONLY ON SUCCESS)
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "UPDATE",
+      module: "SETTINGS",
+      description: `Updated login settings (maxAttempts: ${maxAttempts}, lockout: ${lockoutDurationMinutes}min)`,
+    });
+
     res.json({ message: "Settings saved successfully" });
   } catch (err) {
     console.error("Error saving:", err);
@@ -60,7 +73,6 @@ router.get("/locked-accounts", async (req, res) => {
   try {
     const currentTime = new Date().toISOString();
     
-    // First, get all login attempts that are locked
     const { data: loginAttempts, error: attemptsError } = await supabase
       .from('login_attempts')
       .select('*')
@@ -76,7 +88,6 @@ router.get("/locked-accounts", async (req, res) => {
       return res.json([]);
     }
 
-    // Get all users to join the data
     const { data: allUsers, error: usersError } = await supabase
       .from('users')
       .select('email, first_name, last_name, role');
@@ -86,7 +97,6 @@ router.get("/locked-accounts", async (req, res) => {
       return res.status(500).json({ error: usersError.message });
     }
 
-    // Combine the data
     const combinedData = loginAttempts.map(attempt => {
       const user = allUsers?.find(u => u.email === attempt.email);
       
@@ -111,6 +121,16 @@ router.get("/locked-accounts", async (req, res) => {
       };
     });
 
+    // ✅ AUDIT LOG
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "VIEW",
+      module: "SECURITY",
+      description: "Viewed locked accounts list",
+    });
+
     res.json(combinedData);
   } catch (err) {
     console.error("Error:", err);
@@ -127,7 +147,6 @@ router.post("/unlock-account", async (req, res) => {
   }
 
   try {
-    // Update login_attempts to unlock
     const { error: updateError } = await supabaseAdmin
       .from('login_attempts')
       .update({
@@ -139,6 +158,16 @@ router.post("/unlock-account", async (req, res) => {
       .eq('email', email);
 
     if (updateError) throw updateError;
+
+    // ✅ AUDIT LOG (AFTER SUCCESS ONLY)
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "UPDATE",
+      module: "SECURITY",
+      description: `Unlocked account: ${email}`,
+    });
 
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {

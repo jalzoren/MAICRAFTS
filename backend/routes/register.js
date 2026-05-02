@@ -3,6 +3,7 @@ import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import nodemailer from "nodemailer";
 import supabase from "../supabaseClient.js";
+import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
@@ -24,6 +25,15 @@ router.post("/register", async (req, res) => {
       email,
       otp,
       expires_at: expiresAt,
+    });
+
+    await createAuditLog({
+      user_id: null,
+      user_name: "GUEST",
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "AUTH",
+      description: `OTP sent to ${email}`,
     });
 
     const transporter = nodemailer.createTransport({
@@ -105,6 +115,15 @@ router.post("/verify-otp", async (req, res) => {
       is_active: false,
     });
 
+    await createAuditLog({
+      user_id: userId,
+      user_name: `${first_name} ${last_name}`,
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "USER",
+      description: "Customer account created after OTP verification",
+    });
+
     // 4. Send activation email
     const token = uuidv4();
 
@@ -113,6 +132,15 @@ router.post("/verify-otp", async (req, res) => {
       user_id: userId,
       token,
       created_at: new Date(),
+    });
+
+    await createAuditLog({
+      user_id: userId,
+      user_name: `${first_name} ${last_name}`,
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "AUTH",
+      description: "Email verification link generated",
     });
 
     const transporter = nodemailer.createTransport({
