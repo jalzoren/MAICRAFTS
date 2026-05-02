@@ -15,6 +15,7 @@ import contactAdminRoute from "./routes/contactAdmin.js";
 import settingsRoutes from './routes/settings.js';
 import settingsPassword from './routes/passwordSettings.js';
 import auditLogsRoute from './routes/auditLogs.js';
+import setPasswordRoute from "./routes/set-password.js";
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use("/api", contactAdminRoute);
 app.use("/api", auditLogsRoute);
 app.use('/api/settings', settingsRoutes);              
 app.use('/api/password-settings', settingsPassword);  
+app.use("/api", setPasswordRoute);
 
 const PORT = 5000;
 app.listen(PORT, () => {

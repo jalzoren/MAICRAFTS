@@ -23,7 +23,6 @@ const SetupPassword = () => {
   
   const [captchaValue, setCaptchaValue] = useState(null);
   const [policy, setPolicy] = useState(null);
-  const currentStep = 2;
 
   const handleCaptchaChange = (value) => {
     setCaptchaValue(value); // value will be null if user unchecks captcha
@@ -56,38 +55,6 @@ const SetupPassword = () => {
   
     fetchPolicy();
   }, []);
-
-  const validatePasswordByPolicy = (password) => {
-    if (!policy) return true;
-  
-    if (password.length < policy.min_length) return false;
-  
-    if (policy.require_uppercase) {
-      const count = (password.match(/[A-Z]/g) || []).length;
-      if (count < policy.uppercase_min_count) return false;
-    }
-  
-    if (policy.require_lowercase) {
-      const count = (password.match(/[a-z]/g) || []).length;
-      if (count < policy.lowercase_min_count) return false;
-    }
-  
-    if (policy.require_number) {
-      const count = (password.match(/[0-9]/g) || []).length;
-      if (count < policy.number_min_count) return false;
-    }
-  
-    if (policy.require_special_char) {
-      const regex = new RegExp(
-        `[${policy.special_char_set.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}]`,
-        "g"
-      );
-      const count = (password.match(regex) || []).length;
-      if (count < policy.special_char_min_count) return false;
-    }
-  
-    return true;
-  };
 
   const checkPasswordStrength = (password) => {
     if (!password) return "";
@@ -166,31 +133,6 @@ const SetupPassword = () => {
     }));
   };
 
-  const showSuccessAlert = () => {
-    Swal.fire({
-      title: 'Account Created!',
-      text: 'Your account has been successfully created. Check your email for activation',
-      icon: 'success',
-      background: '#E6BB71',
-      color: '#4b2e16',
-      confirmButtonColor: '#4b2e16',
-      confirmButtonText: 'Continue',
-      timer: 3000,
-      timerProgressBar: true,
-      customClass: {
-        popup: 'swal-custom-popup',
-        title: 'swal-custom-title',
-        htmlContainer: 'swal-custom-text'
-      }
-    }).then(() => {
-      // Clear session storage
-      sessionStorage.removeItem("signupEmail");
-      sessionStorage.removeItem("emailVerified");
-      sessionStorage.removeItem("passwordSetup");
-      navigate("/login");
-    });
-  };
-
   const showErrorAlert = (message) => {
     Swal.fire({
       title: 'Error',
@@ -230,29 +172,58 @@ const SetupPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
-    if (!captchaValue) {
-      showValidationAlert("Please complete CAPTCHA");
+    if (!formData.password || !formData.confirmPassword) {
+      showValidationAlert("Please fill in password fields");
       return;
     }
   
-    if (!validateForm()) return;
+    if (formData.password !== formData.confirmPassword) {
+      showValidationAlert("Passwords do not match");
+      return;
+    }
   
-    if (!validatePasswordByPolicy(formData.password)) {
-      showValidationAlert("Password does not meet requirements");
+    if (!captchaValue) {
+      showValidationAlert("Please complete CAPTCHA");
       return;
     }
   
     setIsLoading(true);
   
     try {
-      // DO NOT register yet
-      sessionStorage.setItem("signupPassword", formData.password);
+      const email = sessionStorage.getItem("signupEmail");
   
-      // go to OTP step
-      navigate("/enter-code");
+      const response = await fetch("http://localhost:5000/api/set-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: formData.password,
+          captcha: captchaValue,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        showErrorAlert(data.error || "Something went wrong");
+        return;
+      }
+  
+      Swal.fire({
+        title: "OTP Sent!",
+        text: "We sent a verification code to your email.",
+        icon: "success",
+        confirmButtonColor: "#4b2e16",
+        confirmButtonText: "Continue",
+        timer: 2000,
+        timerProgressBar: true,
+      }).then(() => {
+        sessionStorage.setItem("signupPassword", formData.password);
+        navigate("/enter-code");
+      });
   
     } catch (error) {
-      showErrorAlert("Something went wrong");
+      showErrorAlert("Network or server error");
     } finally {
       setIsLoading(false);
     }
@@ -479,7 +450,7 @@ const SetupPassword = () => {
               {isLoading ? (
                 <span className="loading-spinner" role="status" aria-label="Loading"></span>
               ) : (
-                "CREATE ACCOUNT"
+                "NEXT"
               )}
             </button>
 
@@ -491,7 +462,7 @@ const SetupPassword = () => {
               disabled={isLoading}
             >
              <span className="back-icon"></span>
-              BACK TO LOGIN
+              BACK TO EMAIL
             </button>
           </form>
 

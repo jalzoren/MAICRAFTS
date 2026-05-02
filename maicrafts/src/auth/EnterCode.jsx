@@ -91,8 +91,8 @@ const EnterCode = () => {
 
   const showSuccessAlert = () => {
     Swal.fire({
-      title: 'Email Verified!',
-      text: 'Your email has been verified successfully.',
+      title: 'Verification Successful!',
+      text: 'Your account has been created. Please check your email to activate your account.',
       icon: 'success',
       background: '#E6BB71',
       color: '#4b2e16',
@@ -184,19 +184,16 @@ const EnterCode = () => {
     setIsLoading(true);
   
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-  
       const email = sessionStorage.getItem("signupEmail");
       const password = sessionStorage.getItem("signupPassword");
   
-      // FINAL ACCOUNT CREATION HERE
-      const response = await fetch("http://localhost:5000/api/register", {
+      const response = await fetch("http://localhost:5000/api/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
+          otp: otp.join(""),
           password,
-          otp: otp.join("")
         }),
       });
   
@@ -208,10 +205,10 @@ const EnterCode = () => {
       }
   
       sessionStorage.clear();
-  
       showSuccessAlert();
   
     } catch (error) {
+      console.error(error);
       showErrorAlert("Network error");
     } finally {
       setIsLoading(false);

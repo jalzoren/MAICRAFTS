@@ -36,7 +36,7 @@
 
       await supabase
         .from("users")
-        .update({ is_verified: true })
+        .update({ is_active: true })
         .eq("id", verification.user_id);
 
       // Mark token as used
