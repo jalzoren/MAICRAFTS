@@ -23,6 +23,7 @@ const SetupPassword = () => {
   
   const [captchaValue, setCaptchaValue] = useState(null);
   const [policy, setPolicy] = useState(null);
+  const currentStep = 2;
 
   const handleCaptchaChange = (value) => {
     setCaptchaValue(value); // value will be null if user unchecks captcha
@@ -230,37 +231,28 @@ const SetupPassword = () => {
     e.preventDefault();
   
     if (!captchaValue) {
-      showValidationAlert("Please complete the CAPTCHA before continuing");
+      showValidationAlert("Please complete CAPTCHA");
       return;
     }
   
     if (!validateForm()) return;
   
     if (!validatePasswordByPolicy(formData.password)) {
-      showValidationAlert("Password does not meet system requirements");
+      showValidationAlert("Password does not meet requirements");
       return;
     }
   
     setIsLoading(true);
   
     try {
-      const response = await fetch("http://localhost:5000/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: formData.password, captcha: captchaValue }),
-      });
+      // DO NOT register yet
+      sessionStorage.setItem("signupPassword", formData.password);
   
-      const data = await response.json();
+      // go to OTP step
+      navigate("/enter-code");
   
-      if (!response.ok) {
-        showErrorAlert(data.error || "Failed to save password");
-        return;
-      }
-  
-      showSuccessAlert();
     } catch (error) {
-      console.error(error);
-      showErrorAlert("Failed to save password. Please try again.");
+      showErrorAlert("Something went wrong");
     } finally {
       setIsLoading(false);
     }
@@ -313,22 +305,27 @@ const SetupPassword = () => {
           {/* Progress Indicator - Fixed Line */}
           <div className="progress-indicator">
             <div className="progress-steps">
-              {/* Step 1 - Email - Completed */}
+              {/* Step 1 - Completed */}
               <div className="progress-step">
                 <div className="step-number completed">✓</div>
                 <span className="step-label completed">Email</span>
               </div>
               
-              
-              {/* Step 3 - Password - Active */}
+              {/* Step 2 - Active */}
               <div className="progress-step">
                 <div className="step-number active">2</div>
                 <span className="step-label active">Password</span>
               </div>
               
-              {/* Step 4 - Done - Pending */}
+              {/* Step 3 - Pending */}
               <div className="progress-step">
                 <div className="step-number">3</div>
+                <span className="step-label">Verify</span>
+              </div>
+              
+              {/* Step 4 - Pending */}
+              <div className="progress-step">
+                <div className="step-number">4</div>
                 <span className="step-label">Done</span>
               </div>
             </div>

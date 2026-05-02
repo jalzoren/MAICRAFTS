@@ -11,14 +11,11 @@ const Signup = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const currentStep = 1; // you're in VERIFY step
   const [openTerms, setOpenTerms] = useState(false);
   const [openPrivacy, setOpenPrivacy] = useState(false);
 
   // Animate progress indicator on mount
-  useEffect(() => {
-    setProgress(25);
-  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -58,7 +55,7 @@ const Signup = () => {
     if (!isValid) return;
 
     setIsLoading(true);
-    setProgress(50);
+  
 
     try {
       // Simulate API call
@@ -72,7 +69,6 @@ const Signup = () => {
 
     } catch (error) {
       console.error(error);
-      setProgress(25);
     } finally {
       setIsLoading(false);
     }
@@ -105,31 +101,43 @@ const Signup = () => {
           {/* Progress Indicator */}
           <div className="progress-indicator">
             <div className="progress-steps">
-              
+
+              {/* STEP 1 - Email */}
               <div className="progress-step">
-                <div className={`step-number ${progress >= 25 ? 'active' : ''} ${progress > 25 ? 'completed' : ''}`}>
-                  {progress >= 25 ? '✓' : '1'}
+                <div className={`step-number ${currentStep > 1 ? "completed" : currentStep === 1 ? "active" : ""}`}>
+                  {currentStep > 1 ? "✓" : "1"}
                 </div>
-                <span className={`step-label ${progress >= 25 ? 'active' : ''} ${progress > 25 ? 'completed' : ''}`}>
+                <span className={`step-label ${currentStep >= 1 ? "active" : ""}`}>
                   Email
                 </span>
               </div>
 
-
+              {/* STEP 2 - Password */}
               <div className="progress-step">
-                <div className={`step-number ${progress >= 75 ? 'active' : ''} ${progress > 75 ? 'completed' : ''}`}>
-                  {progress >= 75 ? '✓' : '2'}
+                <div className={`step-number ${currentStep > 2 ? "completed" : currentStep === 2 ? "active" : ""}`}>
+                  {currentStep > 2 ? "✓" : "2"}
                 </div>
-                <span className={`step-label ${progress >= 75 ? 'active' : ''} ${progress > 75 ? 'completed' : ''}`}>
+                <span className={`step-label ${currentStep >= 2 ? "active" : ""}`}>
                   Password
                 </span>
               </div>
 
+              {/* STEP 3 - Verify (YOU ARE HERE) */}
               <div className="progress-step">
-                <div className={`step-number ${progress >= 100 ? 'active' : ''} ${progress >= 100 ? 'completed' : ''}`}>
-                  {progress >= 100 ? '✓' : '3'}
+                <div className={`step-number ${currentStep > 3 ? "completed" : currentStep === 3 ? "active" : ""}`}>
+                  {currentStep > 3 ? "✓" : "3"}
                 </div>
-                <span className={`step-label ${progress >= 100 ? 'active' : ''} ${progress >= 100 ? 'completed' : ''}`}>
+                <span className={`step-label ${currentStep >= 3 ? "active" : ""}`}>
+                  Verify
+                </span>
+              </div>
+
+              {/* STEP 4 - Done */}
+              <div className="progress-step">
+                <div className={`step-number ${currentStep > 4 ? "completed" : currentStep === 4 ? "active" : ""}`}>
+                  {currentStep > 4 ? "✓" : "4"}
+                </div>
+                <span className={`step-label ${currentStep >= 4 ? "active" : ""}`}>
                   Done
                 </span>
               </div>
