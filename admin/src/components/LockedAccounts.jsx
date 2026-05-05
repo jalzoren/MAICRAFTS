@@ -34,7 +34,7 @@ const LockedAccounts = ({ onUnlock }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUnlock = async (email, userName, userId) => {
+  const handleUnlock = async (email, userName) => {
     const result = await Swal.fire({
       title: "Unlock Account?",
       text: `Unlock ${userName || email}?`,
@@ -49,7 +49,7 @@ const LockedAccounts = ({ onUnlock }) => {
         const response = await fetch("http://localhost:5000/api/settings/unlock-account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, user_id: userId })
+          body: JSON.stringify({ email })
         });
 
         if (!response.ok) throw new Error("Failed");
@@ -134,11 +134,7 @@ const LockedAccounts = ({ onUnlock }) => {
                   </td>
                   <td>
                     <button
-                      onClick={() => handleUnlock(
-                        account.email,
-                        account.user?.first_name,
-                        account.user?.id
-                      )}
+                      onClick={() => handleUnlock(account.email, account.user?.first_name)}
                       style={{ background: "#2ecc71", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
                     >
                       <FiUnlock /> Unlock
