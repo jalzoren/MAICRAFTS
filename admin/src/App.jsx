@@ -21,12 +21,26 @@ const SessionHandler = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const sessionParam = params.get("session");
+    const tokenParam = params.get("token") || params.get("access_token");
+    
+    console.log("🔍 SessionHandler - URL params:", {
+      sessionParam: sessionParam ? "Present" : "Missing",
+      tokenParam: tokenParam ? "Present" : "Missing",
+      fullSearch: location.search
+    });
+    
     if (sessionParam && !urlProcessed) {
       try {
         const user = JSON.parse(decodeURIComponent(sessionParam));
         console.log("✅ Session received from URL:", user);
-        setUserFromUrl(user);
-        window.history.replaceState({}, "", location.pathname);
+        console.log("✅ Token received:", tokenParam ? tokenParam.substring(0, 20) + "..." : "No token");
+        
+        // Pass both user data AND token to setUserFromUrl
+        setUserFromUrl(user, tokenParam);
+        
+        // Clean URL - remove both session and token parameters
+        const cleanUrl = location.pathname;
+        window.history.replaceState({}, "", cleanUrl);
         setUrlProcessed(true);
       } catch (err) {
         console.error("Failed to parse session:", err);
@@ -35,7 +49,7 @@ const SessionHandler = () => {
     } else if (!sessionParam) {
       setUrlProcessed(true);
     }
-  }, [setUserFromUrl, urlProcessed]);
+  }, [setUserFromUrl, urlProcessed, location]);
 
   return null;
 };

@@ -358,3 +358,156 @@
   display: grid;
   place-items: center;
 }
+
+/* New Styles for Dynamic Variations */
+.section {
+  margin-bottom: 25px;
+}
+
+.product-stock {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 30px;
+}
+
+.addons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.addon-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #3c2415;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.addon-item:hover {
+  background: #4a3218;
+}
+
+.addon-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #d4a574;
+}
+
+.addon-name {
+  flex: 1;
+  color: #fff;
+  font-weight: 500;
+}
+
+.addon-price {
+  color: #d4a574;
+  font-weight: 600;
+}
+
+.price-breakdown {
+  background: #3c2415;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #8b6139;
+}
+
+.price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 14px;
+  color: #aaa;
+}
+
+.price-row.total {
+  border-top: 2px solid #8b6139;
+  padding-top: 12px;
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #d4a574;
+}
+
+.btn-add-cart:disabled,
+.btn-buy-now:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 18px;
+  color: #aaa;
+}
+
+/* ── Color Swatches ──────────────────────────────────────────────────────── */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+ 
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  outline: none;
+}
+ 
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+ 
+.color-swatch--active {
+  border-color: #333;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #333;
+}
+ 
+.selected-color-label {
+  font-weight: 500;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    gap: 20px;
+  }
+
+  .image-section {
+    flex: 0 0 100%;
+  }
+
+  .info-section {
+    flex: 0 0 100%;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .related-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .product-title {
+    font-size: 24px;
+  }
+
+  .quantity-controls {
+    width: 100%;
+  }
+}

@@ -21,6 +21,13 @@ export const AuthProvider = ({ children }) => {
       const raw = sessionStorage.getItem(SESSION_KEY);  
       if (!raw) return null;
       const session = JSON.parse(raw);
+      
+      // Check if token exists
+      if (!session.user?.access_token) {
+        console.warn('Session exists but no access token found');
+        return null;
+      }
+      
       return session; 
     } catch {
       sessionStorage.removeItem(SESSION_KEY); 
@@ -40,10 +47,44 @@ export const AuthProvider = ({ children }) => {
     setSessionReady(true);
   }, []);
 
-  const setUserFromUrl = (userData) => {
-    const session = { user: userData, loginAt: new Date().toISOString() };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  // In AuthContext.jsx
+const setUserFromUrl = (userData, accessToken = null) => {
+  console.log('📍 setUserFromUrl called with:', { 
+    userId: userData?.id, 
+    hasToken: !!accessToken 
+  });
+  
+  // If no token provided, try to get it from URL (fallback)
+  if (!accessToken) {
+    const urlParams = new URLSearchParams(window.location.search);
+    accessToken = urlParams.get('token') || urlParams.get('access_token');
+    
+    // Also check hash fragment (common in OAuth)
+    if (!accessToken && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      accessToken = hashParams.get('access_token');
+    }
+  }
+  
+  if (!accessToken) {
+    console.error('❌ No access token provided to setUserFromUrl');
+  }
+  
+  const session = { 
+    user: { 
+      ...userData,
+      access_token: accessToken  // Store the token
+    }, 
+    loginAt: new Date().toISOString() 
   };
+  
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  setUser(session.user);
+  
+  console.log('✅ Session saved with token:', accessToken ? 'Yes' : 'No');
+  
+  return session.user;
+};
 
   const buildDisplayName = (profile) => {
     if (!profile) return "Unknown User";
@@ -103,3 +144,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+

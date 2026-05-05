@@ -377,6 +377,7 @@ router.post("/", async (req, res) => {
 });
 
 // VERIFY OTP ENDPOINT
+// VERIFY OTP ENDPOINT - UPDATED to include token
 router.post("/verify-otp", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const otp = req.body.otp?.trim();
@@ -431,6 +432,15 @@ router.post("/verify-otp", async (req, res) => {
   await updateUnlockAudit(username, null, 'Account unlocked via successful login');
   await resetLoginAttempts(username);
 
+  // GET THE SUPABASE SESSION TOKEN
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
+
+  if (!accessToken) {
+    console.error('No access token found after successful login');
+    return res.status(500).json({ message: "Failed to get session token" });
+  }
+
   if (isSetup) {
     const { error: updateError } = await supabase
       .from('users')
@@ -454,10 +464,12 @@ router.post("/verify-otp", async (req, res) => {
 
     queueLoginAuditLog(userData, "User completed login and 2FA setup.");
 
+    // Return user data WITH token
     return res.json({
       message: "Setup successful!",
       setupComplete: true,
       user: _buildUserPayload(userData),
+      token: accessToken, // ← ADD THIS
     });
   }
 
@@ -470,9 +482,11 @@ router.post("/verify-otp", async (req, res) => {
 
   queueLoginAuditLog(userData, "User logged in successfully.");
 
+  // Return user data WITH token
   res.json({
     message: "Login successful",
     user: _buildUserPayload(userData),
+    token: accessToken, // ← ADD THIS
   });
 });
 
