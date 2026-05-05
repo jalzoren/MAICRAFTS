@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
 import "../css/ProductDetail.css";
-import CheckoutFormModal from "../components/CheckoutFormModal";
 
 const ProductDetail = () => {
   const { id } = useParams();
