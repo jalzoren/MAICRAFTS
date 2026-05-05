@@ -99,7 +99,7 @@ router.post("/set-password", async (req, res) => {
           </div>
     
           <p style="color: #7a5c3a; font-size: 13px; margin-top: 16px;">
-            This code will expire in <b>5 minutes</b>.
+            This code will expire in <b>1 minute</b>.
           </p>
     
           <p style="color: #7a5c3a; font-size: 12px; margin-top: 20px;">
@@ -130,6 +130,76 @@ router.post("/set-password", async (req, res) => {
 });
 
 
+router.post("/resend-otp", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: "Email required" });
+  }
+
+  // 🔒 OPTIONAL: Rate limit (recommended)
+  const { data: lastOtp } = await supabase
+    .from("email_otps")
+    .select("created_at")
+    .eq("email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (lastOtp) {
+    const lastTime = new Date(lastOtp.created_at).getTime();
+    const now = Date.now();
+
+    if (now - lastTime < 60000) {
+      return res.status(429).json({
+        error: "Please wait before requesting another OTP",
+      });
+    }
+  }
+
+  // 🔢 Generate new OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 60 * 1000);
+
+  try {
+    // Save new OTP
+    const { error } = await supabase
+      .from("email_otps")
+      .insert({
+        email,
+        otp,
+        expires_at: expiresAt,
+      });
+
+    if (error) {
+      return res.status(500).json({ error: "Failed to store OTP" });
+    }
+
+    // Send email
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.VERIFY_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Maicrafts" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your New OTP Code",
+      html: `<h2>Your new OTP is: ${otp}</h2>`,
+    });
+
+    return res.json({ message: "OTP resent successfully" });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 export default router;
