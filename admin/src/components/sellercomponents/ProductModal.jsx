@@ -21,6 +21,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
   const [newAddOn, setNewAddOn] = useState({ name: '', price: '' });
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState(['Satin Flowers', 'Dried Flowers', 'Fresh Flowers', 'Bouquets']);
+  const hasBundleVariations = variations?.bundles?.length > 0;
 
   useEffect(() => {
     if (product && isEditing) {
@@ -146,15 +147,47 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) { alert('Please enter product name'); return; }
-    if (!formData.price || formData.price <= 0) { alert('Please enter valid price'); return; }
     if (!formData.category) { alert('Please select a category'); return; }
+
+    const bundleErrors = [];
+    if (hasBundleVariations) {
+      variations.bundles.forEach((bundle, index) => {
+        if (!bundle.quantity || Number(bundle.quantity) <= 0) {
+          bundleErrors.push(`Bundle #${index + 1}: quantity must be greater than 0.`);
+        }
+        if (!bundle.size?.trim()) {
+          bundleErrors.push(`Bundle #${index + 1}: size is required.`);
+        }
+        if (bundle.price === '' || bundle.price === null || isNaN(parseFloat(bundle.price)) || parseFloat(bundle.price) < 0) {
+          bundleErrors.push(`Bundle #${index + 1}: price must be a valid non-negative number.`);
+        }
+      });
+    }
+    if (bundleErrors.length > 0) {
+      alert(bundleErrors.join('\n'));
+      return;
+    }
+
+    if (!hasBundleVariations) {
+      if (!formData.price || formData.price <= 0) { alert('Please enter valid price'); return; }
+    }
 
     setUploading(true);
     try {
       const submitData = new FormData();
       submitData.append('name', formData.name.trim());
       submitData.append('description', formData.description.trim());
-      submitData.append('price', formData.price);
+
+      const bundlePrices = variations.bundles
+        .map(bundle => parseFloat(bundle.price))
+        .filter((price) => !isNaN(price));
+      const fixedPrice = !hasBundleVariations
+        ? parseFloat(formData.price)
+        : bundlePrices.length > 0
+          ? Math.min(...bundlePrices)
+          : 0;
+
+      submitData.append('price', fixedPrice.toString());
 
       if (!isEditing) submitData.append('stock', formData.stock);
 
@@ -291,15 +324,25 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
             {/* Price and Stock Row */}
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Price (₱) *</label>
+                <label className="form-label">
+                  Price (₱) {hasBundleVariations ? '(auto from bundle prices)' : '*'}
+                </label>
                 <input
                   type="number"
                   className="form-input"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
+                  placeholder={hasBundleVariations ? 'Derived from bundle prices' : '0.00'}
                   step="0.01"
+                  disabled={hasBundleVariations}
+                  readOnly={hasBundleVariations}
+                  style={hasBundleVariations ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {} }
                 />
+                {hasBundleVariations && (
+                  <small className="field-hint">
+                    This product uses bundle prices, so the displayed base price is derived from the bundles above.
+                  </small>
+                )}
               </div>
 
               <div className="form-group">

@@ -62,7 +62,22 @@ export const CartProvider = ({ children }) => {
 
       const data = await res.json();
       if (res.ok) {
-        setItems(data.cart || []);
+        // Flatten the nested product data into top-level fields
+        const flatCart = (data.cart || []).map(item => ({
+          cart_id: item.cart_id,
+          user_id: item.user_id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          note: item.note,
+          created_at: item.created_at,
+          // Flattened product fields (matching guest cart structure)
+          name: item.product?.name,
+          price: Number(item.product?.price) || 0,
+          image_url: item.product?.image || item.product?.mainImage || null,
+          // Keep original product data if needed elsewhere
+          product: item.product,
+        }));
+        setItems(flatCart);
         window.dispatchEvent(new Event("cart-updated"));
       }
     } catch (err) {
@@ -143,9 +158,11 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
-      await fetch(`http://localhost:5000/api/cart/${user.id}/${productId}`, {
-        method: "DELETE",
-      });
+      let url = `http://localhost:5000/api/cart/${user.id}/${productId}`;
+      if (note !== undefined) {
+        url += `?note=${encodeURIComponent(note)}`;
+      }
+      await fetch(url, { method: "DELETE" });
       await loadUserCart(user.id);
     } catch (err) {
       console.error("removeItem failed:", err);
@@ -167,16 +184,20 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
+      const payload = { quantity };
+      if (note !== undefined) {
+        payload.note = note;
+      }
       await fetch(`http://localhost:5000/api/cart/${user.id}/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity }),
+        body: JSON.stringify(payload),
       });
       await loadUserCart(user.id);
     } catch (err) {
       console.error("updateQuantity failed:", err);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, removeItem]);
 
   const clearCart = useCallback(async () => {
     if (!isAuthenticated) {

@@ -1,5 +1,6 @@
+// cartRoutes.js 
 import express from 'express';
-import supabase from '../supabaseClient.js';
+import supabase, { supabaseAdmin } from '../supabaseClient.js';
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ const normalizeNote = (note) => {
 router.get('/cart/:userId', async (req, res) => {
 	try {
 		const userId = req.params.userId;
-		const { data: cartRows, error: cartErr } = await supabase
+		const { data: cartRows, error: cartErr } = await supabaseAdmin
 			.from('cart')
 			.select('*')
 			.eq('user_id', userId);
@@ -24,7 +25,7 @@ router.get('/cart/:userId', async (req, res) => {
 
 		const productIds = [...new Set(cartRows.map(r => r.product_id).filter(Boolean))];
 		const { data: products = [], error: prodErr } = productIds.length > 0
-			? await supabase.from('products').select('*').in('id', productIds)
+			? await supabaseAdmin.from('products').select('*').in('id', productIds)
 			: { data: [], error: null };
 
 		if (prodErr) console.error('Product fetch error for cart:', prodErr);
@@ -69,7 +70,7 @@ router.post('/cart', async (req, res) => {
 		if (!user_id || !product_id) return res.status(400).json({ success: false, error: 'Missing user_id or product_id' });
 
 		const nNote = normalizeNote(note);
-		const { data: existing } = await supabase
+		const { data: existing } = await supabaseAdmin
 			.from('cart')
 			.select('*')
 			.eq('user_id', user_id)
@@ -79,12 +80,12 @@ router.post('/cart', async (req, res) => {
 		if (existing && existing.length > 0) {
 			const row = existing[0];
 			const newQty = (row.quantity || 0) + Number(quantity);
-			const { data, error } = await supabase.from('cart').update({ quantity: newQty }).eq('cart_id', row.cart_id).select();
+			const { data, error } = await supabaseAdmin.from('cart').update({ quantity: newQty }).eq('cart_id', row.cart_id).select();
 			if (error) return res.status(500).json({ success: false, error: error.message });
 			return res.json({ success: true, data: data?.[0] });
 		}
 
-		const { data, error } = await supabase.from('cart').insert([{ user_id, product_id, quantity, note: nNote }]).select();
+		const { data, error } = await supabaseAdmin.from('cart').insert([{ user_id, product_id, quantity, note: nNote }]).select();
 		if (error) return res.status(500).json({ success: false, error: error.message });
 		res.status(201).json({ success: true, data: data?.[0] });
 	} catch (error) {
@@ -105,7 +106,7 @@ router.post('/cart/merge', async (req, res) => {
 			const note = normalizeNote(item.note || item.note);
 			if (!product_id) continue;
 
-			const { data: existing } = await supabase
+			const { data: existing } = await supabaseAdmin
 				.from('cart')
 				.select('*')
 				.eq('user_id', userId)
@@ -114,13 +115,13 @@ router.post('/cart/merge', async (req, res) => {
 
 			if (existing && existing.length > 0) {
 				const row = existing[0];
-				await supabase.from('cart').update({ quantity: (row.quantity || 0) + Number(quantity) }).eq('cart_id', row.cart_id);
+				await supabaseAdmin.from('cart').update({ quantity: (row.quantity || 0) + Number(quantity) }).eq('cart_id', row.cart_id);
 			} else {
-				await supabase.from('cart').insert([{ user_id: userId, product_id, quantity, note }]);
+				await supabaseAdmin.from('cart').insert([{ user_id: userId, product_id, quantity, note }]);
 			}
 		}
 
-		const { data: cartRows } = await supabase.from('cart').select('*').eq('user_id', userId);
+		const { data: cartRows } = await supabaseAdmin.from('cart').select('*').eq('user_id', userId);
 		res.json({ success: true, cart: cartRows });
 	} catch (error) {
 		console.error('POST /cart/merge error:', error);
@@ -136,7 +137,7 @@ router.put('/cart/:userId/:productId', async (req, res) => {
 		const { quantity, note } = req.body;
 		if (quantity === undefined) return res.status(400).json({ success: false, error: 'Missing quantity' });
 
-		let q = supabase.from('cart').update({ quantity }).eq('user_id', userId).eq('product_id', productId);
+		let q = supabaseAdmin.from('cart').update({ quantity }).eq('user_id', userId).eq('product_id', productId);
 		if (note !== undefined) q = q.eq('note', normalizeNote(note));
 
 		const { data, error } = await q.select();
@@ -155,7 +156,7 @@ router.delete('/cart/:userId/:productId', async (req, res) => {
 		const productId = req.params.productId;
 		const { note } = req.query;
 
-		let q = supabase.from('cart').delete().eq('user_id', userId).eq('product_id', productId);
+		let q = supabaseAdmin.from('cart').delete().eq('user_id', userId).eq('product_id', productId);
 		if (note !== undefined) q = q.eq('note', note);
 
 		const { data, error } = await q.select();
@@ -171,7 +172,7 @@ router.delete('/cart/:userId/:productId', async (req, res) => {
 router.delete('/cart/:userId', async (req, res) => {
 	try {
 		const userId = req.params.userId;
-		const { data, error } = await supabase.from('cart').delete().eq('user_id', userId).select();
+		const { data, error } = await supabaseAdmin.from('cart').delete().eq('user_id', userId).select();
 		if (error) return res.status(500).json({ success: false, error: error.message });
 		res.json({ success: true, data });
 	} catch (error) {
