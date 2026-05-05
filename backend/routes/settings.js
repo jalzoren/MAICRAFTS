@@ -1,6 +1,5 @@
 import express from 'express';
 import supabase, { supabaseAdmin } from '../supabaseClient.js';
-import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
@@ -50,15 +49,6 @@ router.post("/login-settings", async (req, res) => {
 
     if (finalError) throw finalError;
 
-    await createAuditLog({
-      user_id: req.user?.id || null,
-      user_name: req.user?.name || "ADMIN",
-      user_role: "ADMIN",
-      action: "UPDATE",
-      module: "SETTINGS",
-      description: `Updated login settings (maxAttempts: ${maxAttempts}, lockout: ${lockoutDurationMinutes}min)`,
-    });
-
     res.json({ message: "Settings saved successfully" });
   } catch (err) {
     console.error("Error saving:", err);
@@ -66,6 +56,7 @@ router.post("/login-settings", async (req, res) => {
   }
 });
 
+// GET locked accounts
 router.get("/locked-accounts", async (req, res) => {
   try {
     const now = new Date().toISOString();
@@ -107,13 +98,14 @@ router.get("/locked-accounts", async (req, res) => {
   }
 });
 
+// UNLOCK account
 router.post("/unlock-account", async (req, res) => {
-  const { email, user_id } = req.body;
-
-  if (!email && !user_id) {
-    return res.status(400).json({ error: "Email or user_id required" });
+  const { email } = req.body;
+  
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
   }
-
+  
   try {
     const { error: updateError } = await supabaseAdmin
       .from('login_attempts')
@@ -124,9 +116,9 @@ router.post("/unlock-account", async (req, res) => {
         updated_at: new Date().toISOString()
       })
       .eq('email', email);
-
+    
     if (updateError) throw updateError;
-
+    
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {
     console.error("Error unlocking:", err);
