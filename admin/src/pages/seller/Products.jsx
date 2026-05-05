@@ -1,3 +1,4 @@
+// Products.jsx (SELLER SIDE - Product Mangement/Inventory)
 import React, { useState, useEffect } from 'react';
 import { FiEdit2, FiPlusCircle, FiClock, FiTrash2, FiArchive, FiSearch } from 'react-icons/fi';
 import { MdOutlineRemoveCircle } from 'react-icons/md';
