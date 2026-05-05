@@ -1,5 +1,5 @@
 // maicrafts/src/auth/Login.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";  
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext"; 
@@ -24,6 +24,7 @@ const Login = () => {
   const [lockMinutesLeft, setLockMinutesLeft] = useState(0);
   const auth = useAuth();
   const from = location.state?.from?.pathname || "/";
+  const [remainingAttempts, setRemainingAttempts] = useState(null);
 
   const validateForm = () => {
     const newErrors = {};
@@ -38,6 +39,22 @@ const Login = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  useEffect(() => {
+  if (!isLocked || lockMinutesLeft <= 0) return;
+
+  const interval = setInterval(() => {
+    setLockMinutesLeft(prev => {
+      if (prev <= 1) {
+        setIsLocked(false);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, [isLocked]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -204,6 +221,7 @@ const Login = () => {
         showConfirmButton: false,
       });
 
+      
       const userRole = data.user?.role?.toLowerCase();
       const sessionParam = encodeURIComponent(JSON.stringify(data.user));
 
@@ -333,7 +351,7 @@ const Login = () => {
               ⚠️ Account locked. Try again in {lockMinutesLeft} minute(s).
             </div>
           )}
-
+          
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label className="form-label" htmlFor="email">

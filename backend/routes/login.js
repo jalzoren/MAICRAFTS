@@ -1,4 +1,3 @@
-// login.js - MODIFIED to fetch fresh settings each time
 import express from 'express';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
@@ -10,7 +9,6 @@ const tempSetup = {};
 
 const buildDisplayName = (userData) => {
   if (!userData) return "Unknown User";
-
   return [userData.first_name, userData.last_name]
     .filter(Boolean)
     .join(" ") || userData.email || "Unknown User";
@@ -43,41 +41,72 @@ async function getCurrentSettings() {
         lockoutMinutes: data.setting_value.lockoutDurationMinutes || 30
       };
     }
-  } catch (err) {
-    console.log('Using default settings');
-  }
+  } catch (err) {}
   return { maxAttempts: 3, lockoutMinutes: 30 };
 }
 
-// Helper: Get or create login attempt record
 async function getLoginAttempts(email) {
-  const { data, error } = await supabase
+  let userId = null;
+  const { data: userData } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email)
+    .maybeSingle();
+  
+  if (userData) {
+    userId = userData.id;
+  }
+  
+  let { data, error } = await supabase
     .from('login_attempts')
     .select('*')
     .eq('email', email)
-    .single();
+    .maybeSingle();
   
-  if (error && error.code === 'PGRST116') {
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error getting login attempts:', error);
+    throw error;
+  }
+  
+  if (!data) {
+    const insertData = {
+      email: email,
+      attempt_count: 0,
+      is_locked: false,
+      locked_until: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    if (userId) {
+      insertData.user_id = userId;
+    }
+    
     const { data: newData, error: insertError } = await supabase
       .from('login_attempts')
-      .insert([{ 
-        email, 
-        attempt_count: 0,
-        is_locked: false,
-        locked_until: null
-      }])
+      .insert([insertData])
       .select()
       .single();
     
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Error creating login attempts record:', insertError);
+      throw insertError;
+    }
+    
     return newData;
   }
   
-  if (error) throw error;
+  if (!data.user_id && userId) {
+    await supabase
+      .from('login_attempts')
+      .update({ user_id: userId, updated_at: new Date().toISOString() })
+      .eq('email', email);
+    data.user_id = userId;
+  }
+  
   return data;
 }
 
-// Helper: Reset login attempts
 async function resetLoginAttempts(email) {
   const { error } = await supabase
     .from('login_attempts')
@@ -89,12 +118,14 @@ async function resetLoginAttempts(email) {
     })
     .eq('email', email);
   
-  if (error) throw error;
+  if (error) {
+    console.error('Error resetting attempts:', error);
+    throw error;
+  }
 }
 
-// Helper: Increment failed attempts - FIXED
 async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
-  const record = await getLoginAttempts(email);
+  let record = await getLoginAttempts(email);
   
   if (record.is_locked && record.locked_until) {
     const now = new Date();
@@ -109,14 +140,14 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
       };
     } else {
       await resetLoginAttempts(email);
-      return { isLocked: false };
+      record = await getLoginAttempts(email);
     }
   }
   
   const newAttemptCount = (record.attempt_count || 0) + 1;
   const shouldLock = newAttemptCount >= MAX_ATTEMPTS;
+  const remainingAttempts = shouldLock ? 0 : MAX_ATTEMPTS - newAttemptCount;
   
-  // ✅ Calculate lock time FIRST
   let lockedUntil = null;
   if (shouldLock) {
     lockedUntil = new Date();
@@ -139,50 +170,43 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
     .update(updateData)
     .eq('email', email);
   
-  if (error) throw error;
+  if (error) {
+    console.error('Error updating attempts:', error);
+    throw error;
+  }
   
   if (shouldLock) {
-    const lockedUntil = new Date();
-    lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCKOUT_MINUTES);
-    updateData.is_locked = true;
-    updateData.locked_until = lockedUntil.toISOString();
-    
     return { 
       isLocked: true,
-      minutesLeft: LOCKOUT_MINUTES,  // ← JUST ADD THIS LINE
+      minutesLeft: LOCKOUT_MINUTES,
+      remainingAttempts: 0,
       message: `Account locked after ${MAX_ATTEMPTS} failed attempts. Try again in ${LOCKOUT_MINUTES} minutes.`
     };
   }
   
-  const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
   return { 
     isLocked: false, 
-    remainingAttempts,
+    remainingAttempts: remainingAttempts,
     message: `Invalid credentials. ${remainingAttempts} attempt(s) remaining.`
   };
 }
 
-// -------------------------
-// LOGIN ENDPOINT - Fetches fresh settings each time
-// -------------------------
+// LOGIN ENDPOINT
 router.post("/", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const password = req.body.password?.trim();
-
-  console.log("LOGIN ATTEMPT:", username, password); // 👈 ADD HERE
 
   if (!username || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
 
   try {
-    // ✅ GET FRESH SETTINGS ON EVERY LOGIN
     const settings = await getCurrentSettings();
     const MAX_ATTEMPTS = settings.maxAttempts;
     const LOCKOUT_MINUTES = settings.lockoutMinutes;
-    
 
     const attemptRecord = await getLoginAttempts(username);
+    
     if (attemptRecord.is_locked && attemptRecord.locked_until) {
       const now = new Date();
       const lockExpiry = new Date(attemptRecord.locked_until);
@@ -204,33 +228,20 @@ router.post("/", async (req, res) => {
       password: password,
     });
 
-
-    console.log("SUPABASE LOGIN RESPONSE:", {
-      authData,
-      authError
-    });
-
-    console.log("TEST LOGIN:", {
-      email: username,
-      passwordLength: password?.length,
-      authData,
-      authError,
-    });
-
     if (authError || !authData?.user) {
-      // ✅ Pass current settings to increment function
       const lockResult = await incrementFailedAttempts(username, MAX_ATTEMPTS, LOCKOUT_MINUTES);
       
       if (lockResult.isLocked) {
         return res.status(403).json({ 
           message: lockResult.message,
           isLocked: true,
-          minutesLeft: lockResult.minutesLeft,  // ✅ ADD THIS
+          minutesLeft: lockResult.minutesLeft
         });
       }
       
       return res.status(401).json({ 
-        message: lockResult.message || "Invalid email or password"
+        message: lockResult.message,
+        remainingAttempts: lockResult.remainingAttempts
       });
     }
 
@@ -278,9 +289,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// -------------------------
 // VERIFY OTP ENDPOINT
-// -------------------------
 router.post("/verify-otp", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const otp = req.body.otp?.trim();
@@ -332,6 +341,8 @@ router.post("/verify-otp", async (req, res) => {
     }
   }
 
+  await resetLoginAttempts(username);
+
   if (isSetup) {
     const { error: updateError } = await supabase
       .from('users')
@@ -349,11 +360,11 @@ router.post("/verify-otp", async (req, res) => {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('id, first_name, last_name, middle_name, email, contact_number, role')
+      .select('id, first_name, last_name, middle_name, email, contact_number, role, profile_url')
       .eq('email', username)
       .single();
 
-      queueLoginAuditLog(userData, "User completed login and 2FA setup.");
+    queueLoginAuditLog(userData, "User completed login and 2FA setup.");
 
     return res.json({
       message: "Setup successful!",
@@ -365,7 +376,7 @@ router.post("/verify-otp", async (req, res) => {
   delete tempSetup[username];
   const { data: userData } = await supabase
     .from('users')
-    .select('id, first_name, last_name, middle_name, email, contact_number, role')
+    .select('id, first_name, last_name, middle_name, email, contact_number, role, profile_url')
     .eq('email', username)
     .single();
 
@@ -377,12 +388,7 @@ router.post("/verify-otp", async (req, res) => {
   });
 });
 
-// -------------------------
 // GET LOCKED ACCOUNTS
-// -------------------------
-// -------------------------
-// GET LOCKED ACCOUNTS - FIXED
-// -------------------------
 router.get("/locked-accounts", async (req, res) => {
   try {
     const now = new Date().toISOString();
@@ -398,7 +404,6 @@ router.get("/locked-accounts", async (req, res) => {
     
     const lockedAccounts = await Promise.all(
       data.map(async (attempt) => {
-        // Get user from users table only
         const { data: user } = await supabase
           .from('users')
           .select('id, first_name, last_name, email, role')
@@ -419,9 +424,7 @@ router.get("/locked-accounts", async (req, res) => {
   }
 });
 
-// -------------------------
 // UNLOCK ACCOUNT
-// -------------------------
 router.post("/unlock-account", async (req, res) => {
   const { email } = req.body;
   
@@ -430,17 +433,25 @@ router.post("/unlock-account", async (req, res) => {
   }
   
   try {
-    await resetLoginAttempts(email);
+    const { error: updateError } = await supabase
+      .from('login_attempts')
+      .update({
+        is_locked: false,
+        locked_until: null,
+        attempt_count: 0,
+        updated_at: new Date().toISOString()
+      })
+      .eq('email', email);
+    
+    if (updateError) throw updateError;
+    
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {
-    console.error("Error unlocking account:", err);
+    console.error("Error unlocking:", err);
     res.status(500).json({ error: "Failed to unlock account" });
   }
 });
 
-// -------------------------
-// HELPER FUNCTION
-// -------------------------
 function _buildUserPayload(userData) {
   if (!userData) return null;
   return {
