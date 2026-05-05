@@ -1,5 +1,5 @@
 // maicrafts/src/auth/Login.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";  
 import { FiMail, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext"; 
@@ -38,6 +38,22 @@ const Login = () => {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  useEffect(() => {
+  if (!isLocked || lockMinutesLeft <= 0) return;
+
+  const interval = setInterval(() => {
+    setLockMinutesLeft(prev => {
+      if (prev <= 1) {
+        setIsLocked(false);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, [isLocked]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

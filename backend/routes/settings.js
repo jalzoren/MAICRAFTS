@@ -55,90 +55,74 @@ router.post("/login-settings", async (req, res) => {
   }
 });
 
-// FIXED: Get locked accounts with user names
 router.get("/locked-accounts", async (req, res) => {
   try {
-    const currentTime = new Date().toISOString();
+    const now = new Date().toISOString();
     
-    // First, get all login attempts that are locked
-    const { data: loginAttempts, error: attemptsError } = await supabase
+    // ✅ Better query with proper join
+    const { data, error } = await supabase
       .from('login_attempts')
-      .select('*')
+      .select(`
+        id,
+        email,
+        attempt_count,
+        locked_until,
+        is_locked,
+        created_at,
+        user_id,
+        users:user_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          role
+        )
+      `)
       .eq('is_locked', true)
-      .gt('locked_until', currentTime);
-
-    if (attemptsError) {
-      console.error("Error fetching login_attempts:", attemptsError);
-      return res.status(500).json({ error: attemptsError.message });
-    }
-
-    if (!loginAttempts || loginAttempts.length === 0) {
-      return res.json([]);
-    }
-
-    // Get all users to join the data
-    const { data: allUsers, error: usersError } = await supabase
-      .from('users')
-      .select('email, first_name, last_name, role');
-
-    if (usersError) {
-      console.error("Error fetching users:", usersError);
-      return res.status(500).json({ error: usersError.message });
-    }
-
-    // Combine the data
-    const combinedData = loginAttempts.map(attempt => {
-      const user = allUsers?.find(u => u.email === attempt.email);
-      
-      return {
-        id: attempt.id,
-        email: attempt.email,
-        attempt_count: attempt.attempt_count,
-        locked_until: attempt.locked_until,
-        created_at: attempt.created_at,
-        is_locked: attempt.is_locked,
-        user: user ? {
-          first_name: user.first_name || 'No',
-          last_name: user.last_name || 'Name',
-          role: user.role || 'customer',
-          email: user.email
-        } : {
-          first_name: 'Unknown',
-          last_name: 'User',
-          role: 'customer',
-          email: attempt.email
-        }
-      };
-    });
-
-    res.json(combinedData);
+      .gt('locked_until', now)
+      .order('locked_until', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Format the response
+    const formattedData = (data || []).map(attempt => ({
+      ...attempt,
+      user: attempt.users || null,
+      users: undefined // Remove the nested users object
+    }));
+    
+    res.json(formattedData);
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Error fetching locked accounts:", err);
     res.status(500).json({ error: "Failed to fetch locked accounts" });
   }
 });
 
-// FIXED: Unlock account endpoint
 router.post("/unlock-account", async (req, res) => {
-  const { email } = req.body;
-  
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
+  const { email, user_id } = req.body;
+
+  if (!email && !user_id) {
+    return res.status(400).json({ error: "Email or user_id required" });
   }
 
   try {
-    // Update login_attempts to unlock
-    const { error: updateError } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('login_attempts')
       .update({
         is_locked: false,
         locked_until: null,
         attempt_count: 0,
         updated_at: new Date().toISOString()
-      })
-      .eq('email', email);
+      });
 
-    if (updateError) throw updateError;
+    if (user_id) {
+      query = query.eq('user_id', user_id);
+    } else {
+      query = query.eq('email', email);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
 
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {
