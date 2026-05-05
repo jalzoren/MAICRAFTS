@@ -3,6 +3,34 @@ import supabase, { supabaseAdmin } from '../supabaseClient.js';
 
 const router = express.Router();
 
+async function updateUnlockAudit(email, performedBy, reason) {
+  try {
+    const { data: lockRow } = await supabase
+      .from('account_lock_audit_logs')
+      .select('id')
+      .eq('email', email)
+      .eq('action', 'LOCKED')
+      .is('unlocked_at', null)
+      .order('locked_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (lockRow) {
+      await supabase
+        .from('account_lock_audit_logs')
+        .update({
+          action: 'UNLOCKED',
+          unlocked_at: new Date().toISOString(),
+          performed_by: performedBy,
+          reason: reason
+        })
+        .eq('id', lockRow.id);
+    }
+  } catch (err) {
+    console.error('Failed to update unlock audit:', err);
+  }
+}
+
 // GET login settings
 router.get("/login-settings", async (req, res) => {
   try {
@@ -98,16 +126,17 @@ router.get("/locked-accounts", async (req, res) => {
   }
 });
 
-// UNLOCK account
 router.post("/unlock-account", async (req, res) => {
-  const { email } = req.body;
+  const { email, adminId, adminName } = req.body;
   
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
   
   try {
-    const { error: updateError } = await supabaseAdmin
+    await updateUnlockAudit(email, adminId, `Manually unlocked by ${adminName || "ADMIN"}`);
+    
+    const { error: updateError } = await supabase
       .from('login_attempts')
       .update({
         is_locked: false,

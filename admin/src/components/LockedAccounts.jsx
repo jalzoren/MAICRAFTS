@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { FiUnlock, FiClock, FiAlertCircle } from "react-icons/fi";
 import Swal from "sweetalert2";
+import { useAuth } from "../context/AuthContext";  // ← ADDED
 
 const LockedAccounts = ({ onUnlock }) => {
+  const auth = useAuth();  // ← ADDED
   const [lockedAccounts, setLockedAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -49,7 +51,11 @@ const LockedAccounts = ({ onUnlock }) => {
         const response = await fetch("http://localhost:5000/api/settings/unlock-account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ 
+            email,
+            adminId: auth.user?.id,      // ← ADDED
+            adminName: auth.user?.name   // ← ADDED
+          })
         });
 
         if (!response.ok) throw new Error("Failed");
