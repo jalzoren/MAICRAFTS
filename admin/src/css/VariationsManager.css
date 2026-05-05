@@ -1,0 +1,301 @@
+/* VariationsManager.css
+   Styles for the two-section variations manager (Bundles + Colors).
+   Matches the existing MaiCrafts admin color palette: #E6BB71 (gold), #c8a97d, etc.
+*/
+
+/* ── Container ─────────────────────────────────────────────────────────── */
+.vm-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* ── Section card ──────────────────────────────────────────────────────── */
+.vm-section {
+  background: #fdf9f2;
+  border: 1.5px solid #e9dcc9;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── Section header ────────────────────────────────────────────────────── */
+.vm-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.vm-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #4a3728;
+}
+
+.vm-section-icon {
+  color: #c8a97d;
+  flex-shrink: 0;
+}
+
+.vm-section-subtitle {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #9b8578;
+  background: #f0e6d8;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 2px;
+}
+
+/* ── Add button ────────────────────────────────────────────────────────── */
+.vm-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: 1.5px solid #E6BB71;
+  background: #fff;
+  color: #b8922a;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+
+.vm-add-btn:hover {
+  background: #E6BB71;
+  color: #fff;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+.vm-empty {
+  background: #fff;
+  border: 1.5px dashed #ddd0bb;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.vm-empty p {
+  font-size: 0.8rem;
+  color: #9b8578;
+  margin: 0;
+  text-align: center;
+}
+
+/* ── Shared input ──────────────────────────────────────────────────────── */
+.vm-input {
+  padding: 6px 10px;
+  border: 1.5px solid #ddd0bb;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  color: #4a3728;
+  background: #fff;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  box-sizing: border-box;
+}
+
+.vm-input:focus {
+  border-color: #E6BB71;
+  box-shadow: 0 0 0 3px rgba(230, 187, 113, 0.18);
+}
+
+.vm-input-sm {
+  max-width: 100%;
+}
+
+.vm-field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9b8578;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Remove button ─────────────────────────────────────────────────────── */
+.vm-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: #fdecea;
+  color: #d33;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+
+.vm-remove-btn:hover {
+  background: #d33;
+  color: #fff;
+}
+
+/* ── Hint text ─────────────────────────────────────────────────────────── */
+.vm-hint {
+  font-size: 0.75rem;
+  color: #9b8578;
+  margin: 0;
+  padding: 4px 2px 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   BUNDLE VARIATIONS
+══════════════════════════════════════════════════════════════════════ */
+
+.vm-bundle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Column-label header row (hidden on mobile) */
+.vm-bundle-header {
+  display: grid;
+  grid-template-columns: 160px 1fr 90px 34px;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #9b8578;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 2px;
+}
+
+/* One bundle row */
+.vm-bundle-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 90px 34px;
+  gap: 0.5rem;
+  align-items: flex-end;
+  background: #fff;
+  border: 1.5px solid #ede3d4;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  transition: border-color 0.18s;
+}
+
+.vm-bundle-row:hover {
+  border-color: #E6BB71;
+}
+
+.vm-bundle-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.vm-bundle-field--size {
+  /* flex-grow handled by grid 1fr */
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 540px) {
+  .vm-bundle-header {
+    display: none;
+  }
+
+  .vm-bundle-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.55rem;
+  }
+
+  /* Size field spans full width */
+  .vm-bundle-field--size {
+    grid-column: 1 / -1;
+  }
+
+  /* Remove button bottom-right */
+  .vm-remove-btn {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .vm-input-sm {
+    max-width: 100%;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   COLOR VARIATIONS
+══════════════════════════════════════════════════════════════════════ */
+
+.vm-color-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.vm-color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #fff;
+  border: 1.5px solid #ede3d4;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  transition: border-color 0.18s;
+}
+
+.vm-color-row:hover {
+  border-color: #E6BB71;
+}
+
+.vm-color-swatch-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.vm-color-picker {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+.vm-color-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ddd0bb;
+  cursor: pointer;
+  display: block;
+  flex-shrink: 0;
+  transition: border-color 0.18s, transform 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+.vm-color-preview:hover {
+  border-color: #E6BB71;
+  transform: scale(1.08);
+}
+
+/* Clicking the preview opens the hidden color input */
+.vm-color-swatch-wrap:hover .vm-color-preview {
+  border-color: #E6BB71;
+}
+
+.vm-color-name-input {
+  flex: 1;
+}

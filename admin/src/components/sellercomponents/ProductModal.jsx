@@ -1,5 +1,7 @@
+// ProductModal.jsx (SELLER SIDE - Product Management/Inventory)
 import React, { useState, useEffect } from 'react';
 import '../../css/ProductModal.css';
+import VariationsManager from './VariationsManager';
 
 const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = false }) => {
   const [formData, setFormData] = useState({
@@ -7,14 +9,15 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     description: '',
     category: '',
     newCategory: '',
-    variations: [{ quantity: '', color: '', size: '' }],
     addOns: [],
     price: '',
     stock: 0,
     images: [],
     mainImage: null
   });
-  
+
+  // ── Variations now live in their own state (bundles + colors) ──────────────
+  const [variations, setVariations] = useState({ bundles: [], colors: [] });
   const [newAddOn, setNewAddOn] = useState({ name: '', price: '' });
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState(['Satin Flowers', 'Dried Flowers', 'Fresh Flowers', 'Bouquets']);
@@ -26,13 +29,32 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         description: product.description || '',
         category: product.category || '',
         newCategory: '',
-        variations: product.variations || [{ quantity: '', color: '', size: '' }],
         addOns: product.addOns || [],
         price: product.price || '',
         stock: product.stock || 0,
         images: product.images || [],
         mainImage: product.mainImage || null
       });
+
+      // ── Parse saved variations (handles new structure + legacy flat arrays) ──
+      let parsedVariations = { bundles: [], colors: [] };
+      try {
+        const raw = typeof product.variations === 'string'
+          ? JSON.parse(product.variations)
+          : product.variations;
+
+        if (raw && !Array.isArray(raw)) {
+          parsedVariations = {
+            bundles: Array.isArray(raw.bundles) ? raw.bundles : [],
+            colors:  Array.isArray(raw.colors)  ? raw.colors  : [],
+          };
+        }
+        // Legacy flat arrays (old format) → just start fresh
+      } catch (e) {
+        console.warn('Could not parse variations, resetting:', e);
+      }
+      setVariations(parsedVariations);
+
     } else {
       resetForm();
     }
@@ -44,32 +66,14 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       description: '',
       category: '',
       newCategory: '',
-      variations: [{ quantity: '', color: '', size: '' }],
       addOns: [],
       price: '',
       stock: 0,
       images: [],
       mainImage: null
     });
+    setVariations({ bundles: [], colors: [] });
     setNewAddOn({ name: '', price: '' });
-  };
-
-  const handleVariationChange = (index, field, value) => {
-    const newVariations = [...formData.variations];
-    newVariations[index][field] = value;
-    setFormData({ ...formData, variations: newVariations });
-  };
-
-  const addVariation = () => {
-    setFormData({
-      ...formData,
-      variations: [...formData.variations, { quantity: '', color: '', size: '' }]
-    });
-  };
-
-  const removeVariation = (index) => {
-    const newVariations = formData.variations.filter((_, i) => i !== index);
-    setFormData({ ...formData, variations: newVariations });
   };
 
   const handleAddAddOn = () => {
@@ -107,20 +111,14 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     const newImages = validFiles.map(file => ({
       file,
       preview: URL.createObjectURL(file),
-      isMain: formData.images.length === 0 // First image becomes main by default
+      isMain: formData.images.length === 0
     }));
 
-    setFormData({
-      ...formData,
-      images: [...formData.images, ...newImages]
-    });
+    setFormData({ ...formData, images: [...formData.images, ...newImages] });
   };
 
   const setMainImage = (index) => {
-    const newImages = formData.images.map((img, i) => ({
-      ...img,
-      isMain: i === index
-    }));
+    const newImages = formData.images.map((img, i) => ({ ...img, isMain: i === index }));
     setFormData({ ...formData, images: newImages });
   };
 
@@ -165,25 +163,23 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       submitData.append('name', formData.name.trim());
       submitData.append('description', formData.description.trim());
       submitData.append('price', formData.price);
-      
-      // Only include stock if NOT editing (when adding new product)
+
       if (!isEditing) {
         submitData.append('stock', formData.stock);
       }
-      
+
       submitData.append('category', formData.category);
-      submitData.append('variations', JSON.stringify(formData.variations));
+      // ── Send new structured variations ──────────────────────────────────────
+      submitData.append('variations', JSON.stringify(variations));
       submitData.append('addOns', JSON.stringify(formData.addOns));
-      
-      // Find main image index
+
       const mainImageIndex = formData.images.findIndex(img => img.isMain);
       submitData.append('mainImageIndex', mainImageIndex >= 0 ? mainImageIndex : 0);
-      
+
       formData.images.forEach((image) => {
         if (image.file) {
           submitData.append('images', image.file);
         } else if (image.url) {
-          // For existing images that are already uploaded
           submitData.append('existingImages', JSON.stringify(formData.images.map(img => img.url || img.preview)));
         }
       });
@@ -211,6 +207,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
 
         <div className="product-modal-body">
           <div className="form-section">
+
             {/* Product Name */}
             <div className="form-group">
               <label className="form-label">Product Name *</label>
@@ -247,42 +244,15 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
               </select>
             </div>
 
-            {/* Variations */}
+            {/* ── Variations (replaced with VariationsManager) ─────────────── */}
             <div className="form-group">
-              <label className="form-label">Variations</label>
-              {formData.variations.map((variation, index) => (
-                <div key={index} className="variation-row">
-                  <input
-                    type="text"
-                    className="variation-input"
-                    placeholder="Quantity (e.g., 1 dozen)"
-                    value={variation.quantity}
-                    onChange={(e) => handleVariationChange(index, 'quantity', e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="variation-input"
-                    placeholder="Color"
-                    value={variation.color}
-                    onChange={(e) => handleVariationChange(index, 'color', e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="variation-input"
-                    placeholder="Size"
-                    value={variation.size}
-                    onChange={(e) => handleVariationChange(index, 'size', e.target.value)}
-                  />
-                  {formData.variations.length > 1 && (
-                    <button type="button" onClick={() => removeVariation(index)} className="remove-variation-btn">
-                      ✕
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button type="button" onClick={addVariation} className="add-variation-btn">
-                + Add Variation
-              </button>
+              <label className="form-label">
+                Variations <span className="form-label-optional">(optional)</span>
+              </label>
+              <VariationsManager
+                variations={variations}
+                onChange={setVariations}
+              />
             </div>
 
             {/* Add-Ons */}
@@ -391,6 +361,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
                 </div>
               </div>
             </div>
+
           </div>
         </div>
 

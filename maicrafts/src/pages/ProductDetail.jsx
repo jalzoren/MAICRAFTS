@@ -7,7 +7,6 @@ import "../css/ProductDetail.css";
 const ProductDetail = () => {
   const { id } = useParams();
   
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -28,27 +27,6 @@ const ProductDetail = () => {
     }
   }, [product]);
 
-  useEffect(() => {
-    if (size && flowerQty && product && product.price) {
-      const flowerMultipliers = {
-        "5 Flowers": 1.0,
-        "12 Flowers": 2.0,
-        "24 Flowers": 3.5,
-        "50 Flowers": 6.5
-      };
-      const sizeMultipliers = {
-        "Small": 1.0,
-        "Medium": 1.5,
-        "Large": 2.0
-      };
-      const basePriceFor5Flowers = product.price;
-      const flowerMultiplier = flowerMultipliers[flowerQty] || 1;
-      let calculatedPrice = basePriceFor5Flowers * flowerMultiplier;
-      const sizeMultiplier = sizeMultipliers[size] || 1;
-      calculatedPrice = calculatedPrice * sizeMultiplier;
-      setBasePrice(Math.round(calculatedPrice));
-    }
-  }, [size, flowerQty, product]);
 
   useEffect(() => {
     if (product && product.images && product.images.length > 0 && !selectedImage) {
@@ -91,87 +69,6 @@ const ProductDetail = () => {
     }
   };
 
-  const getAddOnPrice = () => {
-    if (addOns.includes("₱50")) return 50;
-    if (addOns.includes("₱250")) return 250;
-    if (addOns.includes("₱350")) return 350;
-    return 0;
-  };
-
-  const unitPrice = basePrice + getAddOnPrice();
-  const totalPrice = unitPrice * quantity;
-
-  const addToCart = () => {
-    let cart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const uniqueKey = `${product.id}-${size}-${flowerQty}-${addOns || "none"}`;
-    const finalPrice = basePrice + getAddOnPrice();
-    const existingIndex = cart.findIndex((item) => item.key === uniqueKey);
-
-    if (existingIndex !== -1) {
-      cart[existingIndex].qty += quantity;
-      cart[existingIndex].total = finalPrice * cart[existingIndex].qty;
-    } else {
-      cart.push({
-        key: uniqueKey,
-        id: product.id,
-        title: product.name,
-        price: finalPrice,
-        img: selectedImage,
-        qty: quantity,
-        flowerQty,
-        size,
-        addOns,
-        total: finalPrice * quantity,
-      });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new Event("cart-updated"));
-    alert("Added to cart!");
-  };
-
-  const handleCheckoutSubmit = async (orderData) => {
-    try {
-      const completeOrderData = {
-        firstName: orderData.firstName || "",
-        lastName: orderData.lastName || "",
-        email: orderData.email || "",
-        message: orderData.message || "No message provided",
-        address: orderData.address || "",
-        billingMethod: orderData.billingMethod || "",
-        cartItems: orderData.cartItems.map(item => ({
-          name: item.title,
-          quantity: item.qty,
-          price: item.price,
-          flowerQty: item.flowerQty,
-          size: item.size,
-          addOns: item.addOns
-        })),
-        totalPrice: orderData.totalPrice || totalPrice
-      };
-
-      const response = await fetch("http://localhost:5000/send-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(completeOrderData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to process order");
-      }
-
-      localStorage.removeItem("cart");
-      localStorage.removeItem("checkout_item");
-      window.dispatchEvent(new Event("cart-updated"));
-      return result;
-
-    } catch (error) {
-      console.error("Email sending error:", error);
-      throw error;
-    }
-  };
 
   // Show nothing while loading - but keep old page behind
   if (!product) {
@@ -320,14 +217,6 @@ const ProductDetail = () => {
             ))}
           </div>
         </div>
-
-        <CheckoutFormModal
-          isOpen={isCheckoutOpen}
-          onClose={() => setIsCheckoutOpen(false)}
-          onSubmit={handleCheckoutSubmit} 
-          cartItems={JSON.parse(localStorage.getItem("checkout_item") || "[]")}
-          totalPrice={totalPrice}
-        />
       </div>
     </div>
   );

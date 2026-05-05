@@ -483,6 +483,14 @@
   cursor: not-allowed;
 }
 
+.form-label-optional {
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: #9b8578;
+  margin-left: 4px;
+}
+
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .product-modal {
@@ -541,3 +549,4 @@
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   }
 }
+
