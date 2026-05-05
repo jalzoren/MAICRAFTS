@@ -29,6 +29,26 @@ const ProductDetail = () => {
   const [selectedAddOns, setSelectedAddOns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Normalize images from product (handles arrays, json-strings, single-string values)
+  const getImagesArray = (prod) => {
+    if (!prod) return [];
+    let imgs = prod.images ?? prod.images;
+    if (Array.isArray(imgs)) return imgs;
+    if (typeof imgs === 'string') {
+      const raw = imgs.trim();
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed) return [parsed];
+      } catch (e) {
+        return [raw];
+      }
+    }
+    if (imgs) return [imgs];
+    return [];
+  };
+
   useEffect(() => { fetchProduct(); }, [id]);
 
   // ── Initialize selected variations once product loads ──────────────────────
@@ -47,9 +67,10 @@ const ProductDetail = () => {
 
   useEffect(() => {
     if (product) {
+      const imgs = getImagesArray(product);
       setSelectedImage(
         product.mainImage ||
-        (product.images?.length > 0 ? product.images[0] : null) ||
+        (imgs.length > 0 ? imgs[0] : null) ||
         product.image ||
         "https://via.placeholder.com/500x500?text=🌸"
       );
@@ -86,7 +107,7 @@ const ProductDetail = () => {
   };
 
   // ── Memoised derived data ──────────────────────────────────────────────────
-  const parsedAddOns = useMemo(() => parseAddOns(product?.addOns || []), [product]);
+  const parsedAddOns = useMemo(() => parseAddOns(product?.add_ons || []), [product]);
 
   const variationsData = useMemo(
     () => parseVariations(product?.variations || []),
@@ -110,7 +131,10 @@ const ProductDetail = () => {
         price: unitPrice,
         quantity,
         image_url: selectedImage,
-        note: JSON.stringify({ variations: selectedVariations, addOns: selectedAddOns }),
+        note: JSON.stringify({
+          variations: selectedVariations,
+          addOns: parsedAddOns.filter(a => selectedAddOns.includes(a.id)),
+        }),
       };
       await addItem(cartItem, quantity);
       alert("Product added to cart!");
@@ -137,10 +161,12 @@ const ProductDetail = () => {
   };
 
   // ── Thumbnails ─────────────────────────────────────────────────────────────
-  const thumbnails =
-    product?.images?.length > 0
-      ? product.images
+  const thumbnails = (() => {
+    const imgs = getImagesArray(product);
+    return imgs.length > 0
+      ? imgs
       : [product?.mainImage || product?.image || "https://via.placeholder.com/500x500?text=🌸"];
+  })();
 
   if (isLoading) {
     return (
@@ -237,7 +263,7 @@ const ProductDetail = () => {
               )}
 
               {/* ── Add-Ons ────────────────────────────────────────────── */}
-              {hasAddOns(product) && (
+              {parsedAddOns.length > 0 && (
                 <div className="section">
                   <label className="label">Add-ons</label>
                   <div className="addons-list">

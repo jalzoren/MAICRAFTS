@@ -95,20 +95,26 @@ export const CartProvider = ({ children }) => {
 
   // Cart Actions
   const addItem = useCallback(async (product, quantity = 1, note = "") => {
+    // Prefer note embedded in the product object (set by ProductDetail) over the parameter default
+    const itemNote = product.note !== undefined ? product.note : note;
+    
+    // Composite key: same product with different variations = different cart slots
+    const itemKey = (p) => `${p.product_id}::${p.note || ""}`;
+    const newKey = `${product.product_id}::${itemNote}`;
+
     if (!isAuthenticated) {
       setItems((prev) => {
-        const existing = prev.find((i) => i.product_id === product.product_id);
+        const existing = prev.find((i) => itemKey(i) === newKey);
         const updated = existing
-          ? prev.map((i) => i.product_id === product.product_id
+          ? prev.map((i) => itemKey(i) === newKey
               ? { ...i, quantity: i.quantity + quantity }
               : i)
-          : [...prev, { ...product, quantity, note }];
+          : [...prev, { ...product, quantity, note: itemNote }];  // ✅ correct note
         saveGuestCart(updated);
         return updated;
       });
       return;
     }
-
     try {
       await fetch("http://localhost:5000/api/cart", {
         method: "POST",
@@ -117,19 +123,20 @@ export const CartProvider = ({ children }) => {
           user_id: user.id,
           product_id: product.product_id,
           quantity,
-          note,
+          note: itemNote,                    // ✅ variation JSON preserved
         }),
       });
-      await loadUserCart(user.id);
     } catch (err) {
       console.error("addItem failed:", err);
     }
   }, [isAuthenticated, user?.id]);
 
-  const removeItem = useCallback(async (productId) => {
-    if (!isAuthenticated) {
-      setItems((prev) => {
-        const updated = prev.filter((i) => i.product_id !== productId);
+  const removeItem = useCallback(async (productId, note = undefined) => {
+  if (!isAuthenticated) {
+    setItems((prev) => {
+      const updated = note !== undefined
+        ? prev.filter((i) => !(i.product_id === productId && i.note === note))
+        : prev.filter((i) => i.product_id !== productId);
         saveGuestCart(updated);
         return updated;
       });
@@ -145,13 +152,14 @@ export const CartProvider = ({ children }) => {
     }
   }, [isAuthenticated, user?.id]);
 
-  const updateQuantity = useCallback(async (productId, quantity) => {
-    if (quantity < 1) { removeItem(productId); return; }
-
+  const updateQuantity = useCallback(async (productId, quantity, note = undefined) => {
+    if (quantity < 1) { removeItem(productId, note); return; }
     if (!isAuthenticated) {
       setItems((prev) => {
         const updated = prev.map((i) =>
-          i.product_id === productId ? { ...i, quantity } : i
+          i.product_id === productId && (note === undefined || i.note === note)
+            ? { ...i, quantity }
+            : i
         );
         saveGuestCart(updated);
         return updated;
