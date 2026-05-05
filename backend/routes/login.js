@@ -124,6 +124,77 @@ async function resetLoginAttempts(email) {
   }
 }
 
+async function recordLockAudit(userId, email, action, attemptCount = null, lockedAt = null, lockedUntil = null, unlockedAt = null, performedBy = null, reason = null) {
+  try {
+    const insertData = {
+      user_id: userId,
+      email: email,
+      action: action,
+      attempt_count: attemptCount,
+      locked_at: lockedAt,
+      locked_until: lockedUntil,
+      unlocked_at: unlockedAt,
+      performed_by: performedBy,
+      reason: reason,
+      created_at: new Date().toISOString()
+    };
+    
+    const { error } = await supabase
+      .from('account_lock_audit_logs')
+      .insert([insertData]);
+    
+    if (error) console.error('Error recording lock audit:', error);
+  } catch (err) {
+    console.error('Failed to record lock audit:', err);
+  }
+}
+
+async function updateUnlockAudit(email, performedBy, reason) {
+  try {
+    console.log(`🔍 Looking for locked row for ${email}`);
+    
+    const { data: lockRow, error: findError } = await supabase
+      .from('account_lock_audit_logs')
+      .select('id, locked_at')
+      .eq('email', email)
+      .eq('action', 'LOCKED')
+      .is('unlocked_at', null)
+      .order('locked_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (findError) {
+      console.error('❌ Error finding lock row:', findError);
+      return;
+    }
+    
+    if (lockRow) {
+      console.log(`✅ Found lock row for ${email}, ID: ${lockRow.id}, locked_at: ${lockRow.locked_at}`);
+      console.log(`📝 Updating with unlocked_at: ${new Date().toISOString()}`);
+      
+      const { error: updateError } = await supabase
+        .from('account_lock_audit_logs')
+        .update({
+          action: 'UNLOCKED',
+          unlocked_at: new Date().toISOString(),
+          performed_by: performedBy,
+          reason: reason
+        })
+        .eq('id', lockRow.id);
+      
+      if (updateError) {
+        console.error('❌ Error updating unlock audit:', updateError);
+      } else {
+        console.log(`✅ Successfully updated unlock audit for ${email}`);
+      }
+    } else {
+      console.log(`⚠️ No locked row found for ${email}`);
+    }
+  } catch (err) {
+    console.error('❌ Failed to update unlock audit:', err);
+  }
+}
+
 async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
   let record = await getLoginAttempts(email);
   
@@ -139,6 +210,7 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
         message: `Account locked. Try again in ${minutesLeft} minute(s).`
       };
     } else {
+      await updateUnlockAudit(email, null, 'Auto-unlocked after lockout period expired');
       await resetLoginAttempts(email);
       record = await getLoginAttempts(email);
     }
@@ -149,9 +221,24 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
   const remainingAttempts = shouldLock ? 0 : MAX_ATTEMPTS - newAttemptCount;
   
   let lockedUntil = null;
+  let lockedAt = null;
+  
   if (shouldLock) {
+    lockedAt = new Date();
     lockedUntil = new Date();
     lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCKOUT_MINUTES);
+    
+    await recordLockAudit(
+      record.user_id,
+      email,
+      'LOCKED',
+      newAttemptCount,
+      lockedAt.toISOString(),
+      lockedUntil.toISOString(),
+      null,
+      null,
+      `Account locked after ${newAttemptCount} failed attempts (max: ${MAX_ATTEMPTS})`
+    );
   }
   
   const updateData = {
@@ -341,6 +428,7 @@ router.post("/verify-otp", async (req, res) => {
     }
   }
 
+  await updateUnlockAudit(username, null, 'Account unlocked via successful login');
   await resetLoginAttempts(username);
 
   if (isSetup) {
@@ -427,12 +515,16 @@ router.get("/locked-accounts", async (req, res) => {
 // UNLOCK ACCOUNT
 router.post("/unlock-account", async (req, res) => {
   const { email } = req.body;
+  const performedBy = req.user?.id || null;
+  const performedByName = req.user?.name || "ADMIN";
   
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
   
   try {
+    await updateUnlockAudit(email, performedBy, `Manually unlocked by ${performedByName}`);
+    
     const { error: updateError } = await supabase
       .from('login_attempts')
       .update({

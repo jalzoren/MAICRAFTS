@@ -19,4 +19,4 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export default supabase;
-export { supabaseAdmin };
+export { supabase, supabaseAdmin };

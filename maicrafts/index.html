@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     
-    <!-- FAVICON: Your real logo from public/logo.webp -->
+    <!-- FAVICON -->
     <link rel="icon" type="image/webp" href="/logo.webp" />
     <link rel="apple-touch-icon" href="/logo.webp" />
     
@@ -12,11 +12,74 @@
     <!-- Dynamic Animated Title -->
     <title>Maicrafts</title>
     
+    <!-- Google tag (gtag.js) - GDPR Compliant with Consent -->
+    <script>
+      // Initialize dataLayer
+      window.dataLayer = window.dataLayer || [];
+      
+      // Define gtag function
+      function gtag(){dataLayer.push(arguments);}
+      
+      // Set default consent to DENIED (waiting for user permission)
+      gtag('consent', 'default', {
+        'ad_storage': 'denied',
+        'analytics_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'wait_for_update': 500
+      });
+      
+      // Initialize GA with denied consent
+      gtag('js', new Date());
+      gtag('config', 'G-H6NPMXC4LH', {
+        'send_page_view': false,  // Don't send page view until consent
+        'anonymize_ip': true
+      });
+      
+      // Store GA ID globally
+      window.GA_MEASUREMENT_ID = 'G-H6NPMXC4LH';
+      
+      // Function to update consent when user accepts
+      window.updateGAConsent = function(accepted) {
+        if (accepted) {
+          gtag('consent', 'update', {
+            'ad_storage': 'granted',
+            'analytics_storage': 'granted'
+          });
+          console.log('Google Analytics consent granted');
+        } else {
+          gtag('consent', 'update', {
+            'ad_storage': 'denied',
+            'analytics_storage': 'denied'
+          });
+          console.log('Google Analytics consent denied');
+        }
+      };
+      
+      // Check for existing consent from localStorage
+      window.checkExistingConsent = function() {
+        const hasConsented = localStorage.getItem('cookie_consent_given');
+        const preferences = localStorage.getItem('cookie_consent_preferences');
+        
+        if (hasConsented === 'true' && preferences) {
+          try {
+            const prefs = JSON.parse(preferences);
+            if (prefs.analytics === true) {
+              window.updateGAConsent(true);
+            } else {
+              window.updateGAConsent(false);
+            }
+          } catch(e) {
+            console.error('Error parsing preferences:', e);
+          }
+        }
+      };
+    </script>
+    
     <!-- Animated Typing Title Script -->
     <script>
-      // Luxury typing animation for "Maicrafts"
       const titleText = "Maicrafts! -";
-      const typingSpeed = 200;   // milliseconds per letter
+      const typingSpeed = 200;
       const pauseBeforeDelete = 2000;
       const deleteSpeed = 100;
 
@@ -40,13 +103,12 @@
         }
       }
 
-      // Start animation when page loads
       window.onload = () => {
         setTimeout(typeWriter, 800);
+        window.checkExistingConsent();
       };
     </script>
 
-    <!-- Optional: Add a subtle glow effect in tab -->
     <style>
       @keyframes pulse {
         0% { opacity: 0.7; }

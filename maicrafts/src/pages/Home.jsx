@@ -32,6 +32,7 @@ const Home = () => {
   return (
     <>
     
+    
       <section className="hero-section">
 
         <video autoPlay muted loop playsInline className="bg-video" src="/counter1.mp4" />
