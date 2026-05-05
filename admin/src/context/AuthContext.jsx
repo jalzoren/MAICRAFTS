@@ -18,17 +18,12 @@ export const AuthProvider = ({ children }) => {
 
   const readSession = () => {
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
+      const raw = sessionStorage.getItem(SESSION_KEY);  
       if (!raw) return null;
       const session = JSON.parse(raw);
-      const age = Date.now() - new Date(session.loginAt).getTime();
-      if (age > 7 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(SESSION_KEY);
-        return null;
-      }
-      return session;
+      return session; 
     } catch {
-      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY); 
       return null;
     }
   };
@@ -47,8 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   const setUserFromUrl = (userData) => {
     const session = { user: userData, loginAt: new Date().toISOString() };
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    setUser(userData);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
   };
 
   const buildDisplayName = (profile) => {
@@ -98,7 +92,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     queueLogoutAuditLog();
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);  // ✅ Changed to sessionStorage
     setUser(null);
     window.location.href = 'http://localhost:5173/login';
   };

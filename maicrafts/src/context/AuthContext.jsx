@@ -4,35 +4,30 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 const SESSION_KEY = "mc_session";
 const AUDIT_LOG_URL = "http://localhost:5000/api/audit-logs";
 
-// Helper functions
+// Helper functions - NOW USING sessionStorage
 const readSession = () => {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY);  // ✅ sessionStorage
     if (!raw) return null;
     const session = JSON.parse(raw);
-    const age = Date.now() - new Date(session.loginAt).getTime();
-    if (age > 7 * 24 * 60 * 60 * 1000) {
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
     return session;
   } catch {
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);  // ✅ sessionStorage
     return null;
   }
 };
 
 const writeSession = (user) => {
   const session = { user, loginAt: new Date().toISOString() };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));  // ✅ sessionStorage
   return session;
 };
 
-const clearSession = () => localStorage.removeItem(SESSION_KEY);
+const clearSession = () => sessionStorage.removeItem(SESSION_KEY);  // ✅ sessionStorage
 
+// Rest of your code remains the SAME...
 const buildDisplayName = (profile) => {
   if (!profile) return "Unknown User";
-
   return (
     profile.name ||
     profile.full_name ||
@@ -44,7 +39,6 @@ const buildDisplayName = (profile) => {
 
 const queueLogoutAuditLog = (user) => {
   if (!user) return;
-
   const displayName = buildDisplayName(user);
   const payload = {
     user_id: user.id,
@@ -54,14 +48,12 @@ const queueLogoutAuditLog = (user) => {
     module: "Authentication",
     description: "User logged out successfully.",
   };
-
   try {
     if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
       const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
       navigator.sendBeacon(AUDIT_LOG_URL, body);
       return;
     }
-
     void fetch(AUDIT_LOG_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
