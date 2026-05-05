@@ -1,4 +1,3 @@
-// backend/routes/settings.js
 import express from 'express';
 import supabase, { supabaseAdmin } from '../supabaseClient.js';
 import { createAuditLog } from "../services/auditService.js";
@@ -51,7 +50,6 @@ router.post("/login-settings", async (req, res) => {
 
     if (finalError) throw finalError;
 
-    // ✅ AUDIT LOG (ONLY ON SUCCESS)
     await createAuditLog({
       user_id: req.user?.id || null,
       user_name: req.user?.name || "ADMIN",
@@ -72,7 +70,6 @@ router.get("/locked-accounts", async (req, res) => {
   try {
     const now = new Date().toISOString();
     
-    // ✅ Better query with proper join
     const { data, error } = await supabase
       .from('login_attempts')
       .select(`
@@ -97,11 +94,10 @@ router.get("/locked-accounts", async (req, res) => {
     
     if (error) throw error;
     
-    // Format the response
     const formattedData = (data || []).map(attempt => ({
       ...attempt,
       user: attempt.users || null,
-      users: undefined // Remove the nested users object
+      users: undefined
     }));
     
     res.json(formattedData);
@@ -119,7 +115,6 @@ router.post("/unlock-account", async (req, res) => {
   }
 
   try {
-    // Update login_attempts to unlock
     const { error: updateError } = await supabaseAdmin
       .from('login_attempts')
       .update({

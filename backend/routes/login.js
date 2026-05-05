@@ -42,14 +42,13 @@ async function getCurrentSettings() {
       };
     }
   } catch (err) {
-    console.log('Using default settings');
+    // Using default settings
   }
   return { maxAttempts: 3, lockoutMinutes: 30 };
 }
 
 // Helper: Get or create login attempt record - WITH USER_ID
 async function getLoginAttempts(email) {
-  // ✅ FIRST: Try to find the user in users table to get their ID
   let userId = null;
   const { data: userData, error: userError } = await supabase
     .from('users')
@@ -59,12 +58,8 @@ async function getLoginAttempts(email) {
   
   if (!userError && userData) {
     userId = userData.id;
-    console.log(`Found user_id ${userId} for email ${email}`);
-  } else {
-    console.log(`No user found in users table for ${email}, will keep user_id as NULL`);
   }
   
-  // Now get or create login_attempts record
   let { data, error } = await supabase
     .from('login_attempts')
     .select('*')
@@ -76,10 +71,7 @@ async function getLoginAttempts(email) {
     throw error;
   }
   
-  // If no record exists, create one
   if (!data) {
-    console.log(`Creating new login_attempts record for ${email}, user_id: ${userId}`);
-    
     const insertData = {
       email: email,
       attempt_count: 0,
@@ -89,7 +81,6 @@ async function getLoginAttempts(email) {
       updated_at: new Date().toISOString()
     };
     
-    // ✅ Only add user_id if we found one
     if (userId) {
       insertData.user_id = userId;
     }
@@ -105,13 +96,10 @@ async function getLoginAttempts(email) {
       throw insertError;
     }
     
-    console.log(`Created record with user_id: ${newData.user_id}`);
     return newData;
   }
   
-  // ✅ If record exists but user_id is NULL and we now have a userId, UPDATE it
   if (!data.user_id && userId) {
-    console.log(`Updating existing login_attempts record with user_id ${userId}`);
     const { data: updatedData, error: updateError } = await supabase
       .from('login_attempts')
       .update({ user_id: userId, updated_at: new Date().toISOString() })
@@ -124,17 +112,11 @@ async function getLoginAttempts(email) {
     }
   }
   
-  console.log(`Retrieved record for ${email} - attempts: ${data.attempt_count}, user_id: ${data.user_id}`);
   return data;
 }
 
 // Helper: Reset login attempts to 0 (but keep the user_id)
 async function resetLoginAttempts(email) {
-  console.log(`Resetting login attempts for ${email} to 0`);
-  
-  // First get the current record to preserve user_id
-  const currentRecord = await getLoginAttempts(email);
-  
   const { data, error } = await supabase
     .from('login_attempts')
     .update({ 
@@ -142,7 +124,6 @@ async function resetLoginAttempts(email) {
       is_locked: false, 
       locked_until: null,
       updated_at: new Date().toISOString()
-      // ✅ Don't change user_id - keep whatever it was
     })
     .eq('email', email)
     .select();
@@ -152,53 +133,39 @@ async function resetLoginAttempts(email) {
     throw error;
   }
   
-  console.log(`Reset successful for ${email}, user_id preserved: ${currentRecord?.user_id}`);
   return data;
 }
 
 // Helper: Increment failed attempts
 async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
-  console.log(`Incrementing failed attempts for ${email}, max=${MAX_ATTEMPTS}, lockout=${LOCKOUT_MINUTES}min`);
-  
   let record = await getLoginAttempts(email);
-  console.log(`Current attempt_count: ${record.attempt_count}, is_locked: ${record.is_locked}`);
   
-  // Check if already locked and lock hasn't expired
   if (record.is_locked && record.locked_until) {
     const now = new Date();
     const lockExpiry = new Date(record.locked_until);
     
     if (now < lockExpiry) {
       const minutesLeft = Math.ceil((lockExpiry - now) / 1000 / 60);
-      console.log(`Account still locked for ${email}, ${minutesLeft} minutes left`);
       return { 
         isLocked: true, 
         minutesLeft,
         message: `Account locked. Try again in ${minutesLeft} minute(s).`
       };
     } else {
-      // Lock expired - reset everything
-      console.log(`Lock expired for ${email}, resetting to 0`);
       await resetLoginAttempts(email);
       record = await getLoginAttempts(email);
     }
   }
   
-  // Increment the attempt count (this makes 0→1, 1→2, etc.)
   const newAttemptCount = (record.attempt_count || 0) + 1;
   const shouldLock = newAttemptCount >= MAX_ATTEMPTS;
   
-  console.log(`New attempt_count: ${newAttemptCount}, shouldLock: ${shouldLock}`);
-  
-  // Calculate lock time if needed
   let lockedUntil = null;
   if (shouldLock) {
     lockedUntil = new Date();
     lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCKOUT_MINUTES);
-    console.log(`Will lock account until: ${lockedUntil.toISOString()}`);
   }
   
-  // Prepare update data
   const updateData = {
     attempt_count: newAttemptCount,
     last_attempt: new Date().toISOString(),
@@ -210,8 +177,6 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
     updateData.locked_until = lockedUntil.toISOString();
   }
   
-  // Update the database
-  console.log(`Updating database for ${email} with:`, updateData);
   const { error } = await supabase
     .from('login_attempts')
     .update(updateData)
@@ -222,11 +187,6 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
     throw error;
   }
   
-  // Verify the update
-  const verifyRecord = await getLoginAttempts(email);
-  console.log(`Verified: attempt_count is now ${verifyRecord.attempt_count}`);
-  
-  // Return appropriate response
   if (shouldLock) {
     return { 
       isLocked: true,
@@ -237,7 +197,6 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
   }
   
   const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
-  console.log(`Remaining attempts for ${email}: ${remainingAttempts}`);
   
   return { 
     isLocked: false, 
@@ -253,8 +212,6 @@ router.post("/", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const password = req.body.password?.trim();
 
-  console.log("LOGIN ATTEMPT:", username, password); // 👈 ADD HERE
-
   if (!username || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
@@ -263,10 +220,7 @@ router.post("/", async (req, res) => {
     const settings = await getCurrentSettings();
     const MAX_ATTEMPTS = settings.maxAttempts;
     const LOCKOUT_MINUTES = settings.lockoutMinutes;
-    
-    console.log(`Login attempt for ${username}, max attempts: ${MAX_ATTEMPTS}`);
 
-    // First, check if account is locked
     const attemptRecord = await getLoginAttempts(username);
     
     if (attemptRecord.is_locked && attemptRecord.locked_until) {
@@ -275,40 +229,22 @@ router.post("/", async (req, res) => {
       
       if (now < lockExpiry) {
         const minutesLeft = Math.ceil((lockExpiry - now) / 1000 / 60);
-        console.log(`Login blocked - account locked for ${username}, ${minutesLeft} minutes left`);
         return res.status(403).json({ 
           message: `Account locked. Try again in ${minutesLeft} minute(s).`,
           isLocked: true,
           minutesLeft
         });
       } else {
-        // Lock expired - reset
-        console.log(`Lock expired for ${username}, resetting`);
         await resetLoginAttempts(username);
       }
     }
 
-    // Attempt authentication
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: username,
       password: password,
     });
 
-
-    console.log("SUPABASE LOGIN RESPONSE:", {
-      authData,
-      authError
-    });
-
-    console.log("TEST LOGIN:", {
-      email: username,
-      passwordLength: password?.length,
-      authData,
-      authError,
-    });
-
     if (authError || !authData?.user) {
-      console.log(`Failed login for ${username}: ${authError?.message || 'Invalid credentials'}`);
       const lockResult = await incrementFailedAttempts(username, MAX_ATTEMPTS, LOCKOUT_MINUTES);
       
       if (lockResult.isLocked) {
@@ -325,11 +261,8 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Successful login - reset attempts to 0
-    console.log(`Successful login for ${username}, resetting attempt count to 0`);
     await resetLoginAttempts(username);
 
-    // Get user profile
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -337,7 +270,6 @@ router.post("/", async (req, res) => {
       .single();
 
     if (userError || !user) {
-      console.error(`User profile missing for ${username}`);
       return res.status(500).json({ message: "User profile missing" });
     }
 
@@ -348,7 +280,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Handle 2FA
     if (user.is_2fa_enabled && user.secret_key) {
       tempSetup[username] = user.secret_key;
       return res.json({
@@ -358,7 +289,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Setup 2FA if not enabled
     const secret = speakeasy.generateSecret({ name: `MAICRAFTS (${username})` });
     tempSetup[username] = secret.base32;
     const qrCode = await QRCode.toDataURL(secret.otpauth_url);
