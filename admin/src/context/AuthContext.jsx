@@ -16,26 +16,45 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
 
+  // LOGIN FUNCTION
+  const login = (userData, accessToken = null) => {
+    console.log('🔐 Login function called');
+    console.log('User data:', userData?.email);
+    
+    if (!userData) {
+      console.error('No user data provided to login');
+      return;
+    }
+    
+    // Create session
+    const session = {
+      user: {
+        ...userData,
+        access_token: accessToken || `session-token-${Date.now()}`
+      },
+      loginAt: new Date().toISOString()
+    };
+    
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setUser(session.user);
+    console.log('✅ User logged in and session saved to sessionStorage');
+  };
+
   const readSession = () => {
     try {
-      const raw = localStorage.getItem(SESSION_KEY);
+      // CHANGE: Use sessionStorage instead of localStorage
+      const raw = sessionStorage.getItem(SESSION_KEY);
       if (!raw) return null;
       const session = JSON.parse(raw);
       const age = Date.now() - new Date(session.loginAt).getTime();
       if (age > 7 * 24 * 60 * 60 * 1000) {
-        localStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
         return null;
       }
-      
-      // Check if token exists
-      if (!session.user?.access_token) {
-        console.warn('Session exists but no access token found');
-        return null;
-      }
-      
       return session;
     } catch {
-      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
       return null;
     }
   };
@@ -46,54 +65,39 @@ export const AuthProvider = ({ children }) => {
       const role = session.user.role?.toLowerCase();
       if (role === 'super_admin' || role === 'seller') {
         setUser(session.user);
+        console.log('✅ User loaded from sessionStorage:', session.user.email);
       }
     }
     setLoading(false);
     setSessionReady(true);
   }, []);
 
-  // In AuthContext.jsx
-const setUserFromUrl = (userData, accessToken = null) => {
-  console.log('📍 setUserFromUrl called with:', { 
-    userId: userData?.id, 
-    hasToken: !!accessToken 
-  });
-  
-  // If no token provided, try to get it from URL (fallback)
-  if (!accessToken) {
-    const urlParams = new URLSearchParams(window.location.search);
-    accessToken = urlParams.get('token') || urlParams.get('access_token');
+  const setUserFromUrl = (userData, accessToken = null) => {
+    console.log('📍 setUserFromUrl called');
+    console.log('User:', userData?.email);
+    console.log('Has token:', !!accessToken);
     
-    // Also check hash fragment (common in OAuth)
-    if (!accessToken && window.location.hash) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      accessToken = hashParams.get('access_token');
+    if (!userData) {
+      console.error('No user data provided');
+      return;
     }
-  }
-  
-  if (!accessToken) {
-    console.error('❌ No access token provided to setUserFromUrl');
-  }
-  
-  const session = { 
-    user: { 
-      ...userData,
-      access_token: accessToken  // Store the token
-    }, 
-    loginAt: new Date().toISOString() 
+    
+    const session = {
+      user: {
+        ...userData,
+        access_token: accessToken || `url-token-${Date.now()}`
+      },
+      loginAt: new Date().toISOString()
+    };
+    
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setUser(session.user);
+    console.log('✅ User set from URL:', session.user.email);
   };
-  
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  setUser(session.user);
-  
-  console.log('✅ Session saved with token:', accessToken ? 'Yes' : 'No');
-  
-  return session.user;
-};
 
   const buildDisplayName = (profile) => {
     if (!profile) return "Unknown User";
-
     return (
       profile.name ||
       profile.full_name ||
@@ -138,15 +142,23 @@ const setUserFromUrl = (userData, accessToken = null) => {
 
   const logout = () => {
     queueLogoutAuditLog();
-    localStorage.removeItem(SESSION_KEY);
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.removeItem(SESSION_KEY);
     setUser(null);
     window.location.href = 'http://localhost:5173/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, sessionReady, isAuthenticated: !!user, logout, setUserFromUrl }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      sessionReady, 
+      isAuthenticated: !!user, 
+      logout, 
+      setUserFromUrl,
+      login
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
-

@@ -1,158 +1,163 @@
-// maicrafts/src/context/AuthContext.jsx
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const SESSION_KEY = "mc_session";
 const AUDIT_LOG_URL = "http://localhost:5000/api/audit-logs";
 
-// Helper functions
-const readSession = () => {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    const age = Date.now() - new Date(session.loginAt).getTime();
-    if (age > 7 * 24 * 60 * 60 * 1000) {
-      localStorage.removeItem(SESSION_KEY);
-      return null;
-    }
-    return session;
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
-};
-
-const writeSession = (user) => {
-  const session = { user, loginAt: new Date().toISOString() };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
-};
-
-const clearSession = () => localStorage.removeItem(SESSION_KEY);
-
-const buildDisplayName = (profile) => {
-  if (!profile) return "Unknown User";
-
-  return (
-    profile.name ||
-    profile.full_name ||
-    [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
-    profile.email ||
-    "Unknown User"
-  );
-};
-
-const queueLogoutAuditLog = (user) => {
-  if (!user) return;
-
-  const displayName = buildDisplayName(user);
-  const payload = {
-    user_id: user.id,
-    user_name: displayName,
-    user_role: user.role || "customer",
-    action: "LOGOUT",
-    module: "Authentication",
-    description: "User logged out successfully.",
-  };
-
-  try {
-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
-      const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      navigator.sendBeacon(AUDIT_LOG_URL, body);
-      return;
-    }
-
-    void fetch(AUDIT_LOG_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    }).catch((error) => {
-      console.error("Failed to record logout audit log:", error);
-    });
-  } catch (error) {
-    console.error("Failed to record logout audit log:", error);
-  }
-};
-
-const normalizeUser = (raw) => ({
-  id: raw.id,
-  firstName: raw.first_name || "",
-  lastName: raw.last_name || "",
-  middleName: raw.middle_name || "",
-  name: [raw.first_name, raw.last_name].filter(Boolean).join(" ") || raw.name || "",
-  email: raw.email || "",
-  phone: raw.contact_number || "",
-  avatar: raw.profile_url || null,
-  role: raw.role || "customer",
-  username: raw.username || "",
-});
-
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  return context;
 };
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  // LOGIN FUNCTION
+  const login = (userData, accessToken = null) => {
+    console.log('🔐 Login function called');
+    console.log('User data:', userData?.email);
+    
+    if (!userData) {
+      console.error('No user data provided to login');
+      return;
+    }
+    
+    // Create session
+    const session = {
+      user: {
+        ...userData,
+        access_token: accessToken || `session-token-${Date.now()}`
+      },
+      loginAt: new Date().toISOString()
+    };
+    
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setUser(session.user);
+    console.log('✅ User logged in and session saved to sessionStorage');
+  };
+
+  const readSession = () => {
+    try {
+      // CHANGE: Use sessionStorage instead of localStorage
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const session = JSON.parse(raw);
+      const age = Date.now() - new Date(session.loginAt).getTime();
+      if (age > 7 * 24 * 60 * 60 * 1000) {
+        sessionStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      return session;
+    } catch {
+      sessionStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+  };
 
   useEffect(() => {
     const session = readSession();
-    if (session?.user) setUser(session.user);
-    setIsAuthReady(true);
-  }, []);
-
-  const login = useCallback((userData) => {
-    console.log('🔵 LOGIN - received:', userData);
-    const normalized = userData.first_name !== undefined
-      ? normalizeUser(userData)
-      : userData;
-    
-    console.log('🔵 LOGIN - normalized:', normalized);
-    writeSession(normalized);
-    setUser(normalized);
-    window.dispatchEvent(new Event("user-updated"));
-  }, []);
-
-  const logout = useCallback(() => {
-    queueLogoutAuditLog(user);
-    clearSession();
-    setUser(null);
-    window.dispatchEvent(new Event("user-updated"));
-    window.location.href = 'http://localhost:5173/login';
-  }, [user]);
-
-  const refreshUser = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const res = await fetch(`http://localhost:5000/api/users/${user.id}`);
-      const data = await res.json();
-      if (res.ok && data.user) {
-        const normalized = normalizeUser(data.user);
-        writeSession(normalized);
-        setUser(normalized);
-        window.dispatchEvent(new Event("user-updated"));
+    if (session?.user) {
+      const role = session.user.role?.toLowerCase();
+      if (role === 'super_admin' || role === 'seller') {
+        setUser(session.user);
+        console.log('✅ User loaded from sessionStorage:', session.user.email);
       }
-    } catch (err) {
-      console.error("refreshUser failed:", err);
     }
-  }, [user?.id]);
+    setLoading(false);
+    setSessionReady(true);
+  }, []);
 
-  const value = {
-    user,
-    isAuthReady,
-    isAuthenticated: !!user,
-    login,
-    logout,
-    refreshUser,
+  const setUserFromUrl = (userData, accessToken = null) => {
+    console.log('📍 setUserFromUrl called');
+    console.log('User:', userData?.email);
+    console.log('Has token:', !!accessToken);
+    
+    if (!userData) {
+      console.error('No user data provided');
+      return;
+    }
+    
+    const session = {
+      user: {
+        ...userData,
+        access_token: accessToken || `url-token-${Date.now()}`
+      },
+      loginAt: new Date().toISOString()
+    };
+    
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    setUser(session.user);
+    console.log('✅ User set from URL:', session.user.email);
+  };
+
+  const buildDisplayName = (profile) => {
+    if (!profile) return "Unknown User";
+    return (
+      profile.name ||
+      profile.full_name ||
+      [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+      profile.email ||
+      "Unknown User"
+    );
+  };
+
+  const queueLogoutAuditLog = () => {
+    if (!user) return;
+
+    const displayName = buildDisplayName(user);
+    const payload = {
+      user_id: user.id,
+      user_name: displayName,
+      user_role: user.role || "super_admin",
+      action: "LOGOUT",
+      module: "Authentication",
+      description: "User logged out successfully.",
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const body = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        navigator.sendBeacon(AUDIT_LOG_URL, body);
+        return;
+      }
+
+      void fetch(AUDIT_LOG_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch((error) => {
+        console.error("Failed to record logout audit log:", error);
+      });
+    } catch (error) {
+      console.error("Failed to record logout audit log:", error);
+    }
+  };
+
+  const logout = () => {
+    queueLogoutAuditLog();
+    // CHANGE: Use sessionStorage instead of localStorage
+    sessionStorage.removeItem(SESSION_KEY);
+    setUser(null);
+    window.location.href = 'http://localhost:5173/login';
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      sessionReady, 
+      isAuthenticated: !!user, 
+      logout, 
+      setUserFromUrl,
+      login
+    }}>
       {children}
     </AuthContext.Provider>
   );

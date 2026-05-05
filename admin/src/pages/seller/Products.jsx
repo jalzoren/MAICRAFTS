@@ -261,72 +261,98 @@ const handleAddProduct = async (formData) => {
   }
 };
 
-  const handleEditProduct = async (productId, formData) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
-        method: 'PUT',
-        body: formData
-      });
-      const data = await response.json();
+const handleEditProduct = async (productId, formData) => {
+  try {
+    // Get token from sessionStorage
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) {
+      throw new Error('No session found. Please login again.');
+    }
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please login again.');
+    }
+    
+    console.log('🔑 Updating product with token:', token.substring(0, 20) + '...');
+    
+    const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    console.log('Update response:', data);
 
-      if (data.success) {
-        await fetchProducts();
-        await fetchStats();
-        Swal.fire({
-          title: 'Success!',
-          text: 'Product updated successfully!',
-          icon: 'success',
-          confirmButtonColor: '#E6BB71',
-          timer: 1500
-        });
-        return data;
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Error updating product:', error);
+    if (data.success) {
+      await fetchProducts();
+      await fetchStats();
       Swal.fire({
-        title: 'Error!',
-        text: 'Error updating product',
-        icon: 'error',
-        confirmButtonColor: '#E6BB71'
+        title: 'Success!',
+        text: 'Product updated successfully!',
+        icon: 'success',
+        confirmButtonColor: '#E6BB71',
+        timer: 1500
       });
-      throw error;
+      return data;
+    } else {
+      throw new Error(data.error);
     }
-  };
+  } catch (error) {
+    console.error('Error updating product:', error);
+    Swal.fire({
+      title: 'Error!',
+      text: error.message || 'Error updating product',
+      icon: 'error',
+      confirmButtonColor: '#E6BB71'
+    });
+    throw error;
+  }
+};
 
-  const updateStock = async (productId, change, reason = '') => {
-    try {
-      console.log('Updating stock for product:', productId, 'Change:', change);
-      
-      const response = await fetch(`http://localhost:5000/api/products/${productId}/stock`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ change, reason })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Stock update response:', data);
-      
-      if (data.success) {
-        // Force refresh products to get updated stock
-        await fetchProducts();
-        await fetchStats();
-        return true;
-      }
-      throw new Error(data.error || 'Failed to update stock');
-    } catch (error) {
-      console.error('Error updating stock:', error);
-      throw error;
+const updateStock = async (productId, change, reason = '') => {
+  try {
+    console.log('Updating stock for product:', productId, 'Change:', change);
+    
+    // Get token
+    const sessionData = sessionStorage.getItem('mc_session');
+    const session = JSON.parse(sessionData);
+    const token = session?.user?.access_token;
+    
+    const response = await fetch(`http://localhost:5000/api/products/${productId}/stock`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify({ change, reason })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  };
+    
+    const data = await response.json();
+    console.log('Stock update response:', data);
+    
+    if (data.success) {
+      await fetchProducts();
+      await fetchStats();
+      return true;
+    }
+    throw new Error(data.error || 'Failed to update stock');
+  } catch (error) {
+    console.error('Error updating stock:', error);
+    throw error;
+  }
+};
 
   const handleDeleteProduct = async (productId) => {
     const result = await Swal.fire({
@@ -342,8 +368,14 @@ const handleAddProduct = async (formData) => {
     if (!result.isConfirmed) return;
     
     try {
+      // Get token
+      const sessionData = sessionStorage.getItem('mc_session');
+      const session = JSON.parse(sessionData);
+      const token = session?.user?.access_token;
+      
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
       const data = await response.json();
       if (data.success) {
@@ -392,9 +424,17 @@ const handleAddProduct = async (formData) => {
     if (!result.isConfirmed) return;
     
     try {
+      // Get token
+      const sessionData = sessionStorage.getItem('mc_session');
+      const session = JSON.parse(sessionData);
+      const token = session?.user?.access_token;
+      
       const response = await fetch('http://localhost:5000/api/products/archive', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify({ productIds: selectedRows })
       });
       const data = await response.json();
