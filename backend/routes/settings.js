@@ -1,6 +1,7 @@
 // backend/routes/settings.js
 import express from 'express';
 import supabase, { supabaseAdmin } from '../supabaseClient.js';
+import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
@@ -33,6 +34,8 @@ router.post("/login-settings", async (req, res) => {
       })
       .eq('setting_key', 'login_attempts');
     
+    let finalError = updateError;
+
     if (updateError && updateError.code === 'PGRST116') {
       const { error: insertError } = await supabaseAdmin
         .from('system_settings')
@@ -42,12 +45,22 @@ router.post("/login-settings", async (req, res) => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
-      
-      if (insertError) throw insertError;
-    } else if (updateError) {
-      throw updateError;
+
+      finalError = insertError;
     }
-    
+
+    if (finalError) throw finalError;
+
+    // ✅ AUDIT LOG (ONLY ON SUCCESS)
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "UPDATE",
+      module: "SETTINGS",
+      description: `Updated login settings (maxAttempts: ${maxAttempts}, lockout: ${lockoutDurationMinutes}min)`,
+    });
+
     res.json({ message: "Settings saved successfully" });
   } catch (err) {
     console.error("Error saving:", err);
@@ -106,23 +119,18 @@ router.post("/unlock-account", async (req, res) => {
   }
 
   try {
-    let query = supabaseAdmin
+    // Update login_attempts to unlock
+    const { error: updateError } = await supabaseAdmin
       .from('login_attempts')
       .update({
         is_locked: false,
         locked_until: null,
         attempt_count: 0,
         updated_at: new Date().toISOString()
-      });
+      })
+      .eq('email', email);
 
-    if (user_id) {
-      query = query.eq('user_id', user_id);
-    } else {
-      query = query.eq('email', email);
-    }
-
-    const { error } = await query;
-    if (error) throw error;
+    if (updateError) throw updateError;
 
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {

@@ -3,87 +3,146 @@ import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import nodemailer from "nodemailer";
 import supabase from "../supabaseClient.js";
-import axios from "axios"; // <- needed for captcha
+import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
+/**
+ * STEP 1: SEND OTP ONLY (NO USER YET)
+ */
 router.post("/register", async (req, res) => {
-  const { first_name, last_name, email, password, captcha } = req.body;
+  const { email } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
   }
 
-  if (!captcha) {
-    return res.status(400).json({ error: "Captcha is required" });
-  }
-
-  // 1️⃣ Verify Google reCAPTCHA
   try {
-    const secret = process.env.RECAPTCHA_SECRET_KEY;
-    const response = await axios.post(
-      `https://www.google.com/recaptcha/api/siteverify?secret=${secret}&response=${captcha}`
-    );
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 60 * 1000);
 
-    if (!response.data.success) {
-      return res.status(400).json({ error: "Captcha verification failed" });
-    }
-  } catch (err) {
-    console.error("Captcha verification error:", err);
-    return res.status(500).json({ error: "Server error during captcha verification" });
-  }
-
-  let userId;
-  try {
-    // Create user in Supabase Auth
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    await supabase.from("email_otps").insert({
       email,
-      password,
-      email_confirm: true,
+      otp,
+      expires_at: expiresAt,
     });
 
+    await createAuditLog({
+      user_id: null,
+      user_name: "GUEST",
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "AUTH",
+      description: `OTP sent to ${email}`,
+    });
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Maicrafts" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your OTP Code",
+      html: `<h2>Your OTP is <b>${otp}</b></h2>`,
+    });
+
+    return res.json({ message: "OTP sent to email" });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+/**
+ * STEP 2: VERIFY OTP → THEN CREATE USER
+ */
+router.post("/verify-otp", async (req, res) => {
+  const { email, otp, password, first_name, last_name } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP required" });
+  }
+
+  try {
+    // 1. Check OTP
+    const { data, error } = await supabase
+      .from("email_otps")
+      .select("*")
+      .eq("email", email)
+      .eq("otp", otp)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    const now = new Date();
+    if (now > new Date(data.expires_at)) {
+      return res.status(400).json({ error: "OTP expired" });
+    }
+
+    // 2. Delete OTP
+    await supabase.from("email_otps").delete().eq("id", data.id);
+
+    // 3. CREATE USER ONLY AFTER OTP SUCCESS
+    const { data: authUser, error: authError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
     if (authError) {
-      console.error("Supabase auth error:", authError);
       return res.status(400).json({ error: authError.message });
     }
 
-    userId = authUser.user.id;
+    const userId = authUser.user.id;
 
-    // Insert profile info into public.users
-    const { error: userInsertError } = await supabase.from("users").insert([{
+    await supabase.from("users").insert({
       id: userId,
       email,
       first_name,
       last_name,
-      is_verified: false,
-    }]);
+      is_verified: true,
+      is_active: false,
+    });
 
-    if (userInsertError) {
-      console.error("Failed to insert into public.users:", userInsertError);
+    await createAuditLog({
+      user_id: userId,
+      user_name: `${first_name} ${last_name}`,
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "USER",
+      description: "Customer account created after OTP verification",
+    });
 
-      // Rollback auth usnner
-      if (userId) {
-        await supabase.auth.admin.deleteUser(userId);
-      }
-
-      return res.status(500).json({ error: "Failed to insert user profile" });
-    }
-
-    // Generate verification token
+    // 4. Send activation email
     const token = uuidv4();
-    const { error: tokenError } = await supabase.from("email_verifications").insert([{
+
+    await supabase.from("email_verifications").insert({
       id: uuidv4(),
       user_id: userId,
       token,
       created_at: new Date(),
-    }]);
+    });
 
-    if (tokenError) {
-      console.error("Failed to insert verification token:", tokenError);
-      return res.status(500).json({ error: "Failed to create verification token" });
-    }
+    await createAuditLog({
+      user_id: userId,
+      user_name: `${first_name} ${last_name}`,
+      user_role: "CUSTOMER",
+      action: "CREATE",
+      module: "AUTH",
+      description: "Email verification link generated",
+    });
 
-    // Send verification email
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
@@ -99,7 +158,7 @@ router.post("/register", async (req, res) => {
     await transporter.sendMail({
       from: `"Maicrafts" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: "Activate your email",
+      subject: "Activate your account",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto;
                     border: 1px solid #e0c896; border-radius: 12px; overflow: hidden;">
@@ -135,21 +194,13 @@ router.post("/register", async (req, res) => {
         </div>
       `,
     });
-    return res.status(201).json({ message: "User registered. Check your email to verify." });
 
-  } catch (error) {
-    console.error("Unexpected error:", error);
-
-    // Rollback auth user if created
-    if (userId) {
-      try {
-        await supabase.auth.admin.deleteUser(userId);
-      } catch (rollbackError) {
-        console.error("Rollback failed:", rollbackError);
-      }
-    }
-
-    return res.status(500).json({ error: "Internal server error" });
+    return res.json({
+      message: "OTP verified, user created, activation email sent",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 

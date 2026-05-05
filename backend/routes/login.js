@@ -253,6 +253,8 @@ router.post("/", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const password = req.body.password?.trim();
 
+  console.log("LOGIN ATTEMPT:", username, password); // 👈 ADD HERE
+
   if (!username || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
@@ -290,6 +292,19 @@ router.post("/", async (req, res) => {
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: username,
       password: password,
+    });
+
+
+    console.log("SUPABASE LOGIN RESPONSE:", {
+      authData,
+      authError
+    });
+
+    console.log("TEST LOGIN:", {
+      email: username,
+      passwordLength: password?.length,
+      authData,
+      authError,
     });
 
     if (authError || !authData?.user) {

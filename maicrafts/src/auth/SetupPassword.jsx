@@ -56,38 +56,6 @@ const SetupPassword = () => {
     fetchPolicy();
   }, []);
 
-  const validatePasswordByPolicy = (password) => {
-    if (!policy) return true;
-  
-    if (password.length < policy.min_length) return false;
-  
-    if (policy.require_uppercase) {
-      const count = (password.match(/[A-Z]/g) || []).length;
-      if (count < policy.uppercase_min_count) return false;
-    }
-  
-    if (policy.require_lowercase) {
-      const count = (password.match(/[a-z]/g) || []).length;
-      if (count < policy.lowercase_min_count) return false;
-    }
-  
-    if (policy.require_number) {
-      const count = (password.match(/[0-9]/g) || []).length;
-      if (count < policy.number_min_count) return false;
-    }
-  
-    if (policy.require_special_char) {
-      const regex = new RegExp(
-        `[${policy.special_char_set.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}]`,
-        "g"
-      );
-      const count = (password.match(regex) || []).length;
-      if (count < policy.special_char_min_count) return false;
-    }
-  
-    return true;
-  };
-
   const checkPasswordStrength = (password) => {
     if (!password) return "";
     if (password.length < 8) return "weak";
@@ -165,31 +133,6 @@ const SetupPassword = () => {
     }));
   };
 
-  const showSuccessAlert = () => {
-    Swal.fire({
-      title: 'Account Created!',
-      text: 'Your account has been successfully created. Check your email for activation',
-      icon: 'success',
-      background: '#E6BB71',
-      color: '#4b2e16',
-      confirmButtonColor: '#4b2e16',
-      confirmButtonText: 'Continue',
-      timer: 3000,
-      timerProgressBar: true,
-      customClass: {
-        popup: 'swal-custom-popup',
-        title: 'swal-custom-title',
-        htmlContainer: 'swal-custom-text'
-      }
-    }).then(() => {
-      // Clear session storage
-      sessionStorage.removeItem("signupEmail");
-      sessionStorage.removeItem("emailVerified");
-      sessionStorage.removeItem("passwordSetup");
-      navigate("/login");
-    });
-  };
-
   const showErrorAlert = (message) => {
     Swal.fire({
       title: 'Error',
@@ -229,38 +172,58 @@ const SetupPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
   
-    if (!captchaValue) {
-      showValidationAlert("Please complete the CAPTCHA before continuing");
+    if (!formData.password || !formData.confirmPassword) {
+      showValidationAlert("Please fill in password fields");
       return;
     }
   
-    if (!validateForm()) return;
+    if (formData.password !== formData.confirmPassword) {
+      showValidationAlert("Passwords do not match");
+      return;
+    }
   
-    if (!validatePasswordByPolicy(formData.password)) {
-      showValidationAlert("Password does not meet system requirements");
+    if (!captchaValue) {
+      showValidationAlert("Please complete CAPTCHA");
       return;
     }
   
     setIsLoading(true);
   
     try {
-      const response = await fetch("http://localhost:5000/api/register", {
+      const email = sessionStorage.getItem("signupEmail");
+  
+      const response = await fetch("http://localhost:5000/api/set-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: formData.password, captcha: captchaValue }),
+        body: JSON.stringify({
+          email,
+          password: formData.password,
+          captcha: captchaValue,
+        }),
       });
   
       const data = await response.json();
   
       if (!response.ok) {
-        showErrorAlert(data.error || "Failed to save password");
+        showErrorAlert(data.error || "Something went wrong");
         return;
       }
   
-      showSuccessAlert();
+      Swal.fire({
+        title: "OTP Sent!",
+        text: "We sent a verification code to your email.",
+        icon: "success",
+        confirmButtonColor: "#4b2e16",
+        confirmButtonText: "Continue",
+        timer: 2000,
+        timerProgressBar: true,
+      }).then(() => {
+        sessionStorage.setItem("signupPassword", formData.password);
+        navigate("/enter-code");
+      });
+  
     } catch (error) {
-      console.error(error);
-      showErrorAlert("Failed to save password. Please try again.");
+      showErrorAlert("Network or server error");
     } finally {
       setIsLoading(false);
     }
@@ -313,22 +276,27 @@ const SetupPassword = () => {
           {/* Progress Indicator - Fixed Line */}
           <div className="progress-indicator">
             <div className="progress-steps">
-              {/* Step 1 - Email - Completed */}
+              {/* Step 1 - Completed */}
               <div className="progress-step">
                 <div className="step-number completed">✓</div>
                 <span className="step-label completed">Email</span>
               </div>
               
-              
-              {/* Step 3 - Password - Active */}
+              {/* Step 2 - Active */}
               <div className="progress-step">
                 <div className="step-number active">2</div>
                 <span className="step-label active">Password</span>
               </div>
               
-              {/* Step 4 - Done - Pending */}
+              {/* Step 3 - Pending */}
               <div className="progress-step">
                 <div className="step-number">3</div>
+                <span className="step-label">Verify</span>
+              </div>
+              
+              {/* Step 4 - Pending */}
+              <div className="progress-step">
+                <div className="step-number">4</div>
                 <span className="step-label">Done</span>
               </div>
             </div>
@@ -482,7 +450,7 @@ const SetupPassword = () => {
               {isLoading ? (
                 <span className="loading-spinner" role="status" aria-label="Loading"></span>
               ) : (
-                "CREATE ACCOUNT"
+                "NEXT"
               )}
             </button>
 
@@ -494,7 +462,7 @@ const SetupPassword = () => {
               disabled={isLoading}
             >
              <span className="back-icon"></span>
-              BACK TO LOGIN
+              BACK TO EMAIL
             </button>
           </form>
 

@@ -1,11 +1,11 @@
 // backend/routes/userRoutes.js
 import express from "express";
-import bcrypt from "bcrypt";
 import supabase, { supabaseAdmin } from "../supabaseClient.js";
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
 import { sendWelcomeEmail } from "../utils/mailer.js";
 import crypto from "crypto";
+import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
@@ -129,6 +129,15 @@ router.post("/users", async (req, res) => {
     });
 
     console.log("User created successfully!");
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "CREATE",
+      module: "USER_MANAGEMENT",
+      description: `Created ${role} user: ${normalizedEmail}`,
+    });
+
     res.status(201).json(newUser[0]);
   } catch (err) {
     console.error("Error creating user:", err);
@@ -167,6 +176,16 @@ router.put("/users/:id/role", async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "UPDATE",
+      module: "USER_MANAGEMENT",
+      description: `Changed role of user ${id} to ${role}`,
+    });
+
     if (!data || data.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -202,6 +221,15 @@ router.put("/users/:id/status", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "UPDATE",
+      module: "USER_MANAGEMENT",
+      description: `Updated user ${id} status to ${is_active ? "ACTIVE" : "INACTIVE"}`,
+    });
+
     res.json(data[0]);
   } catch (err) {
     console.error("Error updating user status:", err);
@@ -225,10 +253,21 @@ router.delete("/users/:id", async (req, res) => {
     // Delete auth user
     const { error: authError } = await supabase.auth.admin.deleteUser(id);
     if (authError) {
-      console.warn("Note: Auth user deletion may have failed, but profile was deleted:", authError.message);
+      console.warn("Auth delete failed:", authError.message);
     }
 
+    // ✅ LOG ONLY AFTER SUCCESS
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "ADMIN",
+      user_role: "ADMIN",
+      action: "DELETE",
+      module: "USER_MANAGEMENT",
+      description: `Deleted user ${id}`,
+    });
+
     res.json({ message: "User deleted successfully" });
+
   } catch (err) {
     console.error("Error deleting user:", err);
     res.status(500).json({ error: "Failed to delete user" });

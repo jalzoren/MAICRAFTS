@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import supabase from '../supabaseClient.js';
+import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
 
@@ -150,6 +151,15 @@ router.post('/products/:id/stock', async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "Unknown",
+      user_role: req.user?.role || "SELLER",
+      action: "UPDATE",
+      module: "STOCK",
+      description: `Changed stock by ${change} for product ID: ${id}`,
+    });
 
     await addStockHistory(id, change, reason || (change > 0 ? 'Stock added' : 'Stock removed'));
 
@@ -457,6 +467,15 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "Unknown",
+      user_role: req.user?.role || "SELLER",
+      action: "CREATE",
+      module: "PRODUCT",
+      description: `Created product: ${name}`,
+    });
+
     if (productStock > 0 && data && data[0]) {
       await addStockHistory(data[0].id, productStock, 'Initial stock added');
     }
@@ -562,6 +581,15 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "Unknown",
+      user_role: req.user?.role || "SELLER",
+      action: "UPDATE",
+      module: "PRODUCT",
+      description: `Updated product ID: ${id}`,
+    });
+
     const stockDifference = productStock - oldStock;
     if (stockDifference !== 0) {
       await addStockHistory(id, stockDifference, 'Product updated');
@@ -594,6 +622,15 @@ router.delete('/products/:id', async (req, res) => {
       .eq('id', id);
 
     if (error) throw error;
+
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_name: req.user?.name || "Unknown",
+      user_role: req.user?.role || "ADMIN",
+      action: "DELETE",
+      module: "PRODUCT",
+      description: `Deleted product ID: ${id}`,
+    });
 
     res.json({ 
       success: true, 

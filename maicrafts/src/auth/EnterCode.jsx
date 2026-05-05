@@ -13,8 +13,15 @@ const EnterCode = () => {
   const [canResend, setCanResend] = useState(false);
   const [email, setEmail] = useState("");
   const inputRefs = useRef([]);
+  const currentStep = 3;
 
   // Get email from sessionStorage on component mount
+  useEffect(() => {
+    const storedEmail = sessionStorage.getItem("signupEmail");
+    if (storedEmail) {
+      setEmail(storedEmail);
+    }
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -84,8 +91,8 @@ const EnterCode = () => {
 
   const showSuccessAlert = () => {
     Swal.fire({
-      title: 'Email Verified!',
-      text: 'Your email has been verified successfully.',
+      title: 'Verification Successful!',
+      text: 'Your account has been created. Please check your email to activate your account.',
       icon: 'success',
       background: '#E6BB71',
       color: '#4b2e16',
@@ -168,25 +175,41 @@ const EnterCode = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  
     if (!validateForm()) {
-      showValidationAlert("Please enter all 6 digits of the verification code");
+      showValidationAlert("Enter all 6 digits");
       return;
     }
-
+  
     setIsLoading(true);
+  
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("OTP verified for email:", email, "Code:", otp.join(""));
-      
-      // Store verification status
-      sessionStorage.setItem("emailVerified", "true");
-      
-      // Show success alert
+      const email = sessionStorage.getItem("signupEmail");
+      const password = sessionStorage.getItem("signupPassword");
+  
+      const response = await fetch("http://localhost:5000/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          otp: otp.join(""),
+          password,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        showErrorAlert(data.error || "OTP verification failed");
+        return;
+      }
+  
+      sessionStorage.clear();
       showSuccessAlert();
-      
+  
     } catch (error) {
-      showErrorAlert("Invalid verification code. Please try again.");
+      console.error(error);
+      showErrorAlert("Network error");
     } finally {
       setIsLoading(false);
     }
@@ -218,10 +241,11 @@ const EnterCode = () => {
     }
   };
 
-  const handleBack = () => {
-    if (!isLoading) {
-      navigate("/signup");
-    }
+  const handleBack = (e) => {
+    if (e) e.preventDefault();
+    if (isLoading) return;
+  
+    navigate("/setup-password");
   };
 
   const maskedEmail = maskEmail(email);
@@ -251,32 +275,49 @@ const EnterCode = () => {
           {/* Progress Indicator - Fixed Line */}
           <div className="progress-indicator">
             <div className="progress-steps">
-              {/* Step 1 - Completed */}
+
+              {/* 1 - Email */}
               <div className="progress-step">
-                <div className="step-number completed">✓</div>
-                <span className="step-label completed">Email</span>
+                <div className={`step-number ${currentStep > 1 ? "completed" : currentStep === 1 ? "active" : ""}`}>
+                  {currentStep > 1 ? "✓" : "1"}
+                </div>
+                <span className={`step-label ${currentStep >= 1 ? "active" : ""}`}>
+                  Email
+                </span>
               </div>
-              
-              {/* Step 2 - Active */}
+
+              {/* 2 - Password */}
               <div className="progress-step">
-                <div className="step-number active">2</div>
-                <span className="step-label active">Verify</span>
+                <div className={`step-number ${currentStep > 2 ? "completed" : currentStep === 2 ? "active" : ""}`}>
+                  {currentStep > 2 ? "✓" : "2"}
+                </div>
+                <span className={`step-label ${currentStep >= 2 ? "active" : ""}`}>
+                  Password
+                </span>
               </div>
-              
-              {/* Step 3 - Pending */}
+
+              {/* 3 - Verify (YOU ARE HERE) */}
               <div className="progress-step">
-                <div className="step-number">3</div>
-                <span className="step-label">Password</span>
+                <div className={`step-number ${currentStep > 3 ? "completed" : currentStep === 3 ? "active" : ""}`}>
+                  {currentStep > 3 ? "✓" : "3"}
+                </div>
+                <span className={`step-label ${currentStep >= 3 ? "active" : ""}`}>
+                  Verify
+                </span>
               </div>
-              
-              {/* Step 4 - Pending */}
+
+              {/* 4 - Done */}
               <div className="progress-step">
-                <div className="step-number">4</div>
-                <span className="step-label">Done</span>
+                <div className={`step-number ${currentStep > 4 ? "completed" : currentStep === 4 ? "active" : ""}`}>
+                  {currentStep > 4 ? "✓" : "4"}
+                </div>
+                <span className={`step-label ${currentStep >= 4 ? "active" : ""}`}>
+                  Done
+                </span>
               </div>
+
             </div>
           </div>
-
           {/* Title */}
           <h2 className="enter-code-title">VERIFY EMAIL</h2>
           <p className="enter-code-subtitle">
