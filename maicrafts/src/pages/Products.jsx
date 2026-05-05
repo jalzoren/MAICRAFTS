@@ -2,13 +2,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import "../css/Products.css";
-import FloatingCart from "../components/FloatingCart.jsx";
 
 const Products = () => {
   const [sortBy, setSortBy] = useState("Popular");
   const [selectedOccasions, setSelectedOccasions] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [cartItems, setCartItems] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   
   // STATE FOR BACKEND DATA
@@ -101,24 +99,6 @@ const Products = () => {
   const clearFilters = () => {
     setSelectedOccasions([]);
     setSelectedCategories([]);
-  };
-
-  const addToCart = (product) => {
-    setCartItems((prevCart) => {
-      const existing = prevCart.find((item) => item.id === product.id);
-
-      if (existing) {
-        return prevCart.map((item) =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
-        );
-      }
-
-      return [...prevCart, { ...product, qty: 1 }];
-    });
-  };
-
-  const removeItem = (id) => {
-    setCartItems((prevCart) => prevCart.filter((item) => item.id !== id));
   };
 
   const activeFiltersCount = selectedOccasions.length + selectedCategories.length;
@@ -378,9 +358,6 @@ const Products = () => {
           onClick={() => setShowFilters(false)}
         ></div>
       )}
-
-      {/* Floating Cart Component */}
-      <FloatingCart cartItems={cartItems} removeItem={removeItem} />
     </>
   );
 };

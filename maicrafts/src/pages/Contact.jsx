@@ -7,7 +7,6 @@ import {
   FaPhoneAlt,
   FaMapMarkerAlt,
 } from "react-icons/fa";
-import FloatingCart from "../components/FloatingCart.jsx";
 
 const Contact = () => {
   return (
