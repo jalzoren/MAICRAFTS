@@ -24,17 +24,21 @@ const EnterCode = () => {
   }, []);
 
   useEffect(() => {
+    if (canResend) return; // stop when resend is allowed
+  
     const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {
+          clearInterval(interval);
           setCanResend(true);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+  
     return () => clearInterval(interval);
-  }, []);
+  }, [canResend]); 
 
   const handleChange = (index, value) => {
     if (!/^[0-9]?$/.test(value)) return;

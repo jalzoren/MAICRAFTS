@@ -3,6 +3,7 @@ import multer from 'multer';
 import supabase from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
 
+
 const router = express.Router();
 
 // Configure multer for file uploads
@@ -154,7 +155,7 @@ router.post('/products/:id/stock', async (req, res) => {
 
     await createAuditLog({
       user_id: req.user?.id || null,
-      user_name: req.user?.name || "Unknown",
+      user_email: req.user?.email || "unknown@email.com",
       user_role: req.user?.role || "SELLER",
       action: "UPDATE",
       module: "STOCK",
@@ -468,9 +469,9 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     if (error) throw error;
 
     await createAuditLog({
-      user_id: req.user?.id || null,
-      user_name: req.user?.name || "Unknown",
-      user_role: req.user?.role || "SELLER",
+      user_id: req.body.user_id,
+      user_email: req.body.user_email || "unknown@email.com",
+      user_role: req.body.user_role || "SELLER",
       action: "CREATE",
       module: "PRODUCT",
       description: `Created product: ${name}`,
@@ -582,9 +583,9 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     if (error) throw error;
 
     await createAuditLog({
-      user_id: req.user?.id || null,
-      user_name: req.user?.name || "Unknown",
-      user_role: req.user?.role || "SELLER",
+      user_id: req.body.user_id,
+      user_email: req.body.user_email || "unknown@email.com",
+      user_role: req.body.user_role || "SELLER",
       action: "UPDATE",
       module: "PRODUCT",
       description: `Updated product ID: ${id}`,
@@ -624,9 +625,9 @@ router.delete('/products/:id', async (req, res) => {
     if (error) throw error;
 
     await createAuditLog({
-      user_id: req.user?.id || null,
-      user_name: req.user?.name || "Unknown",
-      user_role: req.user?.role || "ADMIN",
+      user_id: req.body.user_id,
+      user_email: req.body.user_email || "unknown@email.com",
+      user_role: req.body.user_role || "ADMIN",
       action: "DELETE",
       module: "PRODUCT",
       description: `Deleted product ID: ${id}`,
@@ -666,12 +667,23 @@ router.post('/products/archive', async (req, res) => {
 
     if (error) throw error;
 
+    // ✅ ADD AUDIT LOG HERE
+    await createAuditLog({
+      user_id: req.body.user_id,
+      user_email: req.body.user_email || "unknown@email.com",
+      user_role: req.body.user_role || "ADMIN",
+      action: "UPDATE",
+      module: "PRODUCT",
+      description: `Archived ${productIds.length} product(s)`
+    });
+
     res.json({ 
       success: true, 
       data: data,
       count: data?.length || 0,
       message: `${data?.length || 0} product(s) archived successfully`
     });
+
   } catch (error) {
     console.error('Error archiving products:', error);
     res.status(500).json({ success: false, error: error.message });

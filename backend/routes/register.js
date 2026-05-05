@@ -29,7 +29,7 @@ router.post("/register", async (req, res) => {
 
     await createAuditLog({
       user_id: null,
-      user_name: "GUEST",
+      user_email: email,
       user_role: "CUSTOMER",
       action: "CREATE",
       module: "AUTH",
@@ -89,6 +89,15 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ error: "OTP expired" });
     }
 
+    await createAuditLog({
+      user_id: null,
+      user_email: email,
+      user_role: "CUSTOMER",
+      action: "UPDATE",
+      module: "AUTH",
+      description: "OTP successfully verified",
+    });
+
     // 2. Delete OTP
     await supabase.from("email_otps").delete().eq("id", data.id);
 
@@ -117,7 +126,7 @@ router.post("/verify-otp", async (req, res) => {
 
     await createAuditLog({
       user_id: userId,
-      user_name: `${first_name} ${last_name}`,
+      user_email: email,
       user_role: "CUSTOMER",
       action: "CREATE",
       module: "USER",
@@ -136,7 +145,7 @@ router.post("/verify-otp", async (req, res) => {
 
     await createAuditLog({
       user_id: userId,
-      user_name: `${first_name} ${last_name}`,
+      user_email: email,
       user_role: "CUSTOMER",
       action: "CREATE",
       module: "AUTH",

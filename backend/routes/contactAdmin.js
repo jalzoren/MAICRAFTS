@@ -2,10 +2,14 @@ import express from "express";
 import { v4 as uuidv4 } from "uuid";
 import supabase from "../supabaseClient.js";
 import { createAuditLog } from "../services/auditService.js";
+import { authenticateUser } from "../utils/auth.js";
 
 const router = express.Router();
 
+console.log("🔥 contactAdmin.js LOADED");
+
 router.post("/contact-admin", async (req, res) => {
+  console.log("🔥 CONTACT ADMIN ROUTE HIT");
   const { first_name, middle_name, last_name, email, message } = req.body;
 
   if (!first_name || !last_name || !email || !message) {
@@ -41,7 +45,7 @@ router.post("/contact-admin", async (req, res) => {
     // ✅ AUDIT LOG (ONLY AFTER SUCCESS)
     await createAuditLog({
       user_id: null,
-      user_name: `${first_name} ${last_name}`,
+      user_email: email,
       user_role: "CUSTOMER",
       action: "CREATE",
       module: "SELLER_REQUEST",
@@ -61,7 +65,7 @@ router.post("/contact-admin", async (req, res) => {
 
 
 // GET all contact admin requests
-router.get("/contact-admin", async (req, res) => {
+router.get("/contact-admin", authenticateUser,  async (req, res) => {
     try {
       const { data, error } = await supabase
         .from("contact_admin_requests")
@@ -69,6 +73,15 @@ router.get("/contact-admin", async (req, res) => {
         .order("created_at", { ascending: false });
   
       if (error) throw error;
+
+      await createAuditLog({
+        user_id: req.user?.id || null,
+        user_email: req.user?.email || "admin@system",
+        user_role: req.user?.role || "ADMIN",
+        action: "VIEW",
+        module: "SELLER_REQUEST",
+        description: "Admin viewed seller requests list",
+      });
   
       res.json(data);
     } catch (err) {
@@ -77,7 +90,7 @@ router.get("/contact-admin", async (req, res) => {
     }
   });
 
-  router.put("/contact-admin/:id/approve", async (req, res) => {
+  router.put("/contact-admin/:id/approve", authenticateUser, async (req, res) => {
     const { id } = req.params;
   
     try {
@@ -105,7 +118,7 @@ router.get("/contact-admin", async (req, res) => {
       // 3. audit log AFTER success
       await createAuditLog({
         user_id: null,
-        user_name: `${request.first_name} ${request.last_name}`,
+        user_email: req.user?.email || "admin@system",
         user_role: "CUSTOMER",
         action: "UPDATE",
         module: "SELLER_REQUEST",
