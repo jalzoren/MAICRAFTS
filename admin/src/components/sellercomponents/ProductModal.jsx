@@ -1,4 +1,4 @@
-// ProductModal.jsx (SELLER SIDE - Product Management/Inventory)
+// ProductModal.jsx (SELLER SIDE)
 import React, { useState, useEffect } from 'react';
 import '../../css/ProductModal.css';
 import VariationsManager from './VariationsManager';
@@ -143,19 +143,11 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     }
   };
 
+
   const handleSubmit = async () => {
-    if (!formData.name.trim()) {
-      alert('Please enter product name');
-      return;
-    }
-    if (!formData.price || formData.price <= 0) {
-      alert('Please enter valid price');
-      return;
-    }
-    if (!formData.category) {
-      alert('Please select a category');
-      return;
-    }
+    if (!formData.name.trim()) { alert('Please enter product name'); return; }
+    if (!formData.price || formData.price <= 0) { alert('Please enter valid price'); return; }
+    if (!formData.category) { alert('Please select a category'); return; }
 
     setUploading(true);
     try {
@@ -164,25 +156,31 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       submitData.append('description', formData.description.trim());
       submitData.append('price', formData.price);
 
-      if (!isEditing) {
-        submitData.append('stock', formData.stock);
-      }
+      if (!isEditing) submitData.append('stock', formData.stock);
 
       submitData.append('category', formData.category);
-      // ── Send new structured variations ──────────────────────────────────────
       submitData.append('variations', JSON.stringify(variations));
       submitData.append('addOns', JSON.stringify(formData.addOns));
 
       const mainImageIndex = formData.images.findIndex(img => img.isMain);
       submitData.append('mainImageIndex', mainImageIndex >= 0 ? mainImageIndex : 0);
 
+      // ── FIX: collect existing URLs first, THEN append new files ──────────
+      // Bug was: existingImages was appended inside the loop → sent N times
+      const existingImageUrls = formData.images
+        .filter(img => !img.file && (img.url || img.preview))
+        .map(img => img.url || img.preview);
+
+      if (existingImageUrls.length > 0) {
+        submitData.append('existingImages', JSON.stringify(existingImageUrls));
+      }
+
       formData.images.forEach((image) => {
         if (image.file) {
           submitData.append('images', image.file);
-        } else if (image.url) {
-          submitData.append('existingImages', JSON.stringify(formData.images.map(img => img.url || img.preview)));
         }
       });
+      // ─────────────────────────────────────────────────────────────────────
 
       await onSubmit(submitData);
       onClose();

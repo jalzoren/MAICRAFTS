@@ -261,6 +261,33 @@ router.get('/products/stats/summary', async (req, res) => {
   }
 });
 
+// GET SINGLE PRODUCT — add after stats/summary to prevent "stats" being treated as :id
+router.get('/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*, image, images, main_image, add_ons, variations')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+
+    const transformedData = {
+      ...data,
+      mainImage: data.image || data.main_image || data.images?.[0],
+      image:     data.image || data.main_image || data.images?.[0],
+    };
+
+    res.json({ success: true, data: transformedData });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET CATEGORIES
 router.get('/categories', async (req, res) => {
   try {
