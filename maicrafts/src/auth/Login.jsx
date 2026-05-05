@@ -24,6 +24,7 @@ const Login = () => {
   const [lockMinutesLeft, setLockMinutesLeft] = useState(0);
   const auth = useAuth();
   const from = location.state?.from?.pathname || "/";
+  const [remainingAttempts, setRemainingAttempts] = useState(null);
 
   const validateForm = () => {
     const newErrors = {};
@@ -220,6 +221,7 @@ const Login = () => {
         showConfirmButton: false,
       });
 
+      
       const userRole = data.user?.role?.toLowerCase();
       const sessionParam = encodeURIComponent(JSON.stringify(data.user));
 
@@ -349,7 +351,7 @@ const Login = () => {
               ⚠️ Account locked. Try again in {lockMinutesLeft} minute(s).
             </div>
           )}
-
+          
           <form className="login-form" onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label className="form-label" htmlFor="email">

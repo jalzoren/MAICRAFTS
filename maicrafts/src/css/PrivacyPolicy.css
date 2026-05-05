@@ -1,0 +1,136 @@
+/* src/pages/PrivacyPolicy.css */
+.privacy-policy-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
+
+.privacy-policy h1 {
+  color: #2e7d32;
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  border-bottom: 3px solid #ffb74d;
+  display: inline-block;
+}
+
+.privacy-policy .last-updated {
+  color: #666;
+  font-style: italic;
+  margin-bottom: 30px;
+}
+
+.privacy-policy section {
+  margin-bottom: 40px;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.privacy-policy h2 {
+  color: #2e7d32;
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #fce4ec;
+}
+
+.cookie-table,
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 0.9rem;
+}
+
+.cookie-table th,
+.cookie-table td,
+.history-table th,
+.history-table td {
+  border: 1px solid #ddd;
+  padding: 12px;
+  text-align: left;
+}
+
+.cookie-table th,
+.history-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.consent-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-reset-consent,
+.btn-withdraw-consent {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-reset-consent {
+  background: #ffb74d;
+  color: #2e7d32;
+}
+
+.btn-reset-consent:hover {
+  background: #ffa000;
+  transform: translateY(-2px);
+}
+
+.btn-withdraw-consent {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-withdraw-consent:hover {
+  background: #c82333;
+  transform: translateY(-2px);
+}
+
+.status-accepted {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.status-declined {
+  color: #dc3545;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .privacy-policy-container {
+    padding: 20px 15px;
+  }
+  
+  .privacy-policy h1 {
+    font-size: 1.8rem;
+  }
+  
+  .cookie-table,
+  .history-table {
+    font-size: 0.75rem;
+  }
+  
+  .cookie-table th,
+  .cookie-table td,
+  .history-table th,
+  .history-table td {
+    padding: 6px;
+  }
+  
+  .consent-actions {
+    flex-direction: column;
+  }
+}

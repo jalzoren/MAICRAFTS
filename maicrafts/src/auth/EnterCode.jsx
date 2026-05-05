@@ -194,6 +194,7 @@ const EnterCode = () => {
           email,
           otp: otp.join(""),
           password,
+
         }),
       });
   
@@ -221,21 +222,48 @@ const EnterCode = () => {
       navigate("/signup");
       return;
     }
-
-    setTimer(60);
-    setCanResend(false);
-    setOtp(["", "", "", "", "", ""]);
-    setErrors({});
-    
-    // Simulate API call to resend code
+  
     setIsLoading(true);
+  
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Code resent to:", email);
-      showResendAlert();
+      const response = await fetch("http://localhost:5000/api/resend-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        showErrorAlert(data.error || "Failed to resend code");
+        return;
+      }
+  
+      // ✅ WAIT for user to see alert BEFORE restarting timer
+      await Swal.fire({
+        title: 'Code Resent!',
+        text: `A new verification code has been sent to ${maskEmail(email)}`,
+        icon: 'success',
+        background: '#E6BB71',
+        color: '#4b2e16',
+        confirmButtonColor: '#4b2e16',
+        confirmButtonText: 'OK',
+        timer: 2000,
+        timerProgressBar: true,
+      });
+  
+      // ✅ Reset AFTER alert closes
+      setTimer(60);
+      setCanResend(false);
+      setOtp(["", "", "", "", "", ""]);
+      setErrors({});
       inputRefs.current[0]?.focus();
+  
     } catch (error) {
-      showErrorAlert("Failed to resend code. Please try again.");
+      console.error(error);
+      showErrorAlert("Network error");
     } finally {
       setIsLoading(false);
     }

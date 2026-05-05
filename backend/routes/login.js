@@ -41,22 +41,19 @@ async function getCurrentSettings() {
         lockoutMinutes: data.setting_value.lockoutDurationMinutes || 30
       };
     }
-  } catch (err) {
-    // Using default settings
-  }
+  } catch (err) {}
   return { maxAttempts: 3, lockoutMinutes: 30 };
 }
 
-// Helper: Get or create login attempt record - WITH USER_ID
 async function getLoginAttempts(email) {
   let userId = null;
-  const { data: userData, error: userError } = await supabase
+  const { data: userData } = await supabase
     .from('users')
     .select('id')
     .eq('email', email)
     .maybeSingle();
   
-  if (!userError && userData) {
+  if (userData) {
     userId = userData.id;
   }
   
@@ -100,24 +97,18 @@ async function getLoginAttempts(email) {
   }
   
   if (!data.user_id && userId) {
-    const { data: updatedData, error: updateError } = await supabase
+    await supabase
       .from('login_attempts')
       .update({ user_id: userId, updated_at: new Date().toISOString() })
-      .eq('email', email)
-      .select()
-      .single();
-    
-    if (!updateError && updatedData) {
-      data = updatedData;
-    }
+      .eq('email', email);
+    data.user_id = userId;
   }
   
   return data;
 }
 
-// Helper: Reset login attempts to 0 (but keep the user_id)
 async function resetLoginAttempts(email) {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('login_attempts')
     .update({ 
       attempt_count: 0, 
@@ -125,18 +116,85 @@ async function resetLoginAttempts(email) {
       locked_until: null,
       updated_at: new Date().toISOString()
     })
-    .eq('email', email)
-    .select();
+    .eq('email', email);
   
   if (error) {
     console.error('Error resetting attempts:', error);
     throw error;
   }
-  
-  return data;
 }
 
-// Helper: Increment failed attempts
+async function recordLockAudit(userId, email, action, attemptCount = null, lockedAt = null, lockedUntil = null, unlockedAt = null, performedBy = null, reason = null) {
+  try {
+    const insertData = {
+      user_id: userId,
+      email: email,
+      action: action,
+      attempt_count: attemptCount,
+      locked_at: lockedAt,
+      locked_until: lockedUntil,
+      unlocked_at: unlockedAt,
+      performed_by: performedBy,
+      reason: reason,
+      created_at: new Date().toISOString()
+    };
+    
+    const { error } = await supabase
+      .from('account_lock_audit_logs')
+      .insert([insertData]);
+    
+    if (error) console.error('Error recording lock audit:', error);
+  } catch (err) {
+    console.error('Failed to record lock audit:', err);
+  }
+}
+
+async function updateUnlockAudit(email, performedBy, reason) {
+  try {
+    console.log(`🔍 Looking for locked row for ${email}`);
+    
+    const { data: lockRow, error: findError } = await supabase
+      .from('account_lock_audit_logs')
+      .select('id, locked_at')
+      .eq('email', email)
+      .eq('action', 'LOCKED')
+      .is('unlocked_at', null)
+      .order('locked_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (findError) {
+      console.error('❌ Error finding lock row:', findError);
+      return;
+    }
+    
+    if (lockRow) {
+      console.log(`✅ Found lock row for ${email}, ID: ${lockRow.id}, locked_at: ${lockRow.locked_at}`);
+      console.log(`📝 Updating with unlocked_at: ${new Date().toISOString()}`);
+      
+      const { error: updateError } = await supabase
+        .from('account_lock_audit_logs')
+        .update({
+          action: 'UNLOCKED',
+          unlocked_at: new Date().toISOString(),
+          performed_by: performedBy,
+          reason: reason
+        })
+        .eq('id', lockRow.id);
+      
+      if (updateError) {
+        console.error('❌ Error updating unlock audit:', updateError);
+      } else {
+        console.log(`✅ Successfully updated unlock audit for ${email}`);
+      }
+    } else {
+      console.log(`⚠️ No locked row found for ${email}`);
+    }
+  } catch (err) {
+    console.error('❌ Failed to update unlock audit:', err);
+  }
+}
+
 async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
   let record = await getLoginAttempts(email);
   
@@ -152,6 +210,7 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
         message: `Account locked. Try again in ${minutesLeft} minute(s).`
       };
     } else {
+      await updateUnlockAudit(email, null, 'Auto-unlocked after lockout period expired');
       await resetLoginAttempts(email);
       record = await getLoginAttempts(email);
     }
@@ -159,11 +218,27 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
   
   const newAttemptCount = (record.attempt_count || 0) + 1;
   const shouldLock = newAttemptCount >= MAX_ATTEMPTS;
+  const remainingAttempts = shouldLock ? 0 : MAX_ATTEMPTS - newAttemptCount;
   
   let lockedUntil = null;
+  let lockedAt = null;
+  
   if (shouldLock) {
+    lockedAt = new Date();
     lockedUntil = new Date();
     lockedUntil.setMinutes(lockedUntil.getMinutes() + LOCKOUT_MINUTES);
+    
+    await recordLockAudit(
+      record.user_id,
+      email,
+      'LOCKED',
+      newAttemptCount,
+      lockedAt.toISOString(),
+      lockedUntil.toISOString(),
+      null,
+      null,
+      `Account locked after ${newAttemptCount} failed attempts (max: ${MAX_ATTEMPTS})`
+    );
   }
   
   const updateData = {
@@ -196,18 +271,14 @@ async function incrementFailedAttempts(email, MAX_ATTEMPTS, LOCKOUT_MINUTES) {
     };
   }
   
-  const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
-  
   return { 
     isLocked: false, 
-    remainingAttempts,
+    remainingAttempts: remainingAttempts,
     message: `Invalid credentials. ${remainingAttempts} attempt(s) remaining.`
   };
 }
 
-// -------------------------
 // LOGIN ENDPOINT
-// -------------------------
 router.post("/", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const password = req.body.password?.trim();
@@ -305,9 +376,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// -------------------------
 // VERIFY OTP ENDPOINT
-// -------------------------
 router.post("/verify-otp", async (req, res) => {
   const username = req.body.username?.trim().toLowerCase();
   const otp = req.body.otp?.trim();
@@ -359,6 +428,9 @@ router.post("/verify-otp", async (req, res) => {
     }
   }
 
+  await updateUnlockAudit(username, null, 'Account unlocked via successful login');
+  await resetLoginAttempts(username);
+
   if (isSetup) {
     const { error: updateError } = await supabase
       .from('users')
@@ -404,9 +476,7 @@ router.post("/verify-otp", async (req, res) => {
   });
 });
 
-// -------------------------
 // GET LOCKED ACCOUNTS
-// -------------------------
 router.get("/locked-accounts", async (req, res) => {
   try {
     const now = new Date().toISOString();
@@ -442,28 +512,38 @@ router.get("/locked-accounts", async (req, res) => {
   }
 });
 
-// -------------------------
 // UNLOCK ACCOUNT
-// -------------------------
 router.post("/unlock-account", async (req, res) => {
   const { email } = req.body;
+  const performedBy = req.user?.id || null;
+  const performedByName = req.user?.name || "ADMIN";
   
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
   
   try {
-    await resetLoginAttempts(email);
+    await updateUnlockAudit(email, performedBy, `Manually unlocked by ${performedByName}`);
+    
+    const { error: updateError } = await supabase
+      .from('login_attempts')
+      .update({
+        is_locked: false,
+        locked_until: null,
+        attempt_count: 0,
+        updated_at: new Date().toISOString()
+      })
+      .eq('email', email);
+    
+    if (updateError) throw updateError;
+    
     res.json({ message: "Account unlocked successfully" });
   } catch (err) {
-    console.error("Error unlocking account:", err);
+    console.error("Error unlocking:", err);
     res.status(500).json({ error: "Failed to unlock account" });
   }
 });
 
-// -------------------------
-// HELPER FUNCTION
-// -------------------------
 function _buildUserPayload(userData) {
   if (!userData) return null;
   return {

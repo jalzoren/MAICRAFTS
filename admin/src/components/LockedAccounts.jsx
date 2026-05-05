@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { FiUnlock, FiClock, FiAlertCircle } from "react-icons/fi";
 import Swal from "sweetalert2";
+import { useAuth } from "../context/AuthContext";  // ← ADDED
 
 const LockedAccounts = ({ onUnlock }) => {
+  const auth = useAuth();  // ← ADDED
   const [lockedAccounts, setLockedAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -34,7 +36,7 @@ const LockedAccounts = ({ onUnlock }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleUnlock = async (email, userName, userId) => {
+  const handleUnlock = async (email, userName) => {
     const result = await Swal.fire({
       title: "Unlock Account?",
       text: `Unlock ${userName || email}?`,
@@ -49,7 +51,11 @@ const LockedAccounts = ({ onUnlock }) => {
         const response = await fetch("http://localhost:5000/api/settings/unlock-account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, user_id: userId })
+          body: JSON.stringify({ 
+            email,
+            adminId: auth.user?.id,      // ← ADDED
+            adminName: auth.user?.name   // ← ADDED
+          })
         });
 
         if (!response.ok) throw new Error("Failed");
@@ -134,11 +140,7 @@ const LockedAccounts = ({ onUnlock }) => {
                   </td>
                   <td>
                     <button
-                      onClick={() => handleUnlock(
-                        account.email,
-                        account.user?.first_name,
-                        account.user?.id
-                      )}
+                      onClick={() => handleUnlock(account.email, account.user?.first_name)}
                       style={{ background: "#2ecc71", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
                     >
                       <FiUnlock /> Unlock
