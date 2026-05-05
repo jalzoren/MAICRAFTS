@@ -183,7 +183,7 @@ const Login = () => {
         body: JSON.stringify({ username: formData.email, otp }),
       });
       const data = await response.json();
-
+  
       if (!response.ok) {
         if (data.message?.toLowerCase().includes("expired")) {
           Swal.fire({
@@ -206,11 +206,22 @@ const Login = () => {
         setIsLoading(false);
         return;
       }
-
+  
       if (data.user) {
-        auth.login(data.user);
+        // Pass the token to auth.login
+        auth.login(data.user, data.token);
+        
+        // ALSO store in sessionStorage immediately for the redirect
+        const session = {
+          user: {
+            ...data.user,
+            access_token: data.token || `temp-token-${Date.now()}`
+          },
+          loginAt: new Date().toISOString()
+        };
+        sessionStorage.setItem('mc_session', JSON.stringify(session));
       }
-
+      
       await Swal.fire({
         icon: "success",
         title: data.setupComplete ? "Setup Complete!" : "Login Successful!",
@@ -220,15 +231,19 @@ const Login = () => {
         timer: 1500,
         showConfirmButton: false,
       });
-
       
       const userRole = data.user?.role?.toLowerCase();
       const sessionParam = encodeURIComponent(JSON.stringify(data.user));
-
+      const tokenParam = data.token || '';
+  
+      console.log('🔐 Redirecting with session and token');
+      console.log('User role:', userRole);
+      console.log('Token exists:', !!tokenParam);
+      
       if (userRole === "super_admin") {
-        window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}`;
+        window.location.href = `http://localhost:5174/admin/dashboard?session=${sessionParam}&token=${tokenParam}`;
       } else if (userRole === "seller") {
-        window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}`;
+        window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}&token=${tokenParam}`;
       } else {
         window.location.href = "http://localhost:5173/";
       }
@@ -237,7 +252,6 @@ const Login = () => {
       Swal.fire("Error", error.message, "error");
     }
   };
-
   // Show OTP screen if needed
   if (isOtpSent) {
     return (

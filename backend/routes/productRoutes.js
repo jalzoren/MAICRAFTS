@@ -6,10 +6,6 @@ import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
 
-/**
- * Authentication middleware - extracts user from JWT token
- */
-// Authentication middleware - IMPROVED VERSION
 router.use(async (req, res, next) => {
   const authHeader = req.headers.authorization;
   console.log('Auth Header:', authHeader ? 'Present' : 'Missing');
@@ -34,22 +30,35 @@ router.use(async (req, res, next) => {
     }
 
     if (user) {
-      // Get user role from user_metadata or from a roles table
-      const userRole = user.user_metadata?.role || 
-                      user.app_metadata?.role || 
-                      'CUSTOMER';
+      // ✅ IMPORTANT FIX: Get role from YOUR DATABASE, not from auth metadata
+      const { data: dbUser, error: dbError } = await supabase
+        .from('users')
+        .select('role, first_name, last_name')
+        .eq('email', user.email)
+        .single();
+      
+      if (dbError) {
+        console.error('Error fetching user from database:', dbError);
+      }
+      
+      // Use role from database (this is the source of truth)
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      console.log('📊 Database role:', dbUser?.role);
+      console.log('👤 Auth metadata role:', user.user_metadata?.role);
+      console.log('✅ Using role:', userRole);
       
       req.user = {
         id: user.id,
         email: user.email,
-        role: userRole,
-        name: user.user_metadata?.name || user.email
+        role: userRole,  // Now using database role (should be 'seller')
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
       };
       
       console.log('Authenticated user:', {
         id: req.user.id,
         email: req.user.email,
-        role: req.user.role
+        role: req.user.role  // This will now show 'seller'
       });
     } else {
       console.log('No user found from token');
@@ -450,11 +459,18 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
   }
 });
 // UPDATE PRODUCT
-// UPDATE PRODUCT - Fixed for your schema
+// UPDATE PRODUCT - Add debug logs
 router.put('/products/:id', upload.array('images', 10), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, price, stock, category, is_active, variations, addOns } = req.body;
+
+    console.log('========== UPDATE PRODUCT ==========');
+    console.log('Product ID:', id);
+    console.log('User from auth:', req.user);
+    console.log('Is user present?', !!req.user);
+    console.log('User ID:', req.user?.id);
+    console.log('User role:', req.user?.role);
 
     // Get existing product
     const { data: existingProduct, error: fetchError } = await supabase
@@ -492,9 +508,9 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     if (req.files && req.files.length > 0) {
       const imageUrls = await uploadMultipleImages(req.files);
       if (imageUrls.length > 0) {
-        updateData.image = imageUrls[0];      // Update main image
-        updateData.images = imageUrls;        // Update images array
-        updateData.main_image = imageUrls[0]; // Update main_image
+        updateData.image = imageUrls[0];
+        updateData.images = imageUrls;
+        updateData.main_image = imageUrls[0];
       }
     }
 
@@ -506,16 +522,34 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
-    // Create audit log
+    // ✅ ADD DETAILED AUDIT LOG DEBUGGING
+    console.log('📝 Attempting to create UPDATE audit log...');
+    console.log('req.user exists?', !!req.user);
+    console.log('req.user.id?', req.user?.id);
+    
     if (req.user && req.user.id) {
-      await createAuditLog({
+      console.log('✅ User found, creating audit log for:', req.user.email);
+      
+      const auditPayload = {
         user_id: req.user.id,
         user_email: req.user.email,
         user_role: req.user.role,
         action: "UPDATE",
         module: "PRODUCT",
         description: `Updated product: ${name || existingProduct.name} (ID: ${id})`,
-      });
+      };
+      console.log('Audit payload:', auditPayload);
+      
+      try {
+        await createAuditLog(auditPayload);
+        console.log('✅ UPDATE audit log created successfully!');
+      } catch (auditError) {
+        console.error('❌ Audit log creation FAILED:', auditError);
+        console.error('Error details:', auditError.message);
+      }
+    } else {
+      console.log('⚠️ No user found, skipping audit log');
+      console.log('req.user value:', req.user);
     }
 
     res.json({ success: true, data: data?.[0] });

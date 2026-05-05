@@ -16,40 +16,52 @@ import "./App.css";
 const SessionHandler = () => {
   const { setUserFromUrl } = useAuth();
   const location = useLocation();
-  const [urlProcessed, setUrlProcessed] = useState(false);
+  const [processed, setProcessed] = useState(false);
 
   useEffect(() => {
+    if (processed) return;
+    
     const params = new URLSearchParams(location.search);
     const sessionParam = params.get("session");
-    const tokenParam = params.get("token") || params.get("access_token");
+    const tokenParam = params.get("token");
     
-    console.log("🔍 SessionHandler - URL params:", {
-      sessionParam: sessionParam ? "Present" : "Missing",
-      tokenParam: tokenParam ? "Present" : "Missing",
-      fullSearch: location.search
-    });
+    console.log('========== ADMIN SESSION HANDLER ==========');
     
-    if (sessionParam && !urlProcessed) {
+    if (sessionParam) {
       try {
         const user = JSON.parse(decodeURIComponent(sessionParam));
-        console.log("✅ Session received from URL:", user);
-        console.log("✅ Token received:", tokenParam ? tokenParam.substring(0, 20) + "..." : "No token");
+        console.log('✅ User received:', user.email);
         
-        // Pass both user data AND token to setUserFromUrl
+        // CHANGE: Use sessionStorage instead of localStorage
+        const session = {
+          user: {
+            ...user,
+            access_token: tokenParam || 'from-url-token'
+          },
+          loginAt: new Date().toISOString()
+        };
+        
+        sessionStorage.setItem('mc_session', JSON.stringify(session));
+        console.log('✅ Session saved to sessionStorage');
+        
         setUserFromUrl(user, tokenParam);
+        setProcessed(true);
         
-        // Clean URL - remove both session and token parameters
-        const cleanUrl = location.pathname;
-        window.history.replaceState({}, "", cleanUrl);
-        setUrlProcessed(true);
+        // Clear URL and reload
+        window.history.replaceState({}, '', location.pathname);
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+        
       } catch (err) {
-        console.error("Failed to parse session:", err);
-        setUrlProcessed(true);
+        console.error('Failed to parse session:', err);
+        setProcessed(true);
       }
-    } else if (!sessionParam) {
-      setUrlProcessed(true);
+    } else {
+      setProcessed(true);
     }
-  }, [setUserFromUrl, urlProcessed, location]);
+  }, [location, processed, setUserFromUrl]);
 
   return null;
 };
