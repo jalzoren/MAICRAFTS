@@ -26,6 +26,8 @@ import ResetPasswordOTP from "./auth/ResetPasswordOTP.jsx";
 import SetNewPassword from "./auth/SetNewPassword.jsx";
 import "bootstrap/dist/css/bootstrap.min.css";
 import ContactAdmin from "./auth/ContactAdmin";
+import CookieConsent from './components/CookieConsent';
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 
 const AppContent = () => {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
@@ -34,7 +36,7 @@ const AppContent = () => {
   const authRoutes = [
     '/login', '/signup', '/enter-code', '/setup-password',
     '/account-created', '/forgot-password', '/reset-password-otp', '/set-new-password',
-    '/contact-admin' 
+    '/contact-admin', '/privacy-policy'
   ];
   const isAuthRoute = authRoutes.includes(location.pathname);
 
@@ -70,9 +72,11 @@ const AppContent = () => {
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/contact-admin" element={<ContactAdmin />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       </Routes>
       {!isAuthRoute && <Footer />}
       <CustomizeFormModal isOpen={isCustomizeOpen} onClose={closeCustomizeModal} />
+      <CookieConsent />
     </>
   );
 };
