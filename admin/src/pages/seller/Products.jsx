@@ -8,8 +8,120 @@ import StockHistoryModal from '../../components/sellercomponents/StockHistoryMod
 import AddStockModal from '../../components/sellercomponents/AddStockModal';
 import Swal from 'sweetalert2';
 import '../../css/Products.css';
+import { useAuth } from "../../context/AuthContext";
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  try {
+    const sessionData = localStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
+// Update fetchProducts to include headers
+const fetchProducts = async () => {
+  setLoading(true);
+  try {
+    let url = 'http://localhost:5000/api/products';
+    const params = new URLSearchParams();
+    if (filters.category && filters.category !== '') params.append('category', filters.category);
+    if (filters.status && filters.status !== '') params.append('status', filters.status);
+    if (filters.search) params.append('search', filters.search);
+    if (params.toString()) url += `?${params}`;
+
+    const headers = getAuthHeaders();
+    console.log('Request headers:', headers);
+    
+    const response = await fetch(url, {
+      headers: headers
+    });
+    const data = await response.json();
+    
+    if (data.success) {
+      setProducts(data.data || []);
+    }
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Update handleAddProduct to include token in FormData
+const handleAddProduct = async (formData) => {
+  try {
+    const sessionData = localStorage.getItem('mc_session');
+    if (!sessionData) {
+      throw new Error('No session found. Please login again.');
+    }
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please login again.');
+    }
+    
+    console.log('Sending request with token:', token.substring(0, 20) + '...');
+    
+    const response = await fetch('http://localhost:5000/api/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    console.log('Server response:', data);
+    
+    if (data.success) {
+      await fetchProducts();
+      await fetchStats();
+      Swal.fire({
+        title: 'Success!',
+        text: 'Product added successfully!',
+        icon: 'success',
+        confirmButtonColor: '#E6BB71',
+        timer: 1500
+      });
+      return data;
+    } else {
+      throw new Error(data.error || 'Failed to add product');
+    }
+  } catch (error) {
+    console.error('Error adding product:', error);
+    Swal.fire({
+      title: 'Error!',
+      text: error.message || 'Error adding product',
+      icon: 'error',
+      confirmButtonColor: '#E6BB71'
+    });
+    throw error;
+  }
+};
+
 
 const Products = () => {
+  const auth = useAuth();
+  const user = auth?.user;
   const [showModal, setShowModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
@@ -37,6 +149,7 @@ const Products = () => {
     fetchCategories();
   }, [filters]);
 
+  // Update your fetch calls to include headers
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -46,29 +159,26 @@ const Products = () => {
       if (filters.status && filters.status !== '') params.append('status', filters.status);
       if (filters.search) params.append('search', filters.search);
       if (params.toString()) url += `?${params}`;
-
-      console.log('Fetching products from:', url);
-      const response = await fetch(url);
+  
+      const headers = getAuthHeaders();
+      console.log('Request headers:', headers);
+      
+      const response = await fetch(url, {
+        headers: headers
+      });
       const data = await response.json();
       
       if (data.success) {
-        console.log('Products fetched:', data.data?.length || 0, 'items');
         setProducts(data.data || []);
-      } else {
-        console.error('Failed to fetch products:', data.error);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      Swal.fire({
-        title: 'Connection Error',
-        text: 'Cannot connect to backend server',
-        icon: 'error',
-        confirmButtonColor: '#E6BB71'
-      });
     } finally {
       setLoading(false);
     }
   };
+
+ 
 
   const fetchStats = async () => {
     try {
@@ -94,39 +204,62 @@ const Products = () => {
     }
   };
 
-  const handleAddProduct = async (formData) => {
-    try {
-      const response = await fetch('http://localhost:5000/api/products', {
-        method: 'POST',
-        body: formData
-      });
-      const data = await response.json();
 
-      if (data.success) {
-        await fetchProducts();
-        await fetchStats();
-        Swal.fire({
-          title: 'Success!',
-          text: 'Product added successfully!',
-          icon: 'success',
-          confirmButtonColor: '#E6BB71',
-          timer: 1500
-        });
-        return data;
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Error adding product:', error);
-      Swal.fire({
-        title: 'Error!',
-        text: 'Error adding product',
-        icon: 'error',
-        confirmButtonColor: '#E6BB71'
-      });
-      throw error;
+  // Update handleAddProduct to include auth token
+// Update handleAddProduct to include token in FormData
+const handleAddProduct = async (formData) => {
+  try {
+    const sessionData = localStorage.getItem('mc_session');
+    if (!sessionData) {
+      throw new Error('No session found. Please login again.');
     }
-  };
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please login again.');
+    }
+    
+    console.log('Sending request with token:', token.substring(0, 20) + '...');
+    
+    const response = await fetch('http://localhost:5000/api/products', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    console.log('Server response:', data);
+    
+    if (data.success) {
+      await fetchProducts();
+      await fetchStats();
+      Swal.fire({
+        title: 'Success!',
+        text: 'Product added successfully!',
+        icon: 'success',
+        confirmButtonColor: '#E6BB71',
+        timer: 1500
+      });
+      return data;
+    } else {
+      throw new Error(data.error || 'Failed to add product');
+    }
+  } catch (error) {
+    console.error('Error adding product:', error);
+    Swal.fire({
+      title: 'Error!',
+      text: error.message || 'Error adding product',
+      icon: 'error',
+      confirmButtonColor: '#E6BB71'
+    });
+    throw error;
+  }
+};
 
   const handleEditProduct = async (productId, formData) => {
     try {
@@ -415,16 +548,18 @@ const Products = () => {
           <span>Archive Selected ({selectedRows.length})</span>
         </button>
         <div className="pm-controls-right">
-          <select 
-            className="pm-select" 
-            value={filters.category} 
-            onChange={(e) => handleFilterChange('category', e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+        <select 
+          className="pm-select" 
+          value={filters.category} 
+          onChange={(e) => handleFilterChange('category', e.target.value)}
+        >
+          <option value="">All Categories</option>
+          {categories.map(cat => (
+            <option key={cat.name} value={cat.name}>
+              {cat.name} ({cat.count})
+            </option>
+          ))}
+        </select>
           
           <select 
             className="pm-select" 
