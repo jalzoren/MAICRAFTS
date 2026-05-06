@@ -1,8 +1,10 @@
 // AuthContext.jsx (Seller and Super Admin Authentication Context)
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import Swal from 'sweetalert2';
 
 const SESSION_KEY = "mc_session";
 const AUDIT_LOG_URL = "http://localhost:5000/api/audit-logs";
+const INACTIVITY_TIMEOUT = 100000; // 2 minutes (120000 ms)
 
 const AuthContext = createContext();
 
@@ -16,6 +18,120 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sessionReady, setSessionReady] = useState(false);
+  const inactivityTimer = useRef(null);
+  const warningTimer = useRef(null);
+const resetInactivityTimer = () => {
+  // Clear both timers
+  if (inactivityTimer.current) {
+    clearTimeout(inactivityTimer.current);
+  }
+  if (warningTimer.current) {
+    clearTimeout(warningTimer.current);
+  }
+  
+  if (user) {
+    // Set warning timer (30 seconds before logout)
+    warningTimer.current = setTimeout(() => {
+      let secondsLeft = 30;
+      let timerInterval;
+      
+      // Show warning modal with countdown
+      Swal.fire({
+        icon: 'warning',
+        title: 'Session Expiring Soon',
+        html: `You will be logged out due to inactivity in <strong id="countdown">30</strong> seconds!`,
+        showConfirmButton: true,
+        confirmButtonText: 'Stay Logged In',
+        confirmButtonColor: '#3085d6',
+        showCancelButton: true,
+        cancelButtonText: 'Logout Now',
+        cancelButtonColor: '#d33',
+        allowOutsideClick: false,
+        didOpen: () => {
+          // Start countdown timer
+          timerInterval = setInterval(() => {
+            if (secondsLeft > 0) {
+              secondsLeft--;
+              const countdownElement = document.getElementById('countdown');
+              if (countdownElement) {
+                countdownElement.textContent = secondsLeft;
+              }
+            }
+            
+            // Close modal and logout if time runs out
+            if (secondsLeft <= 0) {
+              clearInterval(timerInterval);
+              Swal.close();
+              logout(true);
+            }
+          }, 1000);
+        },
+        willClose: () => {
+          // Clean up interval when modal closes
+          if (timerInterval) {
+            clearInterval(timerInterval);
+          }
+        }
+      }).then((result) => {
+        if (timerInterval) {
+          clearInterval(timerInterval);
+        }
+        
+        if (result.isConfirmed) {
+          // User clicked "Stay Logged In", reset the timer
+          resetInactivityTimer();
+          Swal.fire({
+            icon: 'success',
+            title: 'Session Extended',
+            text: 'Your session has been extended.',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else if (result.isDismissed) {
+          // User clicked "Logout Now" or closed the modal
+          logout(true);
+        }
+      });
+    }, INACTIVITY_TIMEOUT - 30000);
+    
+    // Set logout timer
+    inactivityTimer.current = setTimeout(() => {
+      console.log('Auto-logout: User inactive for 2 minutes');
+      logout(true); // auto logout with flag
+    }, INACTIVITY_TIMEOUT);
+  }
+};
+  // Track user activity
+  useEffect(() => {
+    if (!user) return;
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'];
+    
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    // Add event listeners
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity);
+    });
+
+    // Start the timer
+    resetInactivityTimer();
+
+    // Cleanup
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      if (inactivityTimer.current) {
+        clearTimeout(inactivityTimer.current);
+      }
+      if (warningTimer.current) {
+        clearTimeout(warningTimer.current);
+      }
+    };
+  }, [user]);
 
   // LOGIN FUNCTION
   const login = (userData, accessToken = null) => {
@@ -36,10 +152,22 @@ export const AuthProvider = ({ children }) => {
       loginAt: new Date().toISOString()
     };
     
-    // CHANGE: Use sessionStorage instead of localStorage
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     setUser(session.user);
     console.log('✅ User logged in and session saved to sessionStorage');
+    
+    // Show welcome modal
+    Swal.fire({
+      icon: 'success',
+      title: 'Welcome Back!',
+      text: `Hello ${userData?.firstName || userData?.name || userData?.email}`,
+      timer: 2000,
+      showConfirmButton: false,
+      allowOutsideClick: false
+    });
+    
+    // Start inactivity timer
+    resetInactivityTimer();
   };
 
   const readSession = () => {
@@ -89,6 +217,9 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
     setUser(session.user);
     console.log('✅ User set from URL:', session.user.email);
+    
+    // Start inactivity timer
+    resetInactivityTimer();
   };
 
   const buildDisplayName = (profile) => {
@@ -102,7 +233,7 @@ export const AuthProvider = ({ children }) => {
     );
   };
 
-  const queueLogoutAuditLog = () => {
+  const queueLogoutAuditLog = (isAutoLogout = false) => {
     if (!user) return;
 
     const displayName = buildDisplayName(user);
@@ -112,7 +243,7 @@ export const AuthProvider = ({ children }) => {
       user_role: user.role || "super_admin",
       action: "LOGOUT",
       module: "Authentication",
-      description: "User logged out successfully.",
+      description: isAutoLogout ? "User auto-logged out due to inactivity (2 minutes)." : "User logged out successfully.",
     };
 
     try {
@@ -135,11 +266,47 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    queueLogoutAuditLog();
+  const logout = (isAutoLogout = false) => {
+    console.log(`🚪 Logging out ${isAutoLogout ? '(auto due to inactivity)' : '(manual)'}`);
+    
+    // Clear timers
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    if (warningTimer.current) {
+      clearTimeout(warningTimer.current);
+    }
+    
+    queueLogoutAuditLog(isAutoLogout);
     sessionStorage.removeItem(SESSION_KEY);
     setUser(null);
-    window.location.href = 'http://localhost:5173/login';
+    
+    // Show SweetAlert modal based on logout type
+    if (isAutoLogout) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Session Expired',
+        text: 'You have been logged out due to 2 minutes of inactivity.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3085d6',
+        allowOutsideClick: false
+      }).then(() => {
+        window.location.href = 'http://localhost:5173/login';
+      });
+    } else {
+      Swal.fire({
+        icon: 'success',
+        title: 'Logged Out',
+        text: 'You have been successfully logged out.',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3085d6',
+        allowOutsideClick: false,
+        timer: 2000,
+        timerProgressBar: true
+      }).then(() => {
+        window.location.href = 'http://localhost:5173/login';
+      });
+    }
   };
 
   return (
@@ -148,7 +315,7 @@ export const AuthProvider = ({ children }) => {
       loading, 
       sessionReady, 
       isAuthenticated: !!user, 
-      logout, 
+      logout: () => logout(false), 
       setUserFromUrl,
       login
     }}>
