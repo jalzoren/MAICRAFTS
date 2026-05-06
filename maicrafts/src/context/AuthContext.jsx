@@ -4,7 +4,7 @@ import Swal from 'sweetalert2';
 
 const SESSION_KEY = "mc_session";
 const AUDIT_LOG_URL = "http://localhost:5000/api/audit-logs";
-const INACTIVITY_TIMEOUT = 100000; // 2 minutes (120000 ms)
+const INACTIVITY_TIMEOUT = 1000000; // 2 minutes (120000 ms)
 
 const AuthContext = createContext();
 

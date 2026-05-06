@@ -1,4 +1,4 @@
-// ProductModal.jsx (SELLER SIDE)
+// ProductModal.jsx (SELLER SIDE) - FULLY FIXED
 import React, { useState, useEffect } from 'react';
 import '../../css/ProductModal.css';
 import VariationsManager from './VariationsManager';
@@ -11,16 +11,17 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     newCategory: '',
     addOns: [],
     price: '',
-    stock: 0,
+    stock: '',
     images: [],
     mainImage: null
   });
 
-  // ── Variations now live in their own state (bundles + colors) ──────────────
+  // Variations state
   const [variations, setVariations] = useState({ bundles: [], colors: [] });
   const [newAddOn, setNewAddOn] = useState({ name: '', price: '' });
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState(['Satin Flowers', 'Dried Flowers', 'Fresh Flowers', 'Bouquets']);
+  
   const hasBundleVariations = variations?.bundles?.length > 0;
 
   useEffect(() => {
@@ -32,12 +33,12 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         newCategory: '',
         addOns: product.addOns || [],
         price: product.price || '',
-        stock: product.stock || 0,
+        stock: product.stock || '',
         images: product.images || [],
         mainImage: product.mainImage || null
       });
 
-      // ── Parse saved variations (handles new structure + legacy flat arrays) ──
+      // Parse saved variations
       let parsedVariations = { bundles: [], colors: [] };
       try {
         const raw = typeof product.variations === 'string'
@@ -47,15 +48,13 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         if (raw && !Array.isArray(raw)) {
           parsedVariations = {
             bundles: Array.isArray(raw.bundles) ? raw.bundles : [],
-            colors:  Array.isArray(raw.colors)  ? raw.colors  : [],
+            colors: Array.isArray(raw.colors) ? raw.colors : [],
           };
         }
-        // Legacy flat arrays (old format) → just start fresh
       } catch (e) {
         console.warn('Could not parse variations, resetting:', e);
       }
       setVariations(parsedVariations);
-
     } else {
       resetForm();
     }
@@ -69,7 +68,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       newCategory: '',
       addOns: [],
       price: '',
-      stock: 0,
+      stock: '',
       images: [],
       mainImage: null
     });
@@ -144,11 +143,19 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     }
   };
 
-
   const handleSubmit = async () => {
-    if (!formData.name.trim()) { alert('Please enter product name'); return; }
-    if (!formData.category) { alert('Please select a category'); return; }
+    // Validation
+    if (!formData.name.trim()) { 
+      alert('Please enter product name'); 
+      return; 
+    }
+    
+    if (!formData.category) { 
+      alert('Please select a category'); 
+      return; 
+    }
 
+    // Validate bundles if they exist
     const bundleErrors = [];
     if (hasBundleVariations) {
       variations.bundles.forEach((bundle, index) => {
@@ -163,13 +170,27 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         }
       });
     }
+    
     if (bundleErrors.length > 0) {
       alert(bundleErrors.join('\n'));
       return;
     }
 
+    // Validate price for non-bundle products
     if (!hasBundleVariations) {
-      if (!formData.price || formData.price <= 0) { alert('Please enter valid price'); return; }
+      if (!formData.price || parseFloat(formData.price) <= 0) { 
+        alert('Please enter valid price'); 
+        return; 
+      }
+    }
+
+    // Validate stock for new products
+    if (!isEditing) {
+      const stockValue = parseInt(formData.stock);
+      if (isNaN(stockValue) || stockValue < 0) {
+        alert('Please enter a valid stock quantity (0 or more)');
+        return;
+      }
     }
 
     setUploading(true);
@@ -178,9 +199,11 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       submitData.append('name', formData.name.trim());
       submitData.append('description', formData.description.trim());
 
+      // Calculate price
       const bundlePrices = variations.bundles
         .map(bundle => parseFloat(bundle.price))
         .filter((price) => !isNaN(price));
+      
       const fixedPrice = !hasBundleVariations
         ? parseFloat(formData.price)
         : bundlePrices.length > 0
@@ -189,17 +212,21 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
 
       submitData.append('price', fixedPrice.toString());
 
-      if (!isEditing) submitData.append('stock', formData.stock);
+      // For new products, send the stock value
+      if (!isEditing) {
+        const stockValue = parseInt(formData.stock) || 0;
+        submitData.append('stock', stockValue.toString());
+      }
 
       submitData.append('category', formData.category);
       submitData.append('variations', JSON.stringify(variations));
       submitData.append('addOns', JSON.stringify(formData.addOns));
 
+      // Handle images
       const mainImageIndex = formData.images.findIndex(img => img.isMain);
       submitData.append('mainImageIndex', mainImageIndex >= 0 ? mainImageIndex : 0);
 
-      // ── FIX: collect existing URLs first, THEN append new files ──────────
-      // Bug was: existingImages was appended inside the loop → sent N times
+      // Collect existing image URLs
       const existingImageUrls = formData.images
         .filter(img => !img.file && (img.url || img.preview))
         .map(img => img.url || img.preview);
@@ -208,19 +235,19 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         submitData.append('existingImages', JSON.stringify(existingImageUrls));
       }
 
+      // Append new image files
       formData.images.forEach((image) => {
         if (image.file) {
           submitData.append('images', image.file);
         }
       });
-      // ─────────────────────────────────────────────────────────────────────
 
       await onSubmit(submitData);
       onClose();
       resetForm();
     } catch (error) {
       console.error('Error submitting product:', error);
-      alert('Error submitting product');
+      alert('Error submitting product: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -275,7 +302,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
               </select>
             </div>
 
-            {/* ── Variations (replaced with VariationsManager) ─────────────── */}
+            {/* Variations Manager */}
             <div className="form-group">
               <label className="form-label">
                 Variations <span className="form-label-optional">(optional)</span>
@@ -321,7 +348,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
               </div>
             </div>
 
-            {/* Price and Stock Row */}
+            {/* Price and Stock Row - FIXED */}
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">
@@ -329,39 +356,48 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
                 </label>
                 <input
                   type="number"
+                  step="0.01"
                   className="form-input"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder={hasBundleVariations ? 'Derived from bundle prices' : '0.00'}
-                  step="0.01"
                   disabled={hasBundleVariations}
                   readOnly={hasBundleVariations}
-                  style={hasBundleVariations ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {} }
+                  style={hasBundleVariations ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                 />
                 {hasBundleVariations && (
                   <small className="field-hint">
-                    This product uses bundle prices, so the displayed base price is derived from the bundles above.
+                    Price is automatically calculated from bundles
                   </small>
                 )}
               </div>
 
               <div className="form-group">
                 <label className="form-label">
-                  {isEditing ? 'Current Stock (Read Only)' : 'Initial Stock'}
+                  {isEditing ? 'Current Stock' : 'Initial Stock *'}
                 </label>
                 <input
                   type="number"
-                  className={`form-input ${isEditing ? 'readonly-field' : ''}`}
+                  step="1"
+                  min="0"
+                  className="form-input"
                   value={formData.stock}
-                  onChange={(e) => !isEditing && setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
-                  placeholder="0"
-                  readOnly={isEditing}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 0;
+                    setFormData({ ...formData, stock: value >= 0 ? value : 0 });
+                  }}
+                  placeholder="Enter stock quantity"
                   disabled={isEditing}
                   style={isEditing ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                 />
+                {!isEditing && (
+                  <small className="field-hint">
+                    Initial stock quantity for this product
+                  </small>
+                )}
                 {isEditing && (
                   <small className="stock-warning">
-                    * Stock can only be adjusted using the Add Stock button
+                    ⚠️ Stock can only be adjusted using the Add Stock button on the main page
                   </small>
                 )}
               </div>

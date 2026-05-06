@@ -100,3 +100,150 @@
   color: #ff4444;
   font-weight: 600;
 }
+
+.history-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 16px;
+}
+
+.history-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.history-row-positive {
+  background-color: #f0f8f0;
+}
+
+.history-row-negative {
+  background-color: #fff5f5;
+}
+
+.history-date {
+  font-weight: 500;
+  color: #462C14;
+  font-size: 13px;
+}
+
+.history-running-total {
+  background: #E6BB71;
+  color: #462C14;
+  padding: 12px !important;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.history-reason {
+  font-size: 13px;
+  color: #666;
+}
+
+.history-admin {
+  font-size: 12px;
+  color: #999;
+}
+
+.history-change {
+  font-weight: 600;
+  text-align: center;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* StockHistoryModal.css - Add these styles */
+
+.history-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.summary-card {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.summary-label {
+  font-size: 12px;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #495057;
+}
+
+.summary-value.positive {
+  color: #28a745;
+}
+
+.summary-value.negative {
+  color: #dc3545;
+}
+
+.history-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.history-close-footer-btn {
+  padding: 8px 20px;
+  background: #E6BB71;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.history-close-footer-btn:hover {
+  background: #d4a85c;
+}
+
+.admin-badge {
+  background: #f1f3f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #495057;
+}
+
+.history-empty-state small {
+  display: block;
+  margin-top: 10px;
+  color: #6c757d;
+  font-size: 12px;
+}

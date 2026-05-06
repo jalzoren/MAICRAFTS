@@ -71,10 +71,15 @@ const Products = () => {
       const headers = getAuthHeaders();
       
       const response = await fetch(url, { headers });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       
       if (data.success) {
         setProducts(data.data || []);
+      } else {
+        throw new Error(data.error || 'Failed to fetch products');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -86,9 +91,19 @@ const Products = () => {
   const fetchStats = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/products/stats/summary');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
-      if (data.success) {
-        setStats(data.data);
+      if (data.success && data.data) {
+        setStats({
+          total: data.data.total || 0,
+          inStock: data.data.inStock || 0,
+          lowStock: data.data.lowStock || 0,
+          outOfStock: data.data.outOfStock || 0
+        });
+      } else {
+        console.error('Invalid stats response:', data);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -98,6 +113,9 @@ const Products = () => {
   const fetchCategories = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/categories');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success && data.data) {
         setCategories(data.data);
@@ -355,24 +373,57 @@ const Products = () => {
     }
   };
 
-  const fetchStockHistory = async (productId) => {
-    try {
-      const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`);
-      const data = await response.json();
-      if (data.success) {
-        setStockHistory(data.data);
-        setShowHistoryModal(true);
+ const fetchStockHistory = async (productId) => {
+  try {
+    setLoading(true);
+    const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`);
+    
+    console.log('Fetching from:', `http://localhost:5000/api/products/${productId}/stock-history`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Stock history response:', data);
+    
+    // Handle the new response format
+    if (data.success && data.data && data.data.history) {
+      setStockHistory(data.data.history);
+      // Update selected product name if needed
+      if (data.data.product && data.data.product.name) {
+        setSelectedProduct(prev => ({
+          ...prev,
+          name: data.data.product.name
+        }));
       }
-    } catch (error) {
-      console.error('Error fetching stock history:', error);
+      setShowHistoryModal(true);
+    } else if (data.success && Array.isArray(data.data)) {
+      // Fallback for old format
+      setStockHistory(data.data);
+      setShowHistoryModal(true);
+    } else {
+      console.warn('Unexpected data structure:', data);
+      setStockHistory([]);
       Swal.fire({
-        title: 'Error!',
-        text: 'Error fetching stock history',
-        icon: 'error',
+        title: 'Info',
+        text: 'No stock history found for this product',
+        icon: 'info',
         confirmButtonColor: '#E6BB71'
       });
     }
-  };
+  } catch (error) {
+    console.error('Error fetching stock history:', error);
+    Swal.fire({
+      title: 'Error!',
+      text: error.message || 'Error fetching stock history',
+      icon: 'error',
+      confirmButtonColor: '#E6BB71'
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -390,10 +441,15 @@ const Products = () => {
     });
   };
 
+  // Initialize stats and categories on mount
   useEffect(() => {
-    fetchProducts();
     fetchStats();
     fetchCategories();
+  }, []);
+
+  // Fetch products when filters change
+  useEffect(() => {
+    fetchProducts();
   }, [filters]);
 
   const allChecked = products.length > 0 && selectedRows.length === products.length;
@@ -645,11 +701,11 @@ const Products = () => {
                         <FiTrash2 size={16} />
                       </button>
                     </div>
-                  </td>
-                </tr>
+                   </td>
+                 </tr>
               ))}
             </tbody>
-          </table>
+           </table>
         )}
       </div>
 

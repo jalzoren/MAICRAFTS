@@ -12,21 +12,110 @@ import {
   Cell,
 } from 'recharts';
 
-const lowStockData = [
-  { name: 'Product 1', value: 95 },
-  { name: 'Product 2', value: 60 },
-  { name: 'Product 3', value: 75 },
-  { name: 'Product 4', value: 55 },
-  { name: 'Product 5', value: 45 },
-  { name: 'Product 6', value: 100 },
-];
-
 const barColors = ['#C8962A', '#D4A843', '#3D1A00', '#E8B4B8', '#7A1C1C', '#8B0000'];
 
 const SellerDashboard = () => {
   const { user } = useAuth(); // Get user from auth
   const [now, setNow] = useState(new Date());
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    lowStock: 0,
+    inStock: 0
+  });
+  const [lowStockData, setLowStockData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Helper function to get auth headers
+  const getAuthHeaders = () => {
+    try {
+      const sessionData = sessionStorage.getItem('mc_session');
+      if (!sessionData) return {};
+      
+      const session = JSON.parse(sessionData);
+      const token = session.user?.access_token;
+      
+      if (!token) {
+        console.warn('No access token found in session');
+        return {};
+      }
+      
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+    } catch (error) {
+      console.error('Error getting auth headers:', error);
+      return {};
+    }
+  };
+
+  // Fetch product stats
+  const fetchProductStats = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/products/stats/summary');
+      const data = await response.json();
+      
+      if (data.success) {
+        setStats(prev => ({
+          ...prev,
+          totalOrders: data.data.totalProducts || 0,
+          lowStock: data.data.lowStock || 0,
+          inStock: (data.data.totalProducts || 0) - (data.data.lowStock || 0) - (data.data.outOfStock || 0)
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching product stats:', error);
+    }
+  };
+
+  // Fetch low stock products for chart
+  const fetchLowStockProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/products/low-stock/list?limit=6');
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setLowStockData(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching low stock products:', error);
+    }
+  };
+
+  // Fetch order stats
+  const fetchOrderStats = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/orders/stats/summary', { headers });
+      const data = await response.json();
+      
+      if (data.success) {
+        setStats(prev => ({
+          ...prev,
+          totalOrders: data.data.totalOrders || 0
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
+    }
+  };
+
+  // Initial load
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchProductStats(),
+        fetchLowStockProducts(),
+        fetchOrderStats()
+      ]);
+      setLoading(false);
+    };
+
+    fetchAllData();
+  }, []);
+
+  // Update clock
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -75,21 +164,21 @@ const SellerDashboard = () => {
           <span className="sd-stat-label">Total Orders</span>
           <div className="sd-stat-body">
             <div className="sd-stat-icon" />
-            <span className="sd-stat-value">1,000</span>
+            <span className="sd-stat-value">{loading ? '...' : stats.totalOrders.toLocaleString()}</span>
           </div>
         </div>
         <div className="sd-stat-card">
           <span className="sd-stat-label">Low Stock</span>
           <div className="sd-stat-body">
             <div className="sd-stat-icon" />
-            <span className="sd-stat-value">1,000</span>
+            <span className="sd-stat-value">{loading ? '...' : stats.lowStock.toLocaleString()}</span>
           </div>
         </div>
         <div className="sd-stat-card">
           <span className="sd-stat-label">In Stock</span>
           <div className="sd-stat-body">
             <div className="sd-stat-icon" />
-            <span className="sd-stat-value">1,000</span>
+            <span className="sd-stat-value">{loading ? '...' : stats.inStock.toLocaleString()}</span>
           </div>
         </div>
       </div>

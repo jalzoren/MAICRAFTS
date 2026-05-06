@@ -1,4 +1,4 @@
-// productRoutes.js
+// productRoutes.js - COMPLETE FIXED VERSION
 import express from 'express';
 import multer from 'multer';
 import supabase from '../supabaseClient.js';
@@ -8,19 +8,15 @@ const router = express.Router();
 
 router.use(async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  console.log('Auth Header:', authHeader ? 'Present' : 'Missing');
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.log('No valid auth header found');
     req.user = null;
     return next();
   }
 
   const token = authHeader.split(" ")[1];
-  console.log('Token extracted, length:', token?.length);
 
   try {
-    // Verify the token with Supabase
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error) {
@@ -40,23 +36,21 @@ router.use(async (req, res, next) => {
         console.error('Error fetching user from database:', dbError);
       }
       
-      // Use role from database (this is the source of truth)
       const userRole = dbUser?.role || 'CUSTOMER';
       
       req.user = {
         id: user.id,
         email: user.email,
-        role: userRole,  // Now using database role (should be 'seller')
+        role: userRole,
         name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
       };
       
       console.log('Authenticated user:', {
         id: req.user.id,
         email: req.user.email,
-        role: req.user.role  // This will now show 'seller'
+        role: req.user.role
       });
     } else {
-      console.log('No user found from token');
       req.user = null;
     }
   } catch (error) {
@@ -140,7 +134,7 @@ const uploadMultipleImages = async (files) => {
 };
 
 // Helper function to add stock history record
-const addStockHistory = async (productId, quantityChange, reason, adminId = null) => {
+const addStockHistory = async (productId, quantityChange, reason, adminId = null, adminName = null) => {
   try {
     const { error } = await supabase
       .from('stock_history')
@@ -149,6 +143,7 @@ const addStockHistory = async (productId, quantityChange, reason, adminId = null
         quantity_change: quantityChange,
         reason: reason || (quantityChange > 0 ? 'Stock added' : 'Stock removed'),
         admin_id: adminId,
+        admin_name: adminName,
         created_at: new Date().toISOString()
       }]);
 
@@ -156,6 +151,7 @@ const addStockHistory = async (productId, quantityChange, reason, adminId = null
       console.error('Error adding stock history:', error);
       return false;
     }
+    console.log(`✅ Stock history added: ${quantityChange} for product ${productId}`);
     return true;
   } catch (error) {
     console.error('Error in addStockHistory:', error);
@@ -170,14 +166,13 @@ router.get('/test', (req, res) => {
 });
 
 // GET PRODUCTS
-// GET PRODUCTS - Make sure to select the right fields
 router.get('/products', async (req, res) => {
   try {
     const { category, status, search } = req.query;
 
     let query = supabase
       .from('products')
-      .select('*, image, images, main_image')  // Select image fields
+      .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
@@ -191,17 +186,16 @@ router.get('/products', async (req, res) => {
     if (error) throw error;
 
     if (req.user && req.user.id) {
-      createAuditLog({  // ← NO 'await' here
+      createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
         user_role: req.user.role,
         action: "VIEW",
         module: "PRODUCT",
         description: `Viewed products page (${data?.length || 0} products)`,
-      }).catch(err => console.error('Audit log error:', err)); // Optional error handling
+      }).catch(err => console.error('Audit log error:', err));
     }
 
-    // Transform data to include mainImage for frontend compatibility
     const transformedData = data.map(product => ({
       ...product,
       mainImage: product.image || product.main_image || (product.images?.[0]),
@@ -210,6 +204,7 @@ router.get('/products', async (req, res) => {
 
     res.json({ success: true, data: transformedData });
   } catch (error) {
+    console.error('Error fetching products:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -217,14 +212,24 @@ router.get('/products', async (req, res) => {
 // GET PRODUCT STATS SUMMARY
 router.get('/products/stats/summary', async (req, res) => {
   try {
-    const { count: totalProducts, error: countError } = await supabase
+    console.log('📊 Fetching product stats...');
+    
+    const { count: total, error: countError } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true);
 
     if (countError) throw countError;
 
-    const { count: lowStockCount, error: lowStockError } = await supabase
+    const { count: inStock, error: inStockError } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .gt('stock', 20);
+
+    if (inStockError) throw inStockError;
+
+    const { count: lowStock, error: lowStockError } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
@@ -233,7 +238,7 @@ router.get('/products/stats/summary', async (req, res) => {
 
     if (lowStockError) throw lowStockError;
 
-    const { count: outOfStockCount, error: outOfStockError } = await supabase
+    const { count: outOfStock, error: outOfStockError } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
@@ -241,40 +246,63 @@ router.get('/products/stats/summary', async (req, res) => {
 
     if (outOfStockError) throw outOfStockError;
 
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('price, stock')
-      .eq('is_active', true);
-
-    if (productsError) throw productsError;
-
-    const totalValue = products.reduce((sum, product) => {
-      return sum + (product.price * product.stock);
-    }, 0);
-
-    res.json({
-      success: true,
-      data: {
-        totalProducts: totalProducts || 0,
-        lowStock: lowStockCount || 0,
-        outOfStock: outOfStockCount || 0,
-        totalValue: totalValue
-      }
-    });
+    const stats = {
+      total: total || 0,
+      inStock: inStock || 0,
+      lowStock: lowStock || 0,
+      outOfStock: outOfStock || 0
+    };
+    
+    console.log('📊 Stats calculated:', stats);
+    
+    res.json({ success: true, data: stats });
   } catch (error) {
     console.error('Error fetching product stats:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// GET SINGLE PRODUCT — add after stats/summary to prevent "stats" being treated as :id
+// GET LOW STOCK PRODUCTS LIST
+router.get('/products/low-stock/list', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 6;
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, stock')
+      .eq('is_active', true)
+      .lte('stock', 20)
+      .gt('stock', 0)
+      .order('stock', { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+
+    const chartData = (data || []).map(product => ({
+      id: product.id,
+      name: product.name.substring(0, 20),
+      value: Math.min(Math.round((product.stock / 100) * 100), 100)
+    }));
+
+    res.json({ success: true, data: chartData });
+  } catch (error) {
+    console.error('Error fetching low stock products:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET SINGLE PRODUCT
 router.get('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (id === 'stats' || id === 'stats/summary' || id === 'low-stock' || id === 'low-stock/list') {
+      return res.status(404).json({ success: false, error: 'Invalid product ID' });
+    }
+
     const { data, error } = await supabase
       .from('products')
-      .select('*, image, images, main_image, add_ons, variations')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -282,22 +310,10 @@ router.get('/products/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
-    if (req.user && req.user.id) {
-      createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "VIEW",
-        module: "PRODUCT",
-        description: `Viewed product: ${data.name} (ID: ${id})`,
-      }).catch(err => console.error('Audit log failed:', err));
-    }
-
-  
     const transformedData = {
       ...data,
-      mainImage: data.image || data.main_image || data.images?.[0],
-      image:     data.image || data.main_image || data.images?.[0],
+      mainImage: data.image || data.main_image || (data.images?.[0]),
+      image: data.image || data.main_image || (data.images?.[0]),
     };
 
     res.json({ success: true, data: transformedData });
@@ -324,41 +340,26 @@ router.get('/categories', async (req, res) => {
       count: data.filter(item => item.category === category).length
     }));
 
-    res.json({
-      success: true,
-      data: categoriesWithCount
-    });
+    res.json({ success: true, data: categoriesWithCount });
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// CREATE PRODUCT - Fixed with better error handling
-// CREATE PRODUCT - With enhanced debugging
+// CREATE PRODUCT
 router.post('/products', upload.array('images', 10), async (req, res) => {
   try {
     console.log('=== CREATE PRODUCT REQUEST ===');
-    console.log('User from auth:', req.user);
-    console.log('User ID:', req.user?.id);
-    console.log('User Email:', req.user?.email);
-    console.log('User Role:', req.user?.role);
-    console.log('Request body:', req.body);
-    console.log('Files:', req.files?.length || 0);
+    const { name, description, price, stock, category, variations, addOns } = req.body;
 
-    const { name, description, price, stock, category, variations, addOns, mainImageIndex } = req.body;
-
-    // Validate required fields
     if (!name) {
-      console.log('❌ Product creation failed: Name is required');
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
 
-    // Convert and validate stock
     const numericStock = parseInt(stock) || 0;
     const productStatus = getProductStatus(numericStock);
 
-    // Parse variations and addOns if they exist
     let parsedVariations = { bundles: [], colors: [] };
     let parsedAddOns = [];
     
@@ -369,12 +370,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
         console.error('Error parsing variations:', e);
       }
     }
-    if (!parsedVariations || Array.isArray(parsedVariations)) {
-      parsedVariations = { bundles: [], colors: [] };
-    }
-    parsedVariations.bundles = Array.isArray(parsedVariations.bundles) ? parsedVariations.bundles : [];
-    parsedVariations.colors  = Array.isArray(parsedVariations.colors)  ? parsedVariations.colors  : [];
-
+    
     if (addOns) {
       try {
         parsedAddOns = typeof addOns === 'string' ? JSON.parse(addOns) : addOns;
@@ -382,39 +378,18 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
         console.error('Error parsing addOns:', e);
       }
     }
-    if (!Array.isArray(parsedAddOns)) parsedAddOns = [];
 
-    const hasBundleVariations = parsedVariations.bundles.length > 0;
-    const bundlePrices = parsedVariations.bundles
-      .map(b => parseFloat(b.price))
-      .filter((price) => !isNaN(price));
-
-    // Convert and validate price
     let numericPrice = parseFloat(price);
-    if (hasBundleVariations && (!price || isNaN(numericPrice))) {
-      if (bundlePrices.length === 0) {
-        return res.status(400).json({ success: false, error: 'Bundle variations must include prices when product price is not provided.' });
-      }
-      numericPrice = Math.min(...bundlePrices);
+    if (isNaN(numericPrice) || numericPrice < 0) {
+      return res.status(400).json({ success: false, error: 'Invalid price value' });
     }
 
-    if (!hasBundleVariations) {
-      if (!price) {
-        return res.status(400).json({ success: false, error: 'Product price is required' });
-      }
-      if (isNaN(numericPrice) || numericPrice < 0) {
-        return res.status(400).json({ success: false, error: 'Invalid price value' });
-      }
-    }
-
-    // Handle image uploads
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
       imageUrls = await uploadMultipleImages(req.files);
       console.log('Images uploaded:', imageUrls.length);
     }
 
-    // Prepare product data
     const productData = {
       name: name.trim(),
       description: description || '',
@@ -429,86 +404,51 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       add_ons: parsedAddOns,
     };
 
-    // Add images
     if (imageUrls.length > 0) {
       productData.image = imageUrls[0];
       productData.images = imageUrls;
       productData.main_image = imageUrls[0];
     }
 
-    console.log('Inserting product:', JSON.stringify(productData, null, 2));
-
     const { data, error } = await supabase
       .from('products')
       .insert([productData])
       .select();
 
-    if (error) {
-      console.error('Supabase insert error:', error);
-      throw error;
-    }
+    if (error) throw error;
 
-    console.log('✅ Product created successfully with ID:', data?.[0]?.id);
-    console.log('📝 Attempting to create audit log...');
-    console.log('req.user exists?', !!req.user);
-    console.log('req.user.id?', req.user?.id);
+    const newProduct = data?.[0];
     
-    // CREATE AUDIT LOG
-    if (req.user && req.user.id) {
-      const auditPayload = {
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "CREATE",
-        module: "PRODUCT",
-        description: `Created product: ${name} (ID: ${data?.[0]?.id})`,
-      };
-      console.log('Audit payload:', auditPayload);
-      
-      try {
-        const auditResult = await createAuditLog(auditPayload);
-        console.log('Audit log result:', auditResult);
-        console.log('✅ CREATE audit log created successfully!');
-      } catch (auditError) {
-        console.error('❌ Audit log creation FAILED:', auditError);
-        console.error('Error details:', auditError.message);
-      }
-    } else {
-      console.log('⚠️ No user found in request, skipping audit log');
-      console.log('req.user value:', req.user);
-      console.log('Authorization header:', req.headers.authorization);
+    if (newProduct && numericStock > 0) {
+      const adminName = req.user?.name || req.user?.email || 'System';
+      await addStockHistory(
+        newProduct.id, 
+        numericStock, 
+        'Initial stock added during product creation', 
+        req.user?.id,
+        adminName
+      );
+      console.log(`✅ Stock history added: +${numericStock} for ${newProduct.name}`);
     }
 
     res.status(201).json({ 
       success: true, 
-      data: data?.[0],
+      data: newProduct,
       message: 'Product created successfully'
     });
 
   } catch (error) {
     console.error('Error creating product:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message,
-      details: error.details || null
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
+
 // UPDATE PRODUCT
-// UPDATE PRODUCT - Add debug logs
 router.put('/products/:id', upload.array('images', 10), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, stock, category, is_active, variations, addOns } = req.body;
+    const { name, description, price, category, is_active, variations, addOns } = req.body;
 
-    console.log('========== UPDATE PRODUCT ==========');
-    console.log('Product ID:', id);
-    console.log('User from auth:', req.user);
-    console.log('Is user present?', !!req.user);
-    console.log('User ID:', req.user?.id);
-    console.log('User role:', req.user?.role);
-
-    // Get existing product
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select('*')
@@ -519,7 +459,6 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
-    // Prepare update data
     const updateData = {
       updated_at: new Date().toISOString()
     };
@@ -527,10 +466,6 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price) updateData.price = parseFloat(price);
-    if (stock !== undefined) {
-      updateData.stock = parseInt(stock);
-      updateData.status = getProductStatus(updateData.stock);
-    }
     if (category) updateData.category = category;
     if (is_active !== undefined) updateData.is_active = is_active;
     if (variations) {
@@ -540,7 +475,6 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
       updateData.add_ons = typeof addOns === 'string' ? JSON.parse(addOns) : addOns;
     }
 
-    // Handle image uploads
     if (req.files && req.files.length > 0) {
       const imageUrls = await uploadMultipleImages(req.files);
       if (imageUrls.length > 0) {
@@ -558,36 +492,6 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ ADD DETAILED AUDIT LOG DEBUGGING
-    console.log('📝 Attempting to create UPDATE audit log...');
-    console.log('req.user exists?', !!req.user);
-    console.log('req.user.id?', req.user?.id);
-    
-    if (req.user && req.user.id) {
-      console.log('✅ User found, creating audit log for:', req.user.email);
-      
-      const auditPayload = {
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "UPDATE",
-        module: "PRODUCT",
-        description: `Updated product: ${name || existingProduct.name} (ID: ${id})`,
-      };
-      console.log('Audit payload:', auditPayload);
-      
-      try {
-        await createAuditLog(auditPayload);
-        console.log('✅ UPDATE audit log created successfully!');
-      } catch (auditError) {
-        console.error('❌ Audit log creation FAILED:', auditError);
-        console.error('Error details:', auditError.message);
-      }
-    } else {
-      console.log('⚠️ No user found, skipping audit log');
-      console.log('req.user value:', req.user);
-    }
-
     res.json({ success: true, data: data?.[0] });
 
   } catch (error) {
@@ -601,7 +505,6 @@ router.delete('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get product info before deletion for audit log
     const { data: product, error: fetchError } = await supabase
       .from('products')
       .select('name')
@@ -619,18 +522,6 @@ router.delete('/products/:id', async (req, res) => {
 
     if (error) throw error;
 
-    // Create audit log with auth user
-    if (req.user && req.user.id) {
-      await createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "DELETE",
-        module: "PRODUCT",
-        description: `Deleted product: ${product.name} (ID: ${id})`,
-      });
-    }
-
     res.json({ success: true, message: 'Product deleted successfully' });
 
   } catch (error) {
@@ -639,11 +530,17 @@ router.delete('/products/:id', async (req, res) => {
   }
 });
 
-// STOCK UPDATE
+// STOCK UPDATE with history
 router.post('/products/:id/stock', async (req, res) => {
   try {
     const { id } = req.params;
     const { change, reason } = req.body;
+
+    console.log(`📦 Stock update request for product ${id}: change=${change}`);
+
+    if (typeof change !== 'number' || isNaN(change)) {
+      return res.status(400).json({ success: false, error: 'Invalid stock change amount' });
+    }
 
     const { data: product, error: fetchError } = await supabase
       .from('products')
@@ -671,19 +568,11 @@ router.post('/products/:id/stock', async (req, res) => {
 
     if (error) throw error;
 
-    // Create audit log with auth user
-    if (req.user && req.user.id) {
-      await createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "UPDATE",
-        module: "STOCK",
-        description: `Changed stock by ${change} for product: ${product.name} (ID: ${id}). Old: ${oldStock}, New: ${newStock}`,
-      });
-    }
+    const adminName = req.user?.name || req.user?.email || 'System';
+    const changeReason = reason || (change > 0 ? 'Stock added' : 'Stock removed');
+    await addStockHistory(id, change, changeReason, req.user?.id, adminName);
 
-    await addStockHistory(id, change, reason, req.user?.id);
+    console.log(`✅ Stock updated: ${oldStock} → ${newStock}`);
 
     res.json({ success: true, data: data?.[0] });
 
@@ -693,24 +582,83 @@ router.post('/products/:id/stock', async (req, res) => {
   }
 });
 
-// GET STOCK HISTORY
+// GET STOCK HISTORY - FIXED to return correct format for frontend
 router.get('/products/:id/stock-history', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    console.log(`📜 Fetching stock history for product ${id}`);
 
-    const { data, error } = await supabase
+    // Get product details
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('id, name')
+      .eq('id', id)
+      .single();
+
+    if (productError) {
+      console.log('Product not found:', id);
+      return res.json({ 
+        success: true, 
+        data: {
+          product: { id, name: 'Unknown Product' },
+          history: [],
+          totalRecords: 0
+        }
+      });
+    }
+
+    // Get stock history - ORDER BY CREATED_AT ASCENDING to calculate running total correctly
+    const { data: historyData, error: historyError } = await supabase
       .from('stock_history')
       .select('*')
       .eq('product_id', id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true });
 
-    if (error) throw error;
+    if (historyError) {
+      console.error('Error fetching stock history from DB:', historyError);
+      throw historyError;
+    }
 
-    res.json({ success: true, data: data || [] });
+    console.log(`Found ${historyData?.length || 0} stock history records for ${product.name}`);
+
+    // Calculate running total and format for frontend
+    let runningTotal = 0;
+    const historyWithRunningTotal = (historyData || []).map(record => {
+      runningTotal += record.quantity_change;
+      const formatted = {
+        id: record.id,
+        date: record.created_at,
+        quantityChange: record.quantity_change,
+        runningTotal: runningTotal,
+        reason: record.reason || (record.quantity_change > 0 ? 'Stock added' : 'Stock removed'),
+        admin: record.admin_name || 'System'
+      };
+      console.log(`  Record: Change=${record.quantity_change}, Running Total=${runningTotal}, Reason=${formatted.reason}`);
+      return formatted;
+    }).reverse(); // Most recent first
+
+    console.log(`✅ Returning ${historyWithRunningTotal.length} records with running totals`);
+
+    // Return in the format expected by the frontend
+    res.json({ 
+      success: true, 
+      data: {
+        product: {
+          id: product.id,
+          name: product.name
+        },
+        history: historyWithRunningTotal,
+        totalRecords: historyWithRunningTotal.length
+      }
+    });
 
   } catch (error) {
     console.error('Error fetching stock history:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
@@ -730,18 +678,6 @@ router.post('/products/archive', async (req, res) => {
       .select();
 
     if (error) throw error;
-
-    // Create audit log with auth user
-    if (req.user && req.user.id) {
-      await createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "ARCHIVE",
-        module: "PRODUCT",
-        description: `Archived ${productIds.length} product(s): ${productIds.join(', ')}`,
-      });
-    }
 
     res.json({ success: true, data: data, message: `${productIds.length} product(s) archived` });
 

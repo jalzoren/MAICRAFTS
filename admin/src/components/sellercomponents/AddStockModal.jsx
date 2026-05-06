@@ -1,3 +1,4 @@
+// AddStockModal.js
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import '../../css/AddStockModal.css';
@@ -29,7 +30,8 @@ const AddStockModal = ({ isOpen, onClose, onSubmit, productName }) => {
     setLoading(true);
     try {
       await onSubmit({ quantity: parseInt(quantity), reason });
-      // Don't call onClose here - let the parent handle it after success
+      setQuantity('');
+      setReason('');
     } catch (error) {
       console.error('Error adding stock:', error);
       Swal.fire({
@@ -40,6 +42,12 @@ const AddStockModal = ({ isOpen, onClose, onSubmit, productName }) => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !loading) {
+      handleSubmit();
     }
   };
 
@@ -60,6 +68,7 @@ const AddStockModal = ({ isOpen, onClose, onSubmit, productName }) => {
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
+              onKeyPress={handleKeyPress}
               placeholder="Enter quantity"
               min="1"
               step="1"
@@ -73,10 +82,12 @@ const AddStockModal = ({ isOpen, onClose, onSubmit, productName }) => {
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              onKeyPress={handleKeyPress}
               placeholder="Why are you adding stock? (e.g., Restock, New shipment, etc.)"
               rows="3"
               disabled={loading}
             />
+            <small className="reason-hint">This will appear in stock history for tracking purposes</small>
           </div>
         </div>
         
