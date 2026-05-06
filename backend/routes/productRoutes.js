@@ -349,23 +349,13 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     if (!name) {
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
-    
-    if (!price) {
-      return res.status(400).json({ success: false, error: 'Product price is required' });
-    }
-
-    // Convert and validate price
-    const numericPrice = parseFloat(price);
-    if (isNaN(numericPrice) || numericPrice < 0) {
-      return res.status(400).json({ success: false, error: 'Invalid price value' });
-    }
 
     // Convert and validate stock
     const numericStock = parseInt(stock) || 0;
     const productStatus = getProductStatus(numericStock);
 
     // Parse variations and addOns if they exist
-    let parsedVariations = [];
+    let parsedVariations = { bundles: [], colors: [] };
     let parsedAddOns = [];
     
     if (variations) {
@@ -375,12 +365,41 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
         console.error('Error parsing variations:', e);
       }
     }
-    
+    if (!parsedVariations || Array.isArray(parsedVariations)) {
+      parsedVariations = { bundles: [], colors: [] };
+    }
+    parsedVariations.bundles = Array.isArray(parsedVariations.bundles) ? parsedVariations.bundles : [];
+    parsedVariations.colors  = Array.isArray(parsedVariations.colors)  ? parsedVariations.colors  : [];
+
     if (addOns) {
       try {
         parsedAddOns = typeof addOns === 'string' ? JSON.parse(addOns) : addOns;
       } catch (e) {
         console.error('Error parsing addOns:', e);
+      }
+    }
+    if (!Array.isArray(parsedAddOns)) parsedAddOns = [];
+
+    const hasBundleVariations = parsedVariations.bundles.length > 0;
+    const bundlePrices = parsedVariations.bundles
+      .map(b => parseFloat(b.price))
+      .filter((price) => !isNaN(price));
+
+    // Convert and validate price
+    let numericPrice = parseFloat(price);
+    if (hasBundleVariations && (!price || isNaN(numericPrice))) {
+      if (bundlePrices.length === 0) {
+        return res.status(400).json({ success: false, error: 'Bundle variations must include prices when product price is not provided.' });
+      }
+      numericPrice = Math.min(...bundlePrices);
+    }
+
+    if (!hasBundleVariations) {
+      if (!price) {
+        return res.status(400).json({ success: false, error: 'Product price is required' });
+      }
+      if (isNaN(numericPrice) || numericPrice < 0) {
+        return res.status(400).json({ success: false, error: 'Invalid price value' });
       }
     }
 
@@ -400,7 +419,9 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       status: productStatus,
       is_active: true,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      variations: parsedVariations,
+      add_ons: parsedAddOns,
     };
 
     // Add images based on your schema
@@ -410,15 +431,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       productData.main_image = imageUrls[0]; // Also set main_image if needed
     }
 
-    // Add variations and add_ons
-    if (parsedVariations.length > 0) {
-      productData.variations = parsedVariations;
-    }
-    
-    if (parsedAddOns.length > 0) {
-      productData.add_ons = parsedAddOns;    // Note: 'add_ons' not 'addOns'
-    }
-
+    // If no variation or add-on values were provided, keep the defaults stored in productData above.
     console.log('Inserting product:', productData);
 
     const { data, error } = await supabase
