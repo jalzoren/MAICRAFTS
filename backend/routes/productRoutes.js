@@ -29,8 +29,7 @@ router.use(async (req, res, next) => {
       return next();
     }
 
-    if (user) {
-      // ✅ IMPORTANT FIX: Get role from YOUR DATABASE, not from auth metadata
+    if (user) { 
       const { data: dbUser, error: dbError } = await supabase
         .from('users')
         .select('role, first_name, last_name')
@@ -43,10 +42,6 @@ router.use(async (req, res, next) => {
       
       // Use role from database (this is the source of truth)
       const userRole = dbUser?.role || 'CUSTOMER';
-      
-      console.log('📊 Database role:', dbUser?.role);
-      console.log('👤 Auth metadata role:', user.user_metadata?.role);
-      console.log('✅ Using role:', userRole);
       
       req.user = {
         id: user.id,
@@ -195,6 +190,17 @@ router.get('/products', async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
+    if (req.user && req.user.id) {
+      createAuditLog({  // ← NO 'await' here
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "PRODUCT",
+        description: `Viewed products page (${data?.length || 0} products)`,
+      }).catch(err => console.error('Audit log error:', err)); // Optional error handling
+    }
+
     // Transform data to include mainImage for frontend compatibility
     const transformedData = data.map(product => ({
       ...product,
@@ -276,6 +282,18 @@ router.get('/products/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
+    if (req.user && req.user.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "PRODUCT",
+        description: `Viewed product: ${data.name} (ID: ${id})`,
+      }).catch(err => console.error('Audit log failed:', err));
+    }
+
+  
     const transformedData = {
       ...data,
       mainImage: data.image || data.main_image || data.images?.[0],
