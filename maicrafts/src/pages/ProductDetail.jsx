@@ -125,6 +125,9 @@ const ProductDetail = () => {
   const handleAddToCart = async () => {
     if (!product) return;
     try {
+      // Get the selected add-on objects (not just IDs)
+      const selectedAddOnObjects = parsedAddOns.filter(a => selectedAddOns.includes(a.id));
+      
       const cartItem = {
         product_id: product.id,
         name: product.name,
@@ -133,7 +136,7 @@ const ProductDetail = () => {
         image_url: selectedImage,
         note: JSON.stringify({
           variations: selectedVariations,
-          addOns: parsedAddOns.filter(a => selectedAddOns.includes(a.id)),
+          addOns: selectedAddOnObjects,  // Full objects for display
         }),
       };
       await addItem(cartItem, quantity);
@@ -146,6 +149,9 @@ const ProductDetail = () => {
 
   const handleBuyNow = () => {
     if (!product) return;
+    // Get the selected add-on objects (not just IDs)
+    const selectedAddOnObjects = parsedAddOns.filter(a => selectedAddOns.includes(a.id));
+    
     const checkoutItems = [{
       product_id: product.id,
       name: product.name,
@@ -153,7 +159,7 @@ const ProductDetail = () => {
       quantity,
       image_url: selectedImage,
       variations: selectedVariations,
-      addOns: selectedAddOns,
+      addOns: selectedAddOnObjects,  // Full objects for display
       total: totalPrice,
     }];
     localStorage.setItem("checkout_items", JSON.stringify(checkoutItems));
