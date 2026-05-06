@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
     const session = readSession();
     if (session?.user) {
       const role = session.user.role?.toLowerCase();
-      if (role === 'super_admin' || role === 'seller') {
+      if (role === 'super_admin' || role === 'seller' || role === 'customer' ) {
         setUser(session.user);
         console.log('✅ User loaded from sessionStorage:', session.user.email);
       }

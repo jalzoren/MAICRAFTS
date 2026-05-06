@@ -212,14 +212,14 @@ const Login = () => {
         auth.login(data.user, data.token);
         
         // ALSO store in sessionStorage immediately for the redirect
-        const session = {
-          user: {
-            ...data.user,
-            access_token: data.token || `temp-token-${Date.now()}`
-          },
-          loginAt: new Date().toISOString()
-        };
-        sessionStorage.setItem('mc_session', JSON.stringify(session));
+         // const session = {
+          //  user: {
+         //     ...data.user,
+         //     access_token: data.token || `temp-token-${Date.now()}`
+         //   },
+         //   loginAt: new Date().toISOString()
+        //  };
+       //   sessionStorage.setItem('mc_session', JSON.stringify(session));
       }
       
       await Swal.fire({
@@ -245,7 +245,7 @@ const Login = () => {
       } else if (userRole === "seller") {
         window.location.href = `http://localhost:5174/seller/dashboard?session=${sessionParam}&token=${tokenParam}`;
       } else {
-        window.location.href = "http://localhost:5173/";
+        navigate("/");  // ← This keeps the React state intact!
       }
     } catch (error) {
       setIsLoading(false);

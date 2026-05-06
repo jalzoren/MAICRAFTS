@@ -28,6 +28,9 @@ const Settings = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
+  console.log('🔥🔥🔥 SETTINGS IS RENDERING 🔥🔥🔥');
+  console.log('User:', user);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
