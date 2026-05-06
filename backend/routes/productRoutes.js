@@ -1,9 +1,9 @@
 // productRoutes.js
 import express from 'express';
 import multer from 'multer';
-import supabase from '../supabaseClient.js';
+import { supabaseAdmin } from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
-
+import { secureUpload } from '../middleware/uploadSecurity.js';
 const router = express.Router();
 
 router.use(async (req, res, next) => {
@@ -21,7 +21,7 @@ router.use(async (req, res, next) => {
 
   try {
     // Verify the token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error) {
       console.error('Supabase auth error:', error.message);
@@ -30,9 +30,9 @@ router.use(async (req, res, next) => {
     }
 
     if (user) { 
-      const { data: dbUser, error: dbError } = await supabase
+      const { data: dbUser, error: dbError } = await supabaseAdmin
         .from('users')
-        .select('role, first_name, last_name')
+        .select('role, first_name, last_name, seller_id')
         .eq('email', user.email)
         .single();
       
@@ -47,13 +47,15 @@ router.use(async (req, res, next) => {
         id: user.id,
         email: user.email,
         role: userRole,  // Now using database role (should be 'seller')
+        seller_id: dbUser?.seller_id || null, // Add seller_id for sellers
         name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
       };
       
       console.log('Authenticated user:', {
         id: req.user.id,
         email: req.user.email,
-        role: req.user.role  // This will now show 'seller'
+        role: req.user.role,
+        seller_id: req.user.seller_id
       });
     } else {
       console.log('No user found from token');
@@ -89,19 +91,22 @@ const getProductStatus = (stock) => {
   return 'IN STOCK';
 };
 
+const isSeller = (user) => !!user && typeof user.role === 'string' && user.role.toLowerCase() === 'seller';
+const getSellerIdFromUser = (user) => user?.seller_id || user?.id || null;
+
 // Helper function to upload image to Supabase Storage
 const uploadImageToSupabase = async (file, fileName) => {
   try {
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
     const bucketExists = buckets?.some(b => b.name === 'product-images');
     
     if (!bucketExists) {
-      await supabase.storage.createBucket('product-images', {
+      await supabaseAdmin.storage.createBucket('product-images', {
         public: true
       });
     }
 
-    const { error } = await supabase.storage
+    const { error } = await supabaseAdmin.storage
       .from('product-images')
       .upload(`products/${fileName}`, file.buffer, {
         contentType: file.mimetype,
@@ -111,7 +116,7 @@ const uploadImageToSupabase = async (file, fileName) => {
 
     if (error) throw error;
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = supabaseAdmin.storage
       .from('product-images')
       .getPublicUrl(`products/${fileName}`);
 
@@ -142,7 +147,7 @@ const uploadMultipleImages = async (files) => {
 // Helper function to add stock history record
 const addStockHistory = async (productId, quantityChange, reason, adminId = null) => {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('stock_history')
       .insert([{
         product_id: productId,
@@ -169,17 +174,24 @@ router.get('/test', (req, res) => {
   res.json({ success: true, message: 'API is working' });
 });
 
-// GET PRODUCTS
-// GET PRODUCTS - Make sure to select the right fields
+// GET PRODUCTS - UPDATED with seller filtering
 router.get('/products', async (req, res) => {
   try {
-    const { category, status, search } = req.query;
+    const { category, status, search, seller_id } = req.query;
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('products')
-      .select('*, image, images, main_image')  // Select image fields
+      .select('*, image, images, main_image')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
+
+    // Apply seller filter if provided
+    if (seller_id) {
+      query = query.eq('seller_id', seller_id);
+    } else if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      // Auto-filter for sellers if no seller_id in query
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
 
     if (category) query = query.eq('category', category);
     if (status) query = query.eq('status', status.toUpperCase());
@@ -191,14 +203,14 @@ router.get('/products', async (req, res) => {
     if (error) throw error;
 
     if (req.user && req.user.id) {
-      createAuditLog({  // ← NO 'await' here
+      createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
         user_role: req.user.role,
         action: "VIEW",
         module: "PRODUCT",
         description: `Viewed products page (${data?.length || 0} products)`,
-      }).catch(err => console.error('Audit log error:', err)); // Optional error handling
+      }).catch(err => console.error('Audit log error:', err));
     }
 
     // Transform data to include mainImage for frontend compatibility
@@ -214,50 +226,46 @@ router.get('/products', async (req, res) => {
   }
 });
 
-// GET PRODUCT STATS SUMMARY
+// GET PRODUCT STATS SUMMARY - UPDATED with seller filtering
 router.get('/products/stats/summary', async (req, res) => {
   try {
-    const { count: totalProducts, error: countError } = await supabase
+    const { seller_id } = req.query;
+    
+    // Build base query with filters
+    let baseQuery = supabaseAdmin
       .from('products')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: false })
       .eq('is_active', true);
 
-    if (countError) throw countError;
+    // Apply seller filter if provided
+    if (seller_id) {
+      baseQuery = baseQuery.eq('seller_id', seller_id);
+    } else if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      baseQuery = baseQuery.eq('seller_id', getSellerIdFromUser(req.user));
+    }
 
-    const { count: lowStockCount, error: lowStockError } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .lte('stock', 20)
-      .gt('stock', 0);
-
-    if (lowStockError) throw lowStockError;
-
-    const { count: outOfStockCount, error: outOfStockError } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .eq('stock', 0);
-
-    if (outOfStockError) throw outOfStockError;
-
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('price, stock')
-      .eq('is_active', true);
-
+    // Get all products for this seller
+    const { data: products, error: productsError } = await baseQuery;
+    
     if (productsError) throw productsError;
 
-    const totalValue = products.reduce((sum, product) => {
+    // Calculate stats from filtered products
+    const totalProducts = products?.length || 0;
+    const inStock = products?.filter(p => p.stock > 20).length || 0;
+    const lowStock = products?.filter(p => p.stock <= 20 && p.stock > 0).length || 0;
+    const outOfStock = products?.filter(p => p.stock === 0).length || 0;
+    
+    const totalValue = products?.reduce((sum, product) => {
       return sum + (product.price * product.stock);
-    }, 0);
+    }, 0) || 0;
 
     res.json({
       success: true,
       data: {
-        totalProducts: totalProducts || 0,
-        lowStock: lowStockCount || 0,
-        outOfStock: outOfStockCount || 0,
+        total: totalProducts,
+        inStock: inStock,
+        lowStock: lowStock,
+        outOfStock: outOfStock,
         totalValue: totalValue
       }
     });
@@ -272,11 +280,17 @@ router.get('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data, error } = await supabase
+    let query = supabaseAdmin
       .from('products')
       .select('*, image, images, main_image, add_ons, variations')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    // If seller, ensure they can only see their own products
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return res.status(404).json({ success: false, error: 'Product not found' });
@@ -293,7 +307,6 @@ router.get('/products/:id', async (req, res) => {
       }).catch(err => console.error('Audit log failed:', err));
     }
 
-  
     const transformedData = {
       ...data,
       mainImage: data.image || data.main_image || data.images?.[0],
@@ -306,15 +319,25 @@ router.get('/products/:id', async (req, res) => {
   }
 });
 
-// GET CATEGORIES
+// GET CATEGORIES - UPDATED with seller filtering
 router.get('/categories', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { seller_id } = req.query;
+    
+    let query = supabaseAdmin
       .from('products')
       .select('category')
       .eq('is_active', true)
       .not('category', 'is', null);
 
+    // Apply seller filter if provided
+    if (seller_id) {
+      query = query.eq('seller_id', seller_id);
+    } else if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
 
     const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))];
@@ -334,9 +357,8 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// CREATE PRODUCT - Fixed with better error handling
-// CREATE PRODUCT - With enhanced debugging
-router.post('/products', upload.array('images', 10), async (req, res) => {
+// CREATE PRODUCT - Added seller_id support
+router.post('/products', secureUpload, async (req, res) => {
   try {
     console.log('=== CREATE PRODUCT REQUEST ===');
     console.log('User from auth:', req.user);
@@ -346,7 +368,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     console.log('Request body:', req.body);
     console.log('Files:', req.files?.length || 0);
 
-    const { name, description, price, stock, category, variations, addOns, mainImageIndex } = req.body;
+    const { name, description, price, stock, category, variations, addOns, mainImageIndex, seller_id } = req.body;
 
     // Validate required fields
     if (!name) {
@@ -354,8 +376,20 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
 
+    // Determine seller_id (from request body or authenticated user)
+    let finalSellerId = seller_id || getSellerIdFromUser(req.user);
+    
+    // For sellers, enforce that they can only create products for themselves
+    if (isSeller(req.user)) {
+      const expectedSellerId = getSellerIdFromUser(req.user);
+      if (finalSellerId && expectedSellerId && finalSellerId !== expectedSellerId) {
+        return res.status(403).json({ success: false, error: 'Sellers can only create products for themselves' });
+      }
+      finalSellerId = expectedSellerId;
+    }
+
     // Convert and validate stock
-    const numericStock = parseInt(stock) || 0;
+    const numericStock = stock !== undefined && stock !== null && stock !== '' ? parseInt(stock, 10) : 0;
     const productStatus = getProductStatus(numericStock);
 
     // Parse variations and addOns if they exist
@@ -399,7 +433,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     }
 
     if (!hasBundleVariations) {
-      if (!price) {
+      if (price === undefined || price === null || price === '') {
         return res.status(400).json({ success: false, error: 'Product price is required' });
       }
       if (isNaN(numericPrice) || numericPrice < 0) {
@@ -429,6 +463,11 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       add_ons: parsedAddOns,
     };
 
+    // Add seller_id if available
+    if (finalSellerId) {
+      productData.seller_id = finalSellerId;
+    }
+
     // Add images
     if (imageUrls.length > 0) {
       productData.image = imageUrls[0];
@@ -438,7 +477,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
 
     console.log('Inserting product:', JSON.stringify(productData, null, 2));
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('products')
       .insert([productData])
       .select();
@@ -494,9 +533,9 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     });
   }
 });
-// UPDATE PRODUCT
-// UPDATE PRODUCT - Add debug logs
-router.put('/products/:id', upload.array('images', 10), async (req, res) => {
+
+// UPDATE PRODUCT - Added seller verification
+router.put('/products/:id', secureUpload, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, price, stock, category, is_active, variations, addOns } = req.body;
@@ -509,14 +548,20 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     console.log('User role:', req.user?.role);
 
     // Get existing product
-    const { data: existingProduct, error: fetchError } = await supabase
+    let query = supabaseAdmin
       .from('products')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    // If seller, ensure they can only update their own products
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
+
+    const { data: existingProduct, error: fetchError } = await query.single();
 
     if (fetchError || !existingProduct) {
-      return res.status(404).json({ success: false, error: 'Product not found' });
+      return res.status(404).json({ success: false, error: 'Product not found or unauthorized' });
     }
 
     // Prepare update data
@@ -526,13 +571,23 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (price) updateData.price = parseFloat(price);
-    if (stock !== undefined) {
-      updateData.stock = parseInt(stock);
-      updateData.status = getProductStatus(updateData.stock);
+    if (price !== undefined && price !== null && price !== '') {
+      const parsedPrice = parseFloat(price);
+      if (!Number.isNaN(parsedPrice)) {
+        updateData.price = parsedPrice;
+      }
+    }
+    if (stock !== undefined && stock !== null && stock !== '') {
+      const parsedStock = parseInt(stock, 10);
+      if (!Number.isNaN(parsedStock)) {
+        updateData.stock = parsedStock;
+        updateData.status = getProductStatus(parsedStock);
+      }
     }
     if (category) updateData.category = category;
-    if (is_active !== undefined) updateData.is_active = is_active;
+    if (is_active !== undefined) {
+      updateData.is_active = typeof is_active === 'string' ? is_active === 'true' : Boolean(is_active);
+    }
     if (variations) {
       updateData.variations = typeof variations === 'string' ? JSON.parse(variations) : variations;
     }
@@ -550,7 +605,7 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('products')
       .update(updateData)
       .eq('id', id)
@@ -596,23 +651,29 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
   }
 });
 
-// DELETE PRODUCT
+// DELETE PRODUCT - Added seller verification
 router.delete('/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
     // Get product info before deletion for audit log
-    const { data: product, error: fetchError } = await supabase
+    let query = supabaseAdmin
       .from('products')
       .select('name')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
 
-    if (fetchError) {
-      return res.status(404).json({ success: false, error: 'Product not found' });
+    // If seller, ensure they can only delete their own products
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
     }
 
-    const { error } = await supabase
+    const { data: product, error: fetchError } = await query.single();
+
+    if (fetchError || !product) {
+      return res.status(404).json({ success: false, error: 'Product not found or unauthorized' });
+    }
+
+    const { error } = await supabaseAdmin
       .from('products')
       .delete()
       .eq('id', id);
@@ -639,27 +700,34 @@ router.delete('/products/:id', async (req, res) => {
   }
 });
 
-// STOCK UPDATE
+// STOCK UPDATE - Added seller verification
 router.post('/products/:id/stock', async (req, res) => {
   try {
     const { id } = req.params;
     const { change, reason } = req.body;
 
-    const { data: product, error: fetchError } = await supabase
+    // Get existing product with seller verification
+    let query = supabaseAdmin
       .from('products')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    // If seller, ensure they can only update stock for their own products
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
+
+    const { data: product, error: fetchError } = await query.single();
 
     if (fetchError || !product) {
-      return res.status(404).json({ success: false, error: 'Product not found' });
+      return res.status(404).json({ success: false, error: 'Product not found or unauthorized' });
     }
 
     const oldStock = product.stock;
     const newStock = Math.max(0, oldStock + change);
     const newStatus = getProductStatus(newStock);
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('products')
       .update({
         stock: newStock,
@@ -693,12 +761,25 @@ router.post('/products/:id/stock', async (req, res) => {
   }
 });
 
-// GET STOCK HISTORY
+// GET STOCK HISTORY - Added seller verification
 router.get('/products/:id/stock-history', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data, error } = await supabase
+    // Verify product ownership for sellers
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      const { data: product, error: productError } = await supabaseAdmin
+        .from('products')
+        .select('seller_id')
+        .eq('id', id)
+        .single();
+
+      if (productError || !product || product.seller_id !== getSellerIdFromUser(req.user)) {
+        return res.status(403).json({ success: false, error: 'Unauthorized to view stock history for this product' });
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('stock_history')
       .select('*')
       .eq('product_id', id)
@@ -714,7 +795,7 @@ router.get('/products/:id/stock-history', async (req, res) => {
   }
 });
 
-// ARCHIVE PRODUCTS
+// ARCHIVE PRODUCTS - Added seller verification
 router.post('/products/archive', async (req, res) => {
   try {
     const { productIds } = req.body;
@@ -723,11 +804,17 @@ router.post('/products/archive', async (req, res) => {
       return res.status(400).json({ success: false, error: 'No product IDs provided' });
     }
 
-    const { data, error } = await supabase
+    let query = supabaseAdmin
       .from('products')
       .update({ is_active: false, updated_at: new Date().toISOString() })
-      .in('id', productIds)
-      .select();
+      .in('id', productIds);
+
+    // If seller, ensure they can only archive their own products
+    if (isSeller(req.user) && getSellerIdFromUser(req.user)) {
+      query = query.eq('seller_id', getSellerIdFromUser(req.user));
+    }
+
+    const { data, error } = await query.select();
 
     if (error) throw error;
 
@@ -739,11 +826,11 @@ router.post('/products/archive', async (req, res) => {
         user_role: req.user.role,
         action: "ARCHIVE",
         module: "PRODUCT",
-        description: `Archived ${productIds.length} product(s): ${productIds.join(', ')}`,
+        description: `Archived ${data?.length || 0} product(s)`,
       });
     }
 
-    res.json({ success: true, data: data, message: `${productIds.length} product(s) archived` });
+    res.json({ success: true, data: data, message: `${data?.length || 0} product(s) archived` });
 
   } catch (error) {
     console.error('Error archiving products:', error);

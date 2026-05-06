@@ -33,8 +33,9 @@ const Products = () => {
   });
   const [stockHistory, setStockHistory] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [sellerId, setSellerId] = useState(null);
 
-  // Helper function to get auth headers - INSIDE component
+  // Helper function to get auth headers and user info
   const getAuthHeaders = () => {
     try {
       const sessionData = sessionStorage.getItem('mc_session');
@@ -42,6 +43,7 @@ const Products = () => {
       
       const session = JSON.parse(sessionData);
       const token = session.user?.access_token;
+      const userId = session.user?.id;
       
       if (!token) {
         console.warn('No access token found in session');
@@ -58,15 +60,36 @@ const Products = () => {
     }
   };
 
+  // Get current seller ID
+  const getSellerId = () => {
+    try {
+      const sessionData = sessionStorage.getItem('mc_session');
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        return session.user?.id || session.user?.seller_id;
+      }
+    } catch (error) {
+      console.error('Error getting seller ID:', error);
+    }
+    return null;
+  };
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      let url = 'http://localhost:5000/api/products';
+      const currentSellerId = getSellerId();
+      if (!currentSellerId) {
+        console.warn('No seller ID found');
+        setLoading(false);
+        return;
+      }
+
+      let url = `http://localhost:5000/api/products?seller_id=${currentSellerId}`;
       const params = new URLSearchParams();
       if (filters.category && filters.category !== '') params.append('category', filters.category);
       if (filters.status && filters.status !== '') params.append('status', filters.status);
       if (filters.search) params.append('search', filters.search);
-      if (params.toString()) url += `?${params}`;
+      if (params.toString()) url += `&${params}`;
 
       const headers = getAuthHeaders();
       
@@ -75,29 +98,67 @@ const Products = () => {
       
       if (data.success) {
         setProducts(data.data || []);
+        // Update stats after fetching products
+        updateStatsFromProducts(data.data || []);
+      } else {
+        console.error('Failed to fetch products:', data.error);
+        setProducts([]);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Calculate stats locally from products data (more reliable)
+  const updateStatsFromProducts = (productsList) => {
+    const total = productsList.length;
+    const inStock = productsList.filter(p => p.status === 'IN STOCK').length;
+    const lowStock = productsList.filter(p => p.status === 'LOW STOCK').length;
+    const outOfStock = productsList.filter(p => p.status === 'OUT OF STOCK').length;
+    
+    setStats({
+      total,
+      inStock,
+      lowStock,
+      outOfStock
+    });
+  };
+
+  // Alternative: Fetch stats from API with seller filter
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/stats/summary');
+      const currentSellerId = getSellerId();
+      if (!currentSellerId) return;
+
+      const headers = getAuthHeaders();
+      const response = await fetch(`http://localhost:5000/api/products/stats/summary?seller_id=${currentSellerId}`, {
+        headers
+      });
       const data = await response.json();
-      if (data.success) {
+      if (data.success && data.data) {
         setStats(data.data);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+      // Fallback to calculating from products
+      if (products.length > 0) {
+        updateStatsFromProducts(products);
+      }
     }
   };
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/categories');
+      const currentSellerId = getSellerId();
+      const headers = getAuthHeaders();
+      const url = currentSellerId 
+        ? `http://localhost:5000/api/categories?seller_id=${currentSellerId}`
+        : 'http://localhost:5000/api/categories';
+      
+      const response = await fetch(url, { headers });
       const data = await response.json();
       if (data.success && data.data) {
         setCategories(data.data);
@@ -116,12 +177,20 @@ const Products = () => {
       
       const session = JSON.parse(sessionData);
       const token = session.user?.access_token;
+      const sellerId = session.user?.id || session.user?.seller_id;
       
       if (!token) {
         throw new Error('No authentication token found. Please login again.');
       }
       
-      console.log('📦 Creating product with token present');
+      if (!sellerId) {
+        throw new Error('No seller ID found. Please login again.');
+      }
+
+      // Add seller_id to formData
+      formData.append('seller_id', sellerId);
+      
+      console.log('📦 Creating product for seller:', sellerId);
       
       const response = await fetch('http://localhost:5000/api/products', {
         method: 'POST',
@@ -136,7 +205,6 @@ const Products = () => {
       
       if (data.success) {
         await fetchProducts();
-        await fetchStats();
         Swal.fire({
           title: 'Success!',
           text: 'Product added successfully!',
@@ -189,7 +257,6 @@ const Products = () => {
 
       if (data.success) {
         await fetchProducts();
-        await fetchStats();
         Swal.fire({
           title: 'Success!',
           text: 'Product updated successfully!',
@@ -240,7 +307,6 @@ const Products = () => {
       
       if (data.success) {
         await fetchProducts();
-        await fetchStats();
         return true;
       }
       throw new Error(data.error || 'Failed to update stock');
@@ -275,7 +341,6 @@ const Products = () => {
       const data = await response.json();
       if (data.success) {
         await fetchProducts();
-        await fetchStats();
         Swal.fire({
           title: 'Deleted!',
           text: 'Product deleted successfully!',
@@ -334,7 +399,6 @@ const Products = () => {
       const data = await response.json();
       if (data.success) {
         await fetchProducts();
-        await fetchStats();
         setSelectedRows([]);
         Swal.fire({
           title: 'Archived!',
@@ -357,7 +421,10 @@ const Products = () => {
 
   const fetchStockHistory = async (productId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`);
+      const headers = getAuthHeaders();
+      const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`, {
+        headers
+      });
       const data = await response.json();
       if (data.success) {
         setStockHistory(data.data);
@@ -391,10 +458,28 @@ const Products = () => {
   };
 
   useEffect(() => {
-    fetchProducts();
-    fetchStats();
-    fetchCategories();
-  }, [filters]);
+    const init = async () => {
+      const sellerId = getSellerId();
+      if (sellerId) {
+        setSellerId(sellerId);
+        await fetchProducts();
+        await fetchCategories();
+      } else {
+        console.warn('No seller ID found, waiting for auth...');
+        // Retry after a short delay
+        setTimeout(() => {
+          const retrySellerId = getSellerId();
+          if (retrySellerId) {
+            setSellerId(retrySellerId);
+            fetchProducts();
+            fetchCategories();
+          }
+        }, 1000);
+      }
+    };
+    
+    init();
+  }, [filters.category, filters.status, filters.search]);
 
   const allChecked = products.length > 0 && selectedRows.length === products.length;
   const toggleAll = () => setSelectedRows(allChecked ? [] : products.map(p => p.id));
@@ -649,7 +734,7 @@ const Products = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+           </table>
         )}
       </div>
 
