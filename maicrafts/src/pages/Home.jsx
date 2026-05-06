@@ -4,10 +4,21 @@ import { Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../css/Home.css";
 import { products } from "../data/productsData.js";
+import { useAuth } from "../context/AuthContext";
+
 
 const Home = () => {
+  const { user, isAuthenticated } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const visibleCount = 3; // ensure 3 per slide
+
+   
+  console.log('🏠 Home - Auth State:', { 
+    email: user?.email, 
+    role: user?.role,
+    isAuthenticated 
+  });
+
 
   const prevSlide = () => {
     setCurrentIndex((prev) =>

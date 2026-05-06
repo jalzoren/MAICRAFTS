@@ -33,6 +33,9 @@ const AppContent = () => {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const location = useLocation();
 
+    // Add this debug line
+  console.log('📍 Current path:', location.pathname);
+
   const authRoutes = [
     '/login', '/signup', '/enter-code', '/setup-password',
     '/account-created', '/forgot-password', '/reset-password-otp', '/set-new-password',
@@ -68,8 +71,8 @@ const AppContent = () => {
         <Route path="/forgot-password" element={<ForgotPasswordEmail />} />
         <Route path="/reset-password-otp" element={<ResetPasswordOTP />} />
         <Route path="/set-new-password" element={<SetNewPassword />} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+       <Route path="/settings" element={<Settings />} />
+        <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/contact-admin" element={<ContactAdmin />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
