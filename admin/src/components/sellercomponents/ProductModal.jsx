@@ -26,12 +26,22 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
 
   useEffect(() => {
     if (product && isEditing) {
+      console.log('📦 Editing product:', product);
+      console.log('🔹 add_ons from DB:', product.add_ons);
+      console.log('🔹 addOns (camelCase):', product.addOns);
+      let loadedAddOns = [];
+      if (product.add_ons && Array.isArray(product.add_ons)) {
+        loadedAddOns = product.add_ons;
+      } else if (product.addOns && Array.isArray(product.addOns)) {
+        loadedAddOns = product.addOns;
+      }
+
       setFormData({
         name: product.name || '',
         description: product.description || '',
         category: product.category || '',
         newCategory: '',
-        addOns: product.addOns || [],
+        addOns: loadedAddOns,
         price: product.price || '',
         stock: product.stock || '',
         images: product.images || [],
@@ -144,16 +154,8 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (!formData.name.trim()) { 
-      alert('Please enter product name'); 
-      return; 
-    }
-    
-    if (!formData.category) { 
-      alert('Please select a category'); 
-      return; 
-    }
+    if (!formData.name.trim()) { alert('Please enter product name'); return; }
+    if (!formData.category) { alert('Please select a category'); return; }
 
     // Validate bundles if they exist
     const bundleErrors = [];

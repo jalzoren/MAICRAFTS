@@ -25,11 +25,12 @@ const SetNewPassword = () => {
     const storedEmail = sessionStorage.getItem("resetEmail");
     const otpVerified = sessionStorage.getItem("otpVerified");
     
-    if (storedEmail) {
-      setEmail(storedEmail);
+    if (!storedEmail || otpVerified !== "true") {
+      navigate("/reset-password-otp");
+      return;
     }
-  
-    
+
+    setEmail(storedEmail);
     setIsEmailLoading(false);
   }, [navigate]);
 
@@ -185,7 +186,7 @@ const handleSubmit = async (e) => {
 
   if (!storedEmail || !storedOtp) {
     showErrorAlert("Please verify your OTP first.");
-    navigate("/forgot-password-otp");
+    navigate("/reset-password-otp");
     return;
   }
 
@@ -224,7 +225,7 @@ const handleSubmit = async (e) => {
 
   const handleBack = () => {
     if (!isLoading) {
-      navigate("/forgot-password-otp");
+      navigate("/reset-password-otp");
     }
   };
 
