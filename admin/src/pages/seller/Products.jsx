@@ -11,9 +11,11 @@ import '../../css/Products.css';
 import { useAuth } from "../../context/AuthContext";
 
 // Helper function to get auth headers
+// Helper function to get auth headers
 const getAuthHeaders = () => {
   try {
-    const sessionData = localStorage.getItem('mc_session');
+    // CHANGE: localStorage -> sessionStorage
+    const sessionData = sessionStorage.getItem('mc_session');
     if (!sessionData) return {};
     
     const session = JSON.parse(sessionData);
@@ -66,7 +68,8 @@ const fetchProducts = async () => {
 // Update handleAddProduct to include token in FormData
 const handleAddProduct = async (formData) => {
   try {
-    const sessionData = localStorage.getItem('mc_session');
+    // CHANGE: localStorage -> sessionStorage
+    const sessionData = sessionStorage.getItem('mc_session');
     if (!sessionData) {
       throw new Error('No session found. Please login again.');
     }
@@ -78,19 +81,15 @@ const handleAddProduct = async (formData) => {
       throw new Error('No authentication token found. Please login again.');
     }
     
-    console.log('Sending request with token:', token.substring(0, 20) + '...');
-    
     const response = await fetch('http://localhost:5000/api/products', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
-        // Don't set Content-Type for FormData - browser will set it with boundary
       },
       body: formData
     });
     
     const data = await response.json();
-    console.log('Server response:', data);
     
     if (data.success) {
       await fetchProducts();

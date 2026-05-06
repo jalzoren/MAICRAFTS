@@ -43,15 +43,10 @@ export const AuthProvider = ({ children }) => {
 
   const readSession = () => {
     try {
-      // CHANGE: Use sessionStorage instead of localStorage
       const raw = sessionStorage.getItem(SESSION_KEY);
       if (!raw) return null;
+
       const session = JSON.parse(raw);
-      const age = Date.now() - new Date(session.loginAt).getTime();
-      if (age > 7 * 24 * 60 * 60 * 1000) {
-        sessionStorage.removeItem(SESSION_KEY);
-        return null;
-      }
       return session;
     } catch {
       sessionStorage.removeItem(SESSION_KEY);
