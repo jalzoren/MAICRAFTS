@@ -157,7 +157,7 @@ const handleSubmit = async (e) => {
   setIsLoading(true);
   try {
     // First, verify the OTP
-    const verifyResponse = await fetch("http://localhost:5000/api/verify-otp", {
+    const verifyResponse = await fetch("http://localhost:5000/api/verify-reset-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -432,7 +432,7 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
     setIsLoading(true);
     try {
       const endpoint = method === "email"
-        ? "http://localhost:5000/api/verify-otp"
+        ? "http://localhost:5000/api/verify-reset-otp"
         : "http://localhost:5000/login/verify-otp";
       const body = method === "email"
         ? { email: user.email, otp: otpCode }
