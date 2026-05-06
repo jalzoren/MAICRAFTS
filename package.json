@@ -9,7 +9,8 @@
     "express": "^5.2.1",
     "multer": "^2.1.1",
     "nodemailer": "^7.0.11",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "virustotal-api": "^1.1.7"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
