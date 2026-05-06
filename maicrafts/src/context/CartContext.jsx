@@ -63,20 +63,35 @@ export const CartProvider = ({ children }) => {
       const data = await res.json();
       if (res.ok) {
         // Flatten the nested product data into top-level fields
-        const flatCart = (data.cart || []).map(item => ({
-          cart_id: item.cart_id,
-          user_id: item.user_id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          note: item.note,
-          created_at: item.created_at,
-          // Flattened product fields (matching guest cart structure)
-          name: item.product?.name,
-          price: Number(item.product?.price) || 0,
-          image_url: item.product?.image || item.product?.mainImage || null,
-          // Keep original product data if needed elsewhere
-          product: item.product,
-        }));
+        const flatCart = (data.cart || []).map(item => {
+          // Try to extract unit_price from note (includes variation pricing)
+          let unitPrice = Number(item.product?.price) || 0;
+          if (item.note) {
+            try {
+              const parsed = typeof item.note === 'string' ? JSON.parse(item.note) : item.note;
+              if (parsed.unit_price !== undefined) {
+                unitPrice = Number(parsed.unit_price) || 0;
+              }
+            } catch {
+              // If note can't be parsed, fall back to product price
+            }
+          }
+          
+          return {
+            cart_id: item.cart_id,
+            user_id: item.user_id,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            note: item.note,
+            created_at: item.created_at,
+            // Flattened product fields (matching guest cart structure)
+            name: item.product?.name,
+            price: unitPrice,  // Use unit_price from note if available
+            image_url: item.product?.image || item.product?.mainImage || null,
+            // Keep original product data if needed elsewhere
+            product: item.product,
+          };
+        });
         setItems(flatCart);
         window.dispatchEvent(new Event("cart-updated"));
       }
@@ -113,9 +128,24 @@ export const CartProvider = ({ children }) => {
     // Prefer note embedded in the product object (set by ProductDetail) over the parameter default
     const itemNote = product.note !== undefined ? product.note : note;
     
+    // Store the unit price in the note for accurate pricing with variations
+    let noteToPersist = itemNote;
+    if (typeof itemNote === 'string') {
+      try {
+        const parsed = JSON.parse(itemNote);
+        parsed.unit_price = product.price;  // Store the calculated price
+        noteToPersist = JSON.stringify(parsed);
+      } catch {
+        noteToPersist = itemNote;
+      }
+    } else if (typeof itemNote === 'object') {
+      itemNote.unit_price = product.price;
+      noteToPersist = JSON.stringify(itemNote);
+    }
+    
     // Composite key: same product with different variations = different cart slots
     const itemKey = (p) => `${p.product_id}::${p.note || ""}`;
-    const newKey = `${product.product_id}::${itemNote}`;
+    const newKey = `${product.product_id}::${noteToPersist}`;
 
     if (!isAuthenticated) {
       setItems((prev) => {
@@ -124,7 +154,7 @@ export const CartProvider = ({ children }) => {
           ? prev.map((i) => itemKey(i) === newKey
               ? { ...i, quantity: i.quantity + quantity }
               : i)
-          : [...prev, { ...product, quantity, note: itemNote }];  // ✅ correct note
+          : [...prev, { ...product, quantity, note: noteToPersist, price: product.price }];
         saveGuestCart(updated);
         return updated;
       });
@@ -138,9 +168,11 @@ export const CartProvider = ({ children }) => {
           user_id: user.id,
           product_id: product.product_id,
           quantity,
-          note: itemNote,                    // ✅ variation JSON preserved
+          note: noteToPersist,  // Note now includes unit_price
         }),
       });
+      // Reload cart to get the updated item with correct price
+      await loadUserCart(user.id);
     } catch (err) {
       console.error("addItem failed:", err);
     }

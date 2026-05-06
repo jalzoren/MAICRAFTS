@@ -6,6 +6,7 @@ import {
   IoDocumentText, IoWallet, IoCash,
 } from "react-icons/io5";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import "../css/Checkout.css";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ const getSpecRows = (item) => {
 const Checkout = () => {
   const navigate = useNavigate();
   const { clearCart } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [formData, setFormData] = useState({
     shippingOption: "",
@@ -40,6 +42,7 @@ const Checkout = () => {
     address:        "",
     message:        "",
   });
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   // Read items set by either ProductDetail "Buy Now" or Cart "Check Out"
   useEffect(() => {
@@ -66,11 +69,41 @@ const Checkout = () => {
     if (!formData.shippingOption) { alert("Please select a shipping option."); return; }
     if (!formData.paymentMethod)  { alert("Please select a payment method.");  return; }
 
-    // TODO: POST order to /api/orders with checkoutItems + formData
-    alert("Order placed successfully! 🎉");
-    localStorage.removeItem("checkout_items");
-    await clearCart();
-    navigate("/");
+    setIsPlacingOrder(true);
+    try {
+      // Prepare order data including user session
+      const orderData = {
+        user_id: user?.id || null,
+        user_email: user?.email || null,
+        shipping_option: formData.shippingOption,
+        payment_method: formData.paymentMethod,
+        address: formData.address || null,
+        special_instructions: formData.message || null,
+        items: checkoutItems.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          variations: item.variations || {},
+          addOns: item.addOns || [],
+        })),
+        subtotal: subtotal,
+        shipping_fee: shippingFee,
+        total_amount: totalAmount,
+      };
+
+      // TODO: POST order to /api/orders
+      console.log('Order data:', orderData);
+      
+      alert("Order placed successfully! 🎉");
+      localStorage.removeItem("checkout_items");
+      await clearCart();
+      navigate("/");
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert("Failed to place order. Please try again.");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -232,8 +265,8 @@ const Checkout = () => {
               </div>
 
               <button type="submit" className="place-order-btn"
-                disabled={checkoutItems.length === 0}>
-                Place Order
+                disabled={checkoutItems.length === 0 || isPlacingOrder}>
+                {isPlacingOrder ? "Processing..." : "Place Order"}
               </button>
             </form>
           </div>
