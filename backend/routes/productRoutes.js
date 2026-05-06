@@ -335,11 +335,14 @@ router.get('/categories', async (req, res) => {
 });
 
 // CREATE PRODUCT - Fixed with better error handling
-// CREATE PRODUCT - Fixed to match your database schema
+// CREATE PRODUCT - With enhanced debugging
 router.post('/products', upload.array('images', 10), async (req, res) => {
   try {
     console.log('=== CREATE PRODUCT REQUEST ===');
     console.log('User from auth:', req.user);
+    console.log('User ID:', req.user?.id);
+    console.log('User Email:', req.user?.email);
+    console.log('User Role:', req.user?.role);
     console.log('Request body:', req.body);
     console.log('Files:', req.files?.length || 0);
 
@@ -347,6 +350,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
 
     // Validate required fields
     if (!name) {
+      console.log('❌ Product creation failed: Name is required');
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
 
@@ -407,9 +411,10 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
       imageUrls = await uploadMultipleImages(req.files);
+      console.log('Images uploaded:', imageUrls.length);
     }
 
-    // Prepare product data - MATCHING YOUR DATABASE SCHEMA
+    // Prepare product data
     const productData = {
       name: name.trim(),
       description: description || '',
@@ -424,15 +429,14 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       add_ons: parsedAddOns,
     };
 
-    // Add images based on your schema
+    // Add images
     if (imageUrls.length > 0) {
-      productData.image = imageUrls[0];      // Main image (singular 'image' column)
-      productData.images = imageUrls;        // All images array
-      productData.main_image = imageUrls[0]; // Also set main_image if needed
+      productData.image = imageUrls[0];
+      productData.images = imageUrls;
+      productData.main_image = imageUrls[0];
     }
 
-    // If no variation or add-on values were provided, keep the defaults stored in productData above.
-    console.log('Inserting product:', productData);
+    console.log('Inserting product:', JSON.stringify(productData, null, 2));
 
     const { data, error } = await supabase
       .from('products')
@@ -444,21 +448,35 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       throw error;
     }
 
-    // Create audit log
+    console.log('✅ Product created successfully with ID:', data?.[0]?.id);
+    console.log('📝 Attempting to create audit log...');
+    console.log('req.user exists?', !!req.user);
+    console.log('req.user.id?', req.user?.id);
+    
+    // CREATE AUDIT LOG
     if (req.user && req.user.id) {
+      const auditPayload = {
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "CREATE",
+        module: "PRODUCT",
+        description: `Created product: ${name} (ID: ${data?.[0]?.id})`,
+      };
+      console.log('Audit payload:', auditPayload);
+      
       try {
-        await createAuditLog({
-          user_id: req.user.id,
-          user_email: req.user.email,
-          user_role: req.user.role,
-          action: "CREATE",
-          module: "PRODUCT",
-          description: `Created product: ${name} (ID: ${data?.[0]?.id})`,
-        });
-        console.log('Audit log created successfully');
+        const auditResult = await createAuditLog(auditPayload);
+        console.log('Audit log result:', auditResult);
+        console.log('✅ CREATE audit log created successfully!');
       } catch (auditError) {
-        console.error('Audit log error (non-critical):', auditError);
+        console.error('❌ Audit log creation FAILED:', auditError);
+        console.error('Error details:', auditError.message);
       }
+    } else {
+      console.log('⚠️ No user found in request, skipping audit log');
+      console.log('req.user value:', req.user);
+      console.log('Authorization header:', req.headers.authorization);
     }
 
     res.status(201).json({ 
