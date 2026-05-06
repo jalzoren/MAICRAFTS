@@ -24,7 +24,7 @@ const EnterCode = () => {
   }, []);
 
   useEffect(() => {
-    if (canResend) return; // stop when resend is allowed
+    if (canResend) return;
   
     const interval = setInterval(() => {
       setTimer((prev) => {
@@ -47,12 +47,10 @@ const EnterCode = () => {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Clear error when user starts typing
     if (errors.otp) {
       setErrors({});
     }
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -63,7 +61,6 @@ const EnterCode = () => {
       inputRefs.current[index - 1]?.focus();
     }
 
-    // Handle paste event
     if (e.key === "v" && (e.ctrlKey || e.metaKey)) {
       navigator.clipboard.readText().then((text) => {
         const digits = text.replace(/\D/g, '').split('').slice(0, 6);
@@ -73,7 +70,6 @@ const EnterCode = () => {
         });
         setOtp(newOtp);
         
-        // Focus the next empty input or last input
         const nextEmptyIndex = newOtp.findIndex(d => !d);
         if (nextEmptyIndex !== -1) {
           inputRefs.current[nextEmptyIndex]?.focus();
@@ -177,43 +173,80 @@ const EnterCode = () => {
     return `${maskedLocal}@${domain}`;
   };
 
+  // Function to send audit log to backend
+  const sendAuditLog = async (action, description, success = true) => {
+    try {
+      // Get user IP and user agent
+      const response = await fetch('https://api.ipify.org?format=json');
+      const ipData = await response.json();
+      
+      await fetch('http://localhost:5000/api/audit-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: null, // No user ID yet since not logged in
+          user_email: email,
+          user_role: "CUSTOMER",
+          action: action,
+          module: "AUTH",
+          description: description,
+          ip_address: ipData.ip,
+          user_agent: navigator.userAgent,
+          status: success ? "SUCCESS" : "FAILED"
+        })
+      });
+    } catch (error) {
+      console.error('Failed to send audit log:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
   
     if (!validateForm()) {
       showValidationAlert("Enter all 6 digits");
+      await sendAuditLog("VERIFY_OTP", `OTP verification failed: Incomplete code (${otp.filter(d => d).length}/6 digits)`, false);
       return;
     }
   
     setIsLoading(true);
   
     try {
-      const email = sessionStorage.getItem("signupEmail");
+      const storedEmail = sessionStorage.getItem("signupEmail");
       const password = sessionStorage.getItem("signupPassword");
   
+      // Send audit log for verification attempt
+      await sendAuditLog("VERIFY_OTP", `Verifying OTP for email: ${storedEmail}`, true);
+
       const response = await fetch("http://localhost:5000/api/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: storedEmail,
           otp: otp.join(""),
           password,
-
         }),
       });
   
       const data = await response.json();
   
       if (!response.ok) {
+        // Log failed verification
+        await sendAuditLog("VERIFY_OTP", `OTP verification failed for email: ${storedEmail}. Error: ${data.error || "Invalid OTP"}`, false);
         showErrorAlert(data.error || "OTP verification failed");
         return;
       }
   
+      // Log successful verification
+      await sendAuditLog("VERIFY_OTP", `OTP verified successfully for email: ${storedEmail}. Account created.`, true);
+      
+      // Clear sensitive data
       sessionStorage.clear();
       showSuccessAlert();
   
     } catch (error) {
       console.error(error);
+      await sendAuditLog("VERIFY_OTP", `Network error during OTP verification: ${error.message}`, false);
       showErrorAlert("Network error");
     } finally {
       setIsLoading(false);
@@ -223,6 +256,7 @@ const EnterCode = () => {
   const handleResend = async () => {
     if (!email) {
       showErrorAlert("Email not found. Please restart signup.");
+      await sendAuditLog("RESEND_OTP", `Failed to resend OTP: Email not found in session`, false);
       navigate("/signup");
       return;
     }
@@ -230,6 +264,9 @@ const EnterCode = () => {
     setIsLoading(true);
   
     try {
+      // Log resend attempt
+      await sendAuditLog("RESEND_OTP", `Requesting new OTP for email: ${email}`, true);
+
       const response = await fetch("http://localhost:5000/api/resend-otp", {
         method: "POST",
         headers: {
@@ -241,11 +278,14 @@ const EnterCode = () => {
       const data = await response.json();
   
       if (!response.ok) {
+        await sendAuditLog("RESEND_OTP", `Failed to resend OTP for email: ${email}. Error: ${data.error}`, false);
         showErrorAlert(data.error || "Failed to resend code");
         return;
       }
   
-      // ✅ WAIT for user to see alert BEFORE restarting timer
+      // Log successful resend
+      await sendAuditLog("RESEND_OTP", `New OTP sent successfully to email: ${email}`, true);
+  
       await Swal.fire({
         title: 'Code Resent!',
         text: `A new verification code has been sent to ${maskEmail(email)}`,
@@ -258,7 +298,6 @@ const EnterCode = () => {
         timerProgressBar: true,
       });
   
-      // ✅ Reset AFTER alert closes
       setTimer(60);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
@@ -267,6 +306,7 @@ const EnterCode = () => {
   
     } catch (error) {
       console.error(error);
+      await sendAuditLog("RESEND_OTP", `Network error during OTP resend: ${error.message}`, false);
       showErrorAlert("Network error");
     } finally {
       setIsLoading(false);
@@ -276,7 +316,8 @@ const EnterCode = () => {
   const handleBack = (e) => {
     if (e) e.preventDefault();
     if (isLoading) return;
-  
+    
+    sendAuditLog("NAVIGATE", `User went back to password setup page`, true);
     navigate("/setup-password");
   };
 
@@ -284,7 +325,6 @@ const EnterCode = () => {
 
   return (
     <div className="enter-code-page">
-      {/* Video Background */}
       <video 
         autoPlay 
         muted 
@@ -299,16 +339,12 @@ const EnterCode = () => {
       
       <div className="enter-code-container">
         <div className="enter-code-wrapper">
-          {/* Logo */}
           <div className="logo-section">
             <h1 className="logo">MAICRAFTS</h1>
           </div>
 
-          {/* Progress Indicator - Fixed Line */}
           <div className="progress-indicator">
             <div className="progress-steps">
-
-              {/* 1 - Email */}
               <div className="progress-step">
                 <div className={`step-number ${currentStep > 1 ? "completed" : currentStep === 1 ? "active" : ""}`}>
                   {currentStep > 1 ? "✓" : "1"}
@@ -318,7 +354,6 @@ const EnterCode = () => {
                 </span>
               </div>
 
-              {/* 2 - Password */}
               <div className="progress-step">
                 <div className={`step-number ${currentStep > 2 ? "completed" : currentStep === 2 ? "active" : ""}`}>
                   {currentStep > 2 ? "✓" : "2"}
@@ -328,7 +363,6 @@ const EnterCode = () => {
                 </span>
               </div>
 
-              {/* 3 - Verify (YOU ARE HERE) */}
               <div className="progress-step">
                 <div className={`step-number ${currentStep > 3 ? "completed" : currentStep === 3 ? "active" : ""}`}>
                   {currentStep > 3 ? "✓" : "3"}
@@ -338,7 +372,6 @@ const EnterCode = () => {
                 </span>
               </div>
 
-              {/* 4 - Done */}
               <div className="progress-step">
                 <div className={`step-number ${currentStep > 4 ? "completed" : currentStep === 4 ? "active" : ""}`}>
                   {currentStep > 4 ? "✓" : "4"}
@@ -347,17 +380,15 @@ const EnterCode = () => {
                   Done
                 </span>
               </div>
-
             </div>
           </div>
-          {/* Title */}
+          
           <h2 className="enter-code-title">VERIFY EMAIL</h2>
           <p className="enter-code-subtitle">
             Enter the 6-digit code sent to <strong>{maskedEmail}</strong>
           </p>
 
           <form className="enter-code-form" onSubmit={handleSubmit} noValidate>
-            {/* OTP Input Group */}
             <div className="form-group">
               <label className="form-label">Verification Code</label>
               <div className="otp-input-group">
@@ -380,7 +411,6 @@ const EnterCode = () => {
               {errors.otp && <span className="form-error">{errors.otp}</span>}
             </div>
 
-            {/* Resend Code Section */}
             <div className="resend-code">
               {!canResend ? (
                 <p className="resend-text">
@@ -401,7 +431,6 @@ const EnterCode = () => {
               )}
             </div>
 
-            {/* Verify Button */}
             <button 
               type="submit" 
               className="enter-code-btn"
@@ -414,19 +443,17 @@ const EnterCode = () => {
               )}
             </button>
 
-            {/* Back Button */}
             <button 
               type="button" 
               className="back-button"
               onClick={handleBack}
               disabled={isLoading}
             >
-           <span className="back-icon"></span>
+              <span className="back-icon"></span>
               BACK TO LOGIN
             </button>
           </form>
 
-          {/* Login Section */}
           <div className="login-section">
             <p>
               Already have an account?
@@ -435,8 +462,6 @@ const EnterCode = () => {
               </Link>
             </p>
           </div>
-
-        
         </div>
       </div>
     </div>

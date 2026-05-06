@@ -1,3 +1,4 @@
+// AuthContext.jsx (Seller and Super Admin Authentication Context)
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const SESSION_KEY = "mc_session";
