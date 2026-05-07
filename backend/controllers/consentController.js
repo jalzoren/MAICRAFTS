@@ -1,8 +1,55 @@
 // backend/controllers/consentController.js
 import ConsentModel from '../models/ConsentModel.js';
+import crypto from 'crypto';
+
+// Generate CSRF token
+export const generateCsrfToken = (req, res) => {
+  try {
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    res.cookie('csrf_token', token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+      path: '/'
+    });
+    
+    console.log('✅ CSRF token generated from consent route');
+    res.json({ success: true, csrf_token: token });
+  } catch (error) {
+    console.error('Error generating CSRF token:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate CSRF token' });
+  }
+};
+
+// Validate CSRF token
+const validateCsrfToken = (req) => {
+  const csrfTokenFromHeader = req.headers['x-csrf-token'];
+  const csrfTokenFromCookie = req.cookies?.csrf_token;
+  
+  if (!csrfTokenFromHeader || !csrfTokenFromCookie) {
+    console.log('CSRF validation failed: Missing tokens');
+    return false;
+  }
+  
+  const isValid = csrfTokenFromHeader === csrfTokenFromCookie;
+  if (!isValid) {
+    console.log('CSRF validation failed: Token mismatch');
+  }
+  return isValid;
+};
 
 export const logConsent = async (req, res) => {
   console.log('📝 Consent log request received:', req.body);
+  
+  if (!validateCsrfToken(req)) {
+    console.log('❌ CSRF validation failed');
+    return res.status(403).json({
+      success: false,
+      error: 'Invalid CSRF token'
+    });
+  }
   
   try {
     const {
@@ -15,10 +62,9 @@ export const logConsent = async (req, res) => {
     } = req.body;
 
     if (!visitor_id || !consent_type || consent_value === undefined) {
-      console.log('Missing fields:', { visitor_id, consent_type, consent_value });
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: visitor_id, consent_type, consent_value'
+        error: 'Missing required fields'
       });
     }
 
@@ -27,13 +73,12 @@ export const logConsent = async (req, res) => {
       session_id: session_id || null,
       user_id: user_id || null,
       consent_type,
-      consent_value,
-      ip_address: req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
+      consent_value: consent_value === true || consent_value === 'true',
+      ip_address: req.ip || req.headers['x-forwarded-for'] || null,
       user_agent: req.headers['user-agent'] || null,
       page_url: page_url || null
     };
 
-    console.log('Saving to Supabase:', consentData);
     const result = await ConsentModel.logConsent(consentData);
 
     res.status(200).json({

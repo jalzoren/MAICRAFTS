@@ -1,3 +1,4 @@
+// backend/models/ConsentModel.js
 import { supabase } from '../supabaseClient.js';
 
 class ConsentModel {

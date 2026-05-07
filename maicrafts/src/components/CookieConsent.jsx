@@ -12,22 +12,72 @@ const getVisitorId = () => {
   return visitorId;
 };
 
-// Log consent to backend API
+// Get CSRF token from cookie
+const getCsrfToken = () => {
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? match[1] : '';
+};
+
+// Initialize CSRF token
+const initializeCsrfToken = async () => {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    if (!apiUrl) {
+      console.warn('API URL not configured');
+      return false;
+    }
+
+    console.log('🔄 Initializing CSRF token from:', `${apiUrl}/consent/csrf-token`);
+    const response = await fetch(`${apiUrl}/consent/csrf-token`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    if (data.success) {
+      console.log('✅ CSRF token initialized successfully');
+      return true;
+    } else {
+      throw new Error(data.error || 'Failed to initialize CSRF token');
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize CSRF token:', error.message);
+    return false;
+  }
+};
+
+// Log consent to backend API with CSRF protection
 const logConsentToBackend = async (consentType, consentValue) => {
   try {
-    const apiUrl = import.meta.env.VITE_API_URL;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
     if (!apiUrl) {
       console.warn('API URL not configured');
       return;
     }
 
+    // Try to get CSRF token, initialize if not exists
+    let csrfToken = getCsrfToken();
+    if (!csrfToken) {
+      await initializeCsrfToken();
+      csrfToken = getCsrfToken();
+    }
+    
     console.log('Sending consent to:', `${apiUrl}/consent/log`);
     
     const response = await fetch(`${apiUrl}/consent/log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken
       },
+      credentials: 'include',
       body: JSON.stringify({
         visitor_id: getVisitorId(),
         consent_type: consentType,
@@ -70,6 +120,9 @@ function CookieConsent() {
   });
 
   useEffect(() => {
+    // Initialize CSRF token when component mounts
+    initializeCsrfToken();
+    
     // Check if user already consented
     const hasConsented = localStorage.getItem('cookie_consent_given');
     if (!hasConsented) {
@@ -94,7 +147,7 @@ function CookieConsent() {
     setPreferences(prefs);
     
     // Log to backend (don't await - let it run in background)
-    logConsentToBackend(consentType, prefs.analytics || prefs.advertising);
+    await logConsentToBackend(consentType, prefs.analytics || prefs.advertising);
     updateGoogleAnalyticsConsent(prefs.analytics);
   };
 
