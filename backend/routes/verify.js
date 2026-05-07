@@ -7,7 +7,17 @@ const router = express.Router();
 
 router.get("/verify-email", async (req, res) => {
   const { token } = req.query;
-  if (!token) return res.status(400).send("Token is required");
+
+  console.log('🔍 ========== VERIFICATION ATTEMPT ==========');
+  console.log('🔍 Token received:', token);
+  console.log('🔍 Full URL:', req.protocol + '://' + req.get('host') + req.originalUrl);
+
+
+   if (!token) {
+    console.log('❌ No token provided');
+    return res.status(400).send("Token is required");
+  }
+
 
   try {
     const { data: verification, error } = await supabase
@@ -15,6 +25,8 @@ router.get("/verify-email", async (req, res) => {
       .select("*")
       .eq("token", token)
       .maybeSingle();
+
+      console.log('🔍 Verification record found:', verification ? 'YES' : 'NO');
 
     if (error) {
       console.error(error);
