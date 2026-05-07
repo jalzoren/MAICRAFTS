@@ -29,6 +29,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import ContactAdmin from "./auth/ContactAdmin";
 import CookieConsent from './components/CookieConsent';
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailed from './pages/PaymentFailed';
 
 const AppContent = () => {
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
@@ -77,6 +79,8 @@ const AppContent = () => {
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/contact-admin" element={<ContactAdmin />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
+        <Route path="/payment-failed" element={<PaymentFailed />} />
       </Routes>
       {!isAuthRoute && <Footer />}
       <CustomizeFormModal isOpen={isCustomizeOpen} onClose={closeCustomizeModal} />

@@ -120,6 +120,7 @@ const Checkout = () => {
 
     setIsPlacingOrder(true);
     try {
+      // 1. Create order in your database
       const orderData = {
         user_id: user?.id || null,
         user_email: user?.email || null,
@@ -146,16 +147,37 @@ const Checkout = () => {
         total_amount: totalAmount,
       };
 
-      // TODO: POST order to /api/orders, then redirect to PayMongo
-      console.log('Order data:', orderData);
-      
-      alert("Order placed successfully! 🎉");
-      localStorage.removeItem("checkout_items");
-      await clearCart();
-      navigate("/");
+      const orderResponse = await fetch('http://localhost:5000/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+      const orderResult = await orderResponse.json();
+      if (!orderResult.success) throw new Error('Failed to create order');
+      const orderId = orderResult.order_id;
+
+      // 2. Initiate PayMongo checkout session
+      const successUrl = `${window.location.origin}/payment-success?order_id=${orderId}`;
+      const failedUrl = `${window.location.origin}/payment-failed?order_id=${orderId}`;
+
+      const paymentRes = await fetch('http://localhost:5000/api/payment/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: totalAmount,
+          order_id: orderId,
+          success_url: successUrl,
+          failed_url: failedUrl,
+        }),
+      });
+      const paymentData = await paymentRes.json();
+      if (!paymentData.success) throw new Error('Payment initialization failed');
+
+      // Redirect to PayMongo hosted page
+      window.location.href = paymentData.checkout_url;
     } catch (error) {
-      console.error('Error placing order:', error);
-      alert("Failed to place order. Please try again.");
+      console.error('Checkout error:', error);
+      alert(error.message);
     } finally {
       setIsPlacingOrder(false);
     }
