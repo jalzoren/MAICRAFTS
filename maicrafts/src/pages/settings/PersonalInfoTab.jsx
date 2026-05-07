@@ -8,6 +8,29 @@ import "./css/PersonalInfoTab.css";
 // Philippine address data (abbreviated — 
 // swap with PSGC API for full dataset)
 // ─────────────────────────────────────────────
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
 const PH_REGIONS = [
   "NCR – National Capital Region",
   "CAR – Cordillera Administrative Region",
@@ -69,6 +92,7 @@ const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
 
     setIsSaving(true);
     try {
+      const headers = getAuthHeaders(); // ← Add this
       const isEdit = mode === "edit";
       const endpoint = isEdit
         ? `http://localhost:5000/api/address/${initial.address_id}`
@@ -88,7 +112,7 @@ const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
 
       const res = await fetch(endpoint, {
         method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers, // ← Use headers with auth
         body: JSON.stringify(addressPayload),
       });
       const data = await res.json();
@@ -243,7 +267,8 @@ const PersonalInfoTab = ({ user }) => {
   const fetchAddresses = async () => {
     setAddrLoading(true);
     try {
-      const res  = await fetch(`http://localhost:5000/api/address/${user.id}`);
+      const headers = getAuthHeaders();
+      const res = await fetch(`http://localhost:5000/api/address/${user.id}`, { headers });
       const data = await res.json();
       if (res.ok) setAddresses(data.addresses || []);
     } catch (err) {
@@ -261,9 +286,10 @@ const PersonalInfoTab = ({ user }) => {
     e.preventDefault();
     setSaveErr("");
     try {
+      const headers = getAuthHeaders();
       const res  = await fetch(`http://localhost:5000/api/users/${user.id}`, {
         method:  "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body:    JSON.stringify({
           first_name:     form.firstName,
           last_name:      form.lastName,
@@ -274,7 +300,24 @@ const PersonalInfoTab = ({ user }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
 
-      await refreshUser(); // sync AuthContext + localStorage
+        // ✅ UPDATE SESSIONSTORAGE WITH NEW DATA
+      const sessionData = sessionStorage.getItem('mc_session');
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        session.user = {
+          ...session.user,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          middleName: form.middleName,
+          phone: form.phone,
+        };
+        sessionStorage.setItem('mc_session', JSON.stringify(session));
+      }
+
+      if (refreshUser && typeof refreshUser === 'function') {
+        await refreshUser();
+      }
+      
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
@@ -303,7 +346,8 @@ const PersonalInfoTab = ({ user }) => {
 
   const handleAddrDelete = async (addressId) => {
     try {
-      await fetch(`http://localhost:5000/api/address/${addressId}`, { method: "DELETE" });
+      const headers = getAuthHeaders();
+      await fetch(`http://localhost:5000/api/address/${addressId}`, { method: "DELETE", headers: headers});
       setAddresses((prev) => prev.filter((a) => a.address_id !== addressId));
     } catch (err) {
       console.error("Delete failed:", err);
