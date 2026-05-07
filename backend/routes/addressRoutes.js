@@ -20,25 +20,35 @@ router.get('/:userId', async (req, res) => {
 // POST — add new address
 router.post('/', async (req, res) => {
   const { userId, region, province, city, barangay, postal_code, home_address, is_default } = req.body;
-
-  // If this is default, unset all others first
+  
+  if (!userId) return res.status(400).json({ message: 'userId is required' });
+  
   if (is_default) {
     await supabase.from('address').update({ is_default: false }).eq('user', userId);
   }
-
+  
   const { data, error } = await supabase.from('address').insert([{
-    user: userId, region, province, city, barangay,
-    postal_code, home_address, is_default: is_default || false,
-  }]).select().single();
-
+    user: userId,
+    region,
+    province,
+    city,
+    barangay,
+    postal_code,
+    home_address,
+    is_default: is_default || false,
+  }]).select();
+  
   if (error) return res.status(500).json({ message: error.message });
-  res.json({ address: data });
+  res.json({ address: data[0] });
 });
+
 
 // PUT — edit address
 router.put('/:addressId', async (req, res) => {
   const { addressId } = req.params;
   const { userId, region, province, city, barangay, postal_code, home_address, is_default } = req.body;
+
+  if (!userId) return res.status(400).json({ message: 'userId is required' });
 
   if (is_default) {
     await supabase.from('address').update({ is_default: false }).eq('user', userId);
@@ -47,10 +57,12 @@ router.put('/:addressId', async (req, res) => {
   const { data, error } = await supabase.from('address')
     .update({ region, province, city, barangay, postal_code, home_address, is_default })
     .eq('address_id', addressId)
-    .select().single();
+    .select();
 
   if (error) return res.status(500).json({ message: error.message });
-  res.json({ address: data });
+  if (!data || data.length === 0) return res.status(404).json({ message: 'Address not found' });
+
+  res.json({ address: data[0] });
 });
 
 // DELETE — remove address

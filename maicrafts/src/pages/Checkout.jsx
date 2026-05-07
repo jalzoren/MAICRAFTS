@@ -2,16 +2,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  IoArrowBack, IoImage, IoCard, IoLocationSharp,
-  IoDocumentText, IoWallet, IoCash,
+  IoArrowBack, IoImage, IoLocationSharp,
+  IoDocumentText,
 } from "react-icons/io5";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import "../css/Checkout.css";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-// Converts a checkout item's variation/addOn data into displayable spec rows
 const getSpecRows = (item) => {
   const rows = [];
   if (item.variations?.bundle) {
@@ -29,8 +27,23 @@ const getSpecRows = (item) => {
   return rows;
 };
 
-// ── Component ──────────────────────────────────────────────────────────────
+const METRO_MANILA_CITIES = [
+  "manila", "quezon city", "makati", "taguig", "pasig", "pasig city", "mandaluyong",
+  "san juan", "caloocan", "navotas", "malabon", "valenzuela", "parañaque",
+  "paranaque", "pasay", "muntinlupa", "las piñas", "las pinas", "marikina", "pateros"
+];
 
+const getShippingFee = (city) => {
+  if (!city) return 0;
+  const normalizedCity = city.trim().toLowerCase();
+  const isMetroManila = METRO_MANILA_CITIES.includes(normalizedCity);
+  if (!isMetroManila) return 50;
+  // Special rule: Pasig (including "Pasig City") is free
+  if (normalizedCity === 'pasig' || normalizedCity === 'pasig city') return 0;
+  return 20;
+};
+
+// ── Component ──────────────────────────────────────────────────────────────
 const Checkout = () => {
   const navigate = useNavigate();
   const { clearCart } = useCart();
@@ -38,13 +51,14 @@ const Checkout = () => {
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [formData, setFormData] = useState({
     shippingOption: "",
-    paymentMethod:  "",
-    address:        "",
-    message:        "",
+    selectedAddressId: "",
+    message: "",
   });
+  const [addresses, setAddresses] = useState([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  // Read items set by either ProductDetail "Buy Now" or Cart "Check Out"
+  // Read items from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem("checkout_items");
@@ -54,30 +68,71 @@ const Checkout = () => {
     }
   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  // Fetch user addresses when logged in
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      fetchAddresses();
+    }
+  }, [isAuthenticated, user?.id]);
+
+  const fetchAddresses = async () => {
+    setLoadingAddresses(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/address/${user.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setAddresses(data.addresses || []);
+        // Auto-select default address
+        const defaultAddr = data.addresses?.find(addr => addr.is_default);
+        if (defaultAddr) {
+          setFormData(prev => ({ ...prev, selectedAddressId: defaultAddr.address_id }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch addresses:", err);
+    } finally {
+      setLoadingAddresses(false);
+    }
   };
 
-  // Shipping fee only applies when delivery is chosen
-  const shippingFee = formData.shippingOption === "delivery" ? 20 : 0;
-  const subtotal    = checkoutItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const selectedAddress = addresses.find(addr => addr.address_id === formData.selectedAddressId);
+  const shippingFee = formData.shippingOption === "delivery" && selectedAddress
+    ? getShippingFee(selectedAddress.city)
+    : 0;
+  const subtotal = checkoutItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const totalAmount = subtotal + shippingFee;
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (!formData.shippingOption) { alert("Please select a shipping option."); return; }
-    if (!formData.paymentMethod)  { alert("Please select a payment method.");  return; }
+    if (!formData.shippingOption) {
+      alert("Please select a shipping option.");
+      return;
+    }
+    if (formData.shippingOption === "delivery" && !formData.selectedAddressId) {
+      alert("Please select a delivery address.");
+      return;
+    }
 
     setIsPlacingOrder(true);
     try {
-      // Prepare order data including user session
       const orderData = {
         user_id: user?.id || null,
         user_email: user?.email || null,
         shipping_option: formData.shippingOption,
-        payment_method: formData.paymentMethod,
-        address: formData.address || null,
+        address_id: formData.selectedAddressId || null,
+        address: selectedAddress ? {
+          street: selectedAddress.home_address,
+          barangay: selectedAddress.barangay,
+          city: selectedAddress.city,
+          province: selectedAddress.province,
+          postalCode: selectedAddress.postal_code,
+          region: selectedAddress.region,
+        } : null,
         special_instructions: formData.message || null,
         items: checkoutItems.map(item => ({
           product_id: item.product_id,
@@ -91,7 +146,7 @@ const Checkout = () => {
         total_amount: totalAmount,
       };
 
-      // TODO: POST order to /api/orders
+      // TODO: POST order to /api/orders, then redirect to PayMongo
       console.log('Order data:', orderData);
       
       alert("Order placed successfully! 🎉");
@@ -109,7 +164,6 @@ const Checkout = () => {
   return (
     <div className="checkout-container">
       <div className="checkout-wrapper">
-
         {/* Header */}
         <div className="checkout-header">
           <h1>Your Order</h1>
@@ -126,24 +180,25 @@ const Checkout = () => {
         </div>
 
         <div className="checkout-content">
-
-          {/* ── Left: Order Summary ──────────────────────────────── */}
+          {/* Left: Order Summary */}
           <div className="order-summary">
             {checkoutItems.length > 0 ? (
               <>
                 {checkoutItems.map((item, idx) => (
                   <div key={`${item.product_id}-${idx}`} className="checkout-item">
                     <h2 className="product-title">{item.name}</h2>
-
                     <div className="product-details-section">
                       <div className="product-image-placeholder">
-                        {item.image_url
-                          ? <img src={item.image_url} alt={item.name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }} />
-                          : <IoImage size={40} />
-                        }
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8 }}
+                          />
+                        ) : (
+                          <IoImage size={40} />
+                        )}
                       </div>
-
                       <div className="product-specs">
                         {getSpecRows(item).map((row, i) => (
                           <div className="spec-row" key={i}>
@@ -159,7 +214,6 @@ const Checkout = () => {
                         </div>
                       </div>
                     </div>
-
                     {idx < checkoutItems.length - 1 && <hr className="item-divider" />}
                   </div>
                 ))}
@@ -175,9 +229,7 @@ const Checkout = () => {
                     <span className="total-value">
                       {formData.shippingOption === "delivery"
                         ? `₱${shippingFee.toFixed(2)}`
-                        : formData.shippingOption === "pickup"
-                          ? "Free (Pickup)"
-                          : "Select shipping option"}
+                        : "Free (Pickup)"}
                     </span>
                   </div>
                   <div className="total-row final-total">
@@ -191,64 +243,86 @@ const Checkout = () => {
             )}
           </div>
 
-          {/* ── Right: Checkout Form ─────────────────────────────── */}
+          {/* Right: Checkout Form */}
           <div className="checkout-form-section">
             <form className="checkout-form" onSubmit={handlePlaceOrder}>
-
               {/* Shipping Option */}
               <div className="form-group">
                 <label htmlFor="shippingOption" className="form-label">
                   <IoLocationSharp className="form-icon" />
                   Shipping Option <span className="required">*</span>
-                  <small style={{ display: "block", fontWeight: "normal", marginTop: 2 }}>
-                    Outside Metro Manila will be charged an additional delivery fee.
-                  </small>
                 </label>
-                <select id="shippingOption" name="shippingOption"
-                  value={formData.shippingOption} onChange={handleInputChange}
-                  className="form-control" required>
+                <select
+                  id="shippingOption"
+                  name="shippingOption"
+                  value={formData.shippingOption}
+                  onChange={handleInputChange}
+                  className="form-control"
+                  required
+                >
                   <option value="">Select shipping option</option>
                   <option value="pickup">Pick Up</option>
                   <option value="delivery">Delivery</option>
                 </select>
               </div>
 
-              {/* Payment Method */}
-              <div className="form-group">
-                <label className="form-label">
-                  <IoCard className="form-icon" />
-                  Payment Method <span className="required">*</span>
-                </label>
-                <div className="payment-options">
-                  {[
-                    { value: "gcash", label: "GCash", Icon: IoWallet },
-                    { value: "maya",  label: "Maya",  Icon: IoCash   },
-                    { value: "cod",   label: "COD",   Icon: IoCard   },
-                  ].map(({ value, label, Icon }) => (
-                    <button key={value} type="button"
-                      className={`payment-btn ${formData.paymentMethod === value ? "active" : ""}`}
-                      onClick={() => setFormData((p) => ({ ...p, paymentMethod: value }))}>
-                      <Icon size={24} /><span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Delivery Address — only shown when delivery is selected */}
+              {/* Delivery Address – only for delivery */}
               {formData.shippingOption === "delivery" && (
                 <div className="form-group">
-                  <label htmlFor="address" className="form-label">
+                  <label htmlFor="selectedAddressId" className="form-label">
                     <IoLocationSharp className="form-icon" />
-                    Delivery Address
+                    Delivery Address <span className="required">*</span>
                   </label>
-                  <select id="address" name="address"
-                    value={formData.address} onChange={handleInputChange}
-                    className="form-control">
-                    <option value="">Select address</option>
-                    <option value="home">Home Address</option>
-                    <option value="work">Work Address</option>
-                    <option value="other">Other Address</option>
-                  </select>
+                  {loadingAddresses ? (
+                    <p>Loading your addresses...</p>
+                  ) : addresses.length === 0 ? (
+                    <div className="address-warning">
+                      <p>You have no saved addresses.</p>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => navigate("/settings")}
+                      >
+                        Add an address in Settings
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        id="selectedAddressId"
+                        name="selectedAddressId"
+                        value={formData.selectedAddressId}
+                        onChange={handleInputChange}
+                        className="form-control"
+                        required
+                      >
+                        <option value="">Select an address</option>
+                        {addresses.map(addr => (
+                          <option key={addr.address_id} value={addr.address_id}>
+                            {addr.home_address}, {addr.barangay}, {addr.city}, {addr.province}
+                            {addr.is_default && " (Default)"}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedAddress && (
+                        <div className="selected-address-details">
+                          <p><strong>Full Address:</strong></p>
+                          <p>{selectedAddress.home_address}</p>
+                          <p>{selectedAddress.barangay}, {selectedAddress.city}</p>
+                          <p>{selectedAddress.province}, {selectedAddress.region}</p>
+                          {selectedAddress.postal_code && <p>Postal Code: {selectedAddress.postal_code}</p>}
+                          <p className="shipping-note">
+                            Shipping fee for <strong>{selectedAddress.city}</strong>:
+                            {getShippingFee(selectedAddress.city) === 0
+                              ? " ₱0"
+                              : getShippingFee(selectedAddress.city) === 20
+                              ? " ₱20 (Metro Manila, outside Pasig)"
+                              : " ₱50 (outside Metro Manila)"}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -258,19 +332,26 @@ const Checkout = () => {
                   <IoDocumentText className="form-icon" />
                   Special Instructions
                 </label>
-                <textarea id="message" name="message"
-                  value={formData.message} onChange={handleInputChange}
-                  className="form-textarea" rows="4"
-                  placeholder="Add any special requests or delivery notes..." />
+                <textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleInputChange}
+                  className="form-textarea"
+                  rows="4"
+                  placeholder="Add any special requests or delivery notes..."
+                />
               </div>
 
-              <button type="submit" className="place-order-btn"
-                disabled={checkoutItems.length === 0 || isPlacingOrder}>
+              <button
+                type="submit"
+                className="place-order-btn"
+                disabled={checkoutItems.length === 0 || isPlacingOrder}
+              >
                 {isPlacingOrder ? "Processing..." : "Place Order"}
               </button>
             </form>
           </div>
-
         </div>
       </div>
     </div>
