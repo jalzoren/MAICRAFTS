@@ -310,6 +310,17 @@ router.get('/products/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
 
+    if (req.user && req.user.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "PRODUCT",
+        description: `Viewed product details: ${data.name} (ID: ${id})`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
+
     const transformedData = {
       ...data,
       mainImage: data.image || data.main_image || (data.images?.[0]),
@@ -339,6 +350,18 @@ router.get('/categories', async (req, res) => {
       name: category,
       count: data.filter(item => item.category === category).length
     }));
+
+    // ✅ Add audit log for viewing categories
+    if (req.user && req.user.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "CATEGORY",
+        description: `Viewed categories (${uniqueCategories.length} categories)`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
 
     res.json({ success: true, data: categoriesWithCount });
   } catch (error) {
@@ -431,6 +454,24 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       console.log(`✅ Stock history added: +${numericStock} for ${newProduct.name}`);
     }
 
+     // ✅ CREATE AUDIT LOG (await - must complete)
+     if (req.user && req.user.id) {
+      try {
+        await createAuditLog({
+          user_id: req.user.id,
+          user_email: req.user.email,
+          user_role: req.user.role,
+          action: "CREATE",
+          module: "PRODUCT",
+          description: `Created product: ${name} (ID: ${newProduct?.id})`,
+        });
+        console.log('✅ CREATE audit log created');
+      } catch (auditError) {
+        console.error('Audit log error:', auditError);
+      }
+    }
+
+
     res.status(201).json({ 
       success: true, 
       data: newProduct,
@@ -492,6 +533,19 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
+     // ✅ UPDATE AUDIT LOG (await - must complete)
+     if (req.user && req.user.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "UPDATE",
+        module: "PRODUCT",
+        description: `Updated product: ${name || existingProduct.name} (ID: ${id})`,
+      });
+      console.log('✅ UPDATE audit log created');
+    }
+
     res.json({ success: true, data: data?.[0] });
 
   } catch (error) {
@@ -521,6 +575,20 @@ router.delete('/products/:id', async (req, res) => {
       .eq('id', id);
 
     if (error) throw error;
+
+     // ✅ DELETE AUDIT LOG (await - must complete)
+     if (req.user && req.user.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "DELETE",
+        module: "PRODUCT",
+        description: `Deleted product: ${product.name} (ID: ${id})`,
+      });
+      console.log('✅ DELETE audit log created');
+    }
+
 
     res.json({ success: true, message: 'Product deleted successfully' });
 
@@ -572,6 +640,19 @@ router.post('/products/:id/stock', async (req, res) => {
     const changeReason = reason || (change > 0 ? 'Stock added' : 'Stock removed');
     await addStockHistory(id, change, changeReason, req.user?.id, adminName);
 
+     // ✅ STOCK UPDATE AUDIT LOG (await - must complete)
+     if (req.user && req.user.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "UPDATE",
+        module: "STOCK",
+        description: `Changed stock by ${change} for product: ${product.name} (ID: ${id}). Old: ${oldStock}, New: ${newStock}`,
+      });
+      console.log('✅ STOCK audit log created');
+    }
+
     console.log(`✅ Stock updated: ${oldStock} → ${newStock}`);
 
     res.json({ success: true, data: data?.[0] });
@@ -620,6 +701,18 @@ router.get('/products/:id/stock-history', async (req, res) => {
       throw historyError;
     }
 
+     // ✅ VIEW STOCK HISTORY AUDIT (fire and forget - no await)
+     if (req.user && req.user.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "STOCK",
+        description: `Viewed stock history for product: ${product.name} (ID: ${id})`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
+
     console.log(`Found ${historyData?.length || 0} stock history records for ${product.name}`);
 
     // Calculate running total and format for frontend
@@ -663,6 +756,7 @@ router.get('/products/:id/stock-history', async (req, res) => {
 });
 
 // ARCHIVE PRODUCTS
+// ARCHIVE PRODUCTS - FIXED VERSION
 router.post('/products/archive', async (req, res) => {
   try {
     const { productIds } = req.body;
@@ -671,6 +765,17 @@ router.post('/products/archive', async (req, res) => {
       return res.status(400).json({ success: false, error: 'No product IDs provided' });
     }
 
+    // ✅ FIRST: Get product names for audit (BEFORE archiving)
+    const { data: productsToArchive, error: fetchError } = await supabase
+      .from('products')
+      .select('name, id')
+      .in('id', productIds);
+
+    if (fetchError) {
+      console.error('Error fetching products to archive:', fetchError);
+    }
+
+    // THEN: Archive the products
     const { data, error } = await supabase
       .from('products')
       .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -678,6 +783,20 @@ router.post('/products/archive', async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    // ✅ ARCHIVE AUDIT LOG (use productsToArchive that we fetched)
+    if (req.user && req.user.id) {
+      const productNames = productsToArchive?.map(p => p.name).join(', ') || `${productIds.length} products`;
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "ARCHIVE",
+        module: "PRODUCT",
+        description: `Archived ${productIds.length} product(s): ${productNames}`,
+      });
+      console.log('✅ ARCHIVE audit log created');
+    }
 
     res.json({ success: true, data: data, message: `${productIds.length} product(s) archived` });
 

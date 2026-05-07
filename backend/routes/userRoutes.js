@@ -9,6 +9,67 @@ import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
+// Add this at the top of userRoutes.js, right after the imports
+// ========== AUTH MIDDLEWARE ==========
+router.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log('🔐 [userRoutes] Auth Header:', authHeader ? 'Present' : 'Missing');
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      req.user = null;
+      return next();
+    }
+
+    if (user) {
+      // ✅ IMPORTANT: Get role from DATABASE, not from auth metadata
+      const { data: dbUser, error: dbError } = await supabase
+        .from("users")
+        .select("role, first_name, last_name")
+        .eq("email", user.email)
+        .single();
+      
+      if (dbError) {
+        console.error('Error fetching user from database:', dbError);
+      }
+      
+      // Use role from database (source of truth)
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: userRole,  // ← This will be 'super_admin' from database
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
+      };
+      
+      console.log('✅ [userRoutes] Authenticated user:', {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role  // Should show 'super_admin' now
+      });
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    req.user = null;
+  }
+
+  next();
+});
+// ========== END AUTH MIDDLEWARE ==========
+
 // ADMIN AND SELLER ENDPOINTS -----------------------------------------------------
 // GET all admin and seller users
 router.get("/users", async (req, res) => {
@@ -20,6 +81,18 @@ router.get("/users", async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
+
+    // ✅ ONLY ADDED THIS AUDIT
+    if (req.user?.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: "VIEW",
+        module: "USER_MANAGEMENT",
+        description: `Viewed users list (${data?.length || 0} users)`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
 
     res.json(data);
   } catch (err) {
@@ -96,7 +169,6 @@ router.post("/users", async (req, res) => {
 
     console.log("Inserting user profile:", insertData);
 
-    // ✅ FIX: Use supabaseAdmin here instead of supabase
     const { data: newUser, error: userError } = await supabaseAdmin
       .from("users")
       .insert([insertData])
@@ -129,13 +201,15 @@ router.post("/users", async (req, res) => {
     });
 
     console.log("User created successfully!");
+    
+    // ✅ ONLY ADDED THIS AUDIT
     await createAuditLog({
       user_id: req.user?.id || null,
-      user_name: req.user?.name || "ADMIN",
-      user_role: "ADMIN",
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
       action: "CREATE",
       module: "USER_MANAGEMENT",
-      description: `Created ${role} user: ${normalizedEmail}`,
+      description: `Created ${role} user: ${normalizedEmail} (${firstName || ''} ${lastName || ''})`,
     });
 
     res.status(201).json(newUser[0]);
@@ -151,6 +225,16 @@ router.post("/users", async (req, res) => {
         console.error("Failed to cleanup auth user:", deleteErr);
       }
     }
+
+    // ✅ ONLY ADDED THIS AUDIT
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
+      action: "ERROR",
+      module: "USER_MANAGEMENT",
+      description: `Failed to create user: ${err.message}`,
+    }).catch(e => console.error('Audit error:', e));
     
     res.status(500).json({ error: "Internal server error", message: err.message });
   }
@@ -166,6 +250,13 @@ router.put("/users/:id/role", async (req, res) => {
       return res.status(400).json({ error: "Role is required" });
     }
 
+    // ✅ ONLY ADDED THIS - fetch old data for audit
+    const { data: oldUserData } = await supabase
+      .from("users")
+      .select("email, role")
+      .eq("id", id)
+      .single();
+
     const { data, error } = await supabase
       .from("users")
       .update({ 
@@ -177,18 +268,19 @@ router.put("/users/:id/role", async (req, res) => {
 
     if (error) throw error;
 
-    await createAuditLog({
-      user_id: req.user?.id || null,
-      user_name: req.user?.name || "ADMIN",
-      user_role: "ADMIN",
-      action: "UPDATE",
-      module: "USER_MANAGEMENT",
-      description: `Changed role of user ${id} to ${role}`,
-    });
-
     if (!data || data.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
+
+    // ✅ ONLY ADDED THIS AUDIT (replacing your old one that had user_name)
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
+      action: "UPDATE",
+      module: "USER_MANAGEMENT",
+      description: `Changed role for user ${oldUserData?.email || id} from ${oldUserData?.role || 'unknown'} to ${role}`,
+    });
 
     res.json(data[0]);
   } catch (err) {
@@ -207,6 +299,13 @@ router.put("/users/:id/status", async (req, res) => {
       return res.status(400).json({ error: "is_active must be a boolean" });
     }
 
+    // ✅ ONLY ADDED THIS - fetch user email for audit
+    const { data: oldUserData } = await supabase
+      .from("users")
+      .select("email")
+      .eq("id", id)
+      .single();
+
     const { data, error } = await supabase
       .from("users")
       .update({ 
@@ -221,13 +320,14 @@ router.put("/users/:id/status", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // ✅ ONLY ADDED THIS AUDIT
     await createAuditLog({
       user_id: req.user?.id || null,
-      user_name: req.user?.name || "ADMIN",
-      user_role: "ADMIN",
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
       action: "UPDATE",
       module: "USER_MANAGEMENT",
-      description: `Updated user ${id} status to ${is_active ? "ACTIVE" : "INACTIVE"}`,
+      description: `Changed status for user ${oldUserData?.email || id} to ${is_active ? "ACTIVE" : "INACTIVE"}`,
     });
 
     res.json(data[0]);
@@ -241,6 +341,13 @@ router.put("/users/:id/status", async (req, res) => {
 router.delete("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ✅ ONLY ADDED THIS - fetch user data before deletion
+    const { data: userToDelete } = await supabase
+      .from("users")
+      .select("email, role, first_name, last_name")
+      .eq("id", id)
+      .single();
 
     // Delete user profile
     const { error: profileError } = await supabase
@@ -256,24 +363,34 @@ router.delete("/users/:id", async (req, res) => {
       console.warn("Auth delete failed:", authError.message);
     }
 
-    // ✅ LOG ONLY AFTER SUCCESS
+    // ✅ ONLY ADDED THIS AUDIT
     await createAuditLog({
       user_id: req.user?.id || null,
-      user_name: req.user?.name || "ADMIN",
-      user_role: "ADMIN",
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
       action: "DELETE",
       module: "USER_MANAGEMENT",
-      description: `Deleted user ${id}`,
+      description: `Deleted user: ${userToDelete?.email || id} (${userToDelete?.first_name || ''} ${userToDelete?.last_name || ''}), Role: ${userToDelete?.role || 'unknown'}`,
     });
 
     res.json({ message: "User deleted successfully" });
 
   } catch (err) {
     console.error("Error deleting user:", err);
+
+    // ✅ ONLY ADDED THIS AUDIT
+    await createAuditLog({
+      user_id: req.user?.id || null,
+      user_email: req.user?.email || "system",
+      user_role: req.user?.role || "ADMIN",
+      action: "ERROR",
+      module: "USER_MANAGEMENT",
+      description: `Failed to delete user ${req.params.id}: ${err.message}`,
+    }).catch(e => console.error('Audit error:', e));
+
     res.status(500).json({ error: "Failed to delete user" });
   }
 });
-
 
 // CUSTOMER ENDPOINTS -----------------------------------------------------
 
@@ -282,6 +399,13 @@ router.post('/users/:id/avatar', upload.single('avatar'), async (req, res) => {
   const { id } = req.params;
   const file = req.file;
   if (!file) return res.status(400).json({ message: 'No file provided' });
+
+  // ✅ ONLY ADDED THIS - get user email for audit
+  const { data: userData } = await supabase
+    .from('users')
+    .select('email')
+    .eq('id', id)
+    .single();
 
   const filePath = `avatars/${id}-${Date.now()}`;
 
@@ -301,6 +425,18 @@ router.post('/users/:id/avatar', upload.single('avatar'), async (req, res) => {
 
   if (dbError) return res.status(500).json({ message: dbError.message });
 
+  // ✅ ONLY ADDED THIS AUDIT
+  if (req.user?.id) {
+    createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: "UPDATE",
+      module: "USER_PROFILE",
+      description: `Updated avatar for user ${userData?.email || id}`,
+    }).catch(err => console.error('Audit log error:', err));
+  }
+
   res.json({ message: 'Avatar updated', profile_url: publicUrl });
 });
 
@@ -313,12 +449,33 @@ router.get('/users/:id', async (req, res) => {
     .single();
 
   if (error) return res.status(404).json({ message: 'User not found' });
+
+  // ✅ ONLY ADDED THIS AUDIT
+  if (req.user?.id && req.user.id !== req.params.id) {
+    createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: "VIEW",
+      module: "USER_MANAGEMENT",
+      description: `Viewed user details: ${data.email} (${data.first_name || ''} ${data.last_name || ''})`,
+    }).catch(err => console.error('Audit log error:', err));
+  }
+
   res.json({ user: data });
 });
 
 // PUT update user profile
 router.put('/users/:id', async (req, res) => {
   const { first_name, last_name, middle_name, contact_number } = req.body;
+  
+  // ✅ ONLY ADDED THIS - get old data for audit
+  const { data: oldUserData } = await supabase
+    .from('users')
+    .select('email, first_name, last_name, contact_number')
+    .eq('id', req.params.id)
+    .single();
+  
   const { data, error } = await supabase
     .from('users')
     .update({ first_name, last_name, middle_name, contact_number, updated_at: new Date() })
@@ -327,6 +484,24 @@ router.put('/users/:id', async (req, res) => {
     .single();
 
   if (error) return res.status(500).json({ message: error.message });
+  
+  // ✅ ONLY ADDED THIS AUDIT
+  if (req.user?.id && req.user.id === req.params.id) {
+    const changes = [];
+    if (oldUserData?.first_name !== first_name) changes.push(`first_name: ${oldUserData?.first_name} → ${first_name}`);
+    if (oldUserData?.last_name !== last_name) changes.push(`last_name: ${oldUserData?.last_name} → ${last_name}`);
+    if (oldUserData?.contact_number !== contact_number) changes.push(`contact: ${oldUserData?.contact_number} → ${contact_number}`);
+    
+    createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: "UPDATE",
+      module: "USER_PROFILE",
+      description: `Updated own profile. Changes: ${changes.join(', ') || 'No changes'}`,
+    }).catch(err => console.error('Audit log error:', err));
+  }
+  
   res.json({ user: data });
 });
 
