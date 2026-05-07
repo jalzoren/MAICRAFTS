@@ -75,10 +75,9 @@ router.use(async (req, res, next) => {
 router.get("/users", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .or("role.eq.admin,role.eq.super_admin")
-      .order("created_at", { ascending: false });
+    .from("users")
+    .select("*")
+    .order("created_at", { ascending: false });  
 
     if (error) throw error;
 
