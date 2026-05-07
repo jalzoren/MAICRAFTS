@@ -23,6 +23,7 @@ const Sidebar = () => {
         { path: '/seller/dashboard', label: 'Dashboard', icon: FiHome },
         { path: '/seller/products', label: 'Product Management', icon: FiPackage },
         { path: '/seller/orders', label: 'Order Management', icon: FiShoppingCart },
+        { path: '/seller/profile', label: 'My Profile', icon: FiUser },
       ];
     }
     return [];
