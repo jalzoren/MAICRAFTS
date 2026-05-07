@@ -3,6 +3,30 @@ import { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import "../../css/Settings.css";
 
+// Add this helper function at the top of Settings.jsx
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
 const DEFAULT_PASSWORD_COMPLEXITY = {
   minLength: 12,
   requireUppercase: true,
@@ -193,9 +217,10 @@ const PasswordComplexitySection = () => {
     setSaving(true);
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch("http://localhost:5000/api/password-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,  // ✅ USE AUTH HEADERS
         body: JSON.stringify(settings)
       });
       
@@ -229,7 +254,8 @@ const PasswordComplexitySection = () => {
   
   const fetchSettings = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/password-settings");
+      const headers = getAuthHeaders();
+      const res = await fetch("http://localhost:5000/api/password-settings", { headers });
       const data = await res.json();
   
       if (res.ok && data) {
@@ -318,7 +344,8 @@ const LoginAttemptsSection = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/settings/login-settings");
+      const headers = getAuthHeaders();
+      const response = await fetch("http://localhost:5000/api/settings/login-settings", { headers });
       const data = await response.json();
       if (response.ok && data) {
         setSettings({
@@ -357,9 +384,10 @@ const LoginAttemptsSection = () => {
     setSaving(true);
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch("http://localhost:5000/api/settings/login-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify(settings)
       });
       
