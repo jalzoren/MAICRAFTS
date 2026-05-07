@@ -1,11 +1,55 @@
+// maicrafts/src/hooks/useGoogleAnalytics.js
 import { useEffect } from 'react';
 
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Initialize CSRF token - USING WORKING ENDPOINT
+export const initializeCsrfToken = async () => {
+  try {
+    console.log('🔄 Initializing CSRF token...');
+    
+    // Try the direct endpoint first
+    let response = await fetch(`${API_URL}/api/csrf-token`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.log('Trying /api/consent/csrf-token...');
+      response = await fetch(`${API_URL}/api/consent/csrf-token`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.success) {
+      console.log('✅ CSRF token initialized successfully');
+      return data.csrf_token;
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize CSRF token:', error.message);
+  }
+  return null;
+};
 
 export const useGoogleAnalytics = () => {
   useEffect(() => {
+    initializeCsrfToken();
+    
     if (!GA_MEASUREMENT_ID) {
-      console.warn('Google Analytics ID not configured');
+      console.warn('⚠️ Google Analytics ID not configured');
       return;
     }
 
@@ -33,7 +77,7 @@ export const loadGoogleAnalytics = () => {
   const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
   
   if (!GA_MEASUREMENT_ID) {
-    console.warn('Cannot load Google Analytics: No Measurement ID');
+    console.warn('⚠️ Cannot load Google Analytics: No Measurement ID');
     return;
   }
   
@@ -50,7 +94,7 @@ export const loadGoogleAnalytics = () => {
       'send_page_view': true
     });
     
-    console.log('Google Analytics loaded with ID:', GA_MEASUREMENT_ID);
+    console.log('✅ Google Analytics loaded with ID:', GA_MEASUREMENT_ID);
   }
 };
 
@@ -64,5 +108,6 @@ export const updateGAConsent = (accepted) => {
     if (accepted && !window.gaLoaded) {
       loadGoogleAnalytics();
     }
+    console.log('📊 Google Analytics consent updated:', accepted ? 'granted' : 'denied');
   }
 };

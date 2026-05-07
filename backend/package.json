@@ -11,6 +11,7 @@
     "axios": "^1.13.6",
     "bcrypt": "^6.0.0",
     "clamscan": "^2.4.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
