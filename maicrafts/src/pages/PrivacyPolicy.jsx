@@ -1,8 +1,11 @@
+// src/pages/PrivacyPolicy.jsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import '../css/PrivacyPolicy.css';
 
 function PrivacyPolicy() {
+  const navigate = useNavigate();
   const [consentHistory, setConsentHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -14,13 +17,18 @@ function PrivacyPolicy() {
   const getVisitorId = () => {
     let visitorId = localStorage.getItem('visitor_id');
     if (!visitorId) {
-      visitorId = 'visitor_' + Math.random().toString(36).substr(2, 9);
+      visitorId = 'visitor_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
       localStorage.setItem('visitor_id', visitorId);
     }
     return visitorId;
   };
 
-  const apiUrl = import.meta.env.VITE_API_URL;
+  const getCsrfToken = () => {
+    const match = document.cookie.match(/csrf_token=([^;]+)/);
+    return match ? match[1] : '';
+  };
+
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   const fetchConsentHistory = async () => {
     setLoading(true);
@@ -28,7 +36,9 @@ function PrivacyPolicy() {
     
     if (visitorId && apiUrl) {
       try {
-        const response = await fetch(`${apiUrl}/consent/history/${visitorId}`);
+        const response = await fetch(`${apiUrl}/consent/history/${visitorId}`, {
+          credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success) {
@@ -45,11 +55,15 @@ function PrivacyPolicy() {
     if (!apiUrl) return;
     
     try {
+      const csrfToken = getCsrfToken();
+      
       await fetch(`${apiUrl}/consent/log`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
         },
+        credentials: 'include',
         body: JSON.stringify({
           visitor_id: getVisitorId(),
           consent_type: consentType,
@@ -69,11 +83,12 @@ function PrivacyPolicy() {
       text: 'This will clear your saved cookie preferences. The cookie banner will appear again on your next visit.',
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#EAB559',
+      confirmButtonColor: '#E6BB71',
       cancelButtonColor: '#dc3545',
       confirmButtonText: 'Yes, reset',
       cancelButtonText: 'Cancel',
-      background: '#ffffff',
+      background: '#462c14',
+      color: '#ffffff',
     });
 
     if (result.isConfirmed) {
@@ -86,10 +101,12 @@ function PrivacyPolicy() {
         title: 'Reset Complete!',
         text: 'Your cookie preferences have been reset. The page will now reload.',
         icon: 'success',
-        confirmButtonColor: '#462c14',
+        confirmButtonColor: '#E6BB71',
         confirmButtonText: 'OK',
         timer: 2000,
-        timerProgressBar: true
+        timerProgressBar: true,
+        background: '#462c14',
+        color: '#ffffff'
       }).then(() => {
         window.location.reload();
       });
@@ -103,10 +120,11 @@ function PrivacyPolicy() {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#dc3545',
-      cancelButtonColor: '#EAB559',
+      cancelButtonColor: '#E6BB71',
       confirmButtonText: 'Yes, withdraw',
       cancelButtonText: 'Cancel',
-      background: '#ffffff'
+      background: '#462c14',
+      color: '#ffffff'
     });
 
     if (result.isConfirmed) {
@@ -119,14 +137,20 @@ function PrivacyPolicy() {
         title: 'Consent Withdrawn!',
         text: 'Your cookie consent has been withdrawn. The page will now reload.',
         icon: 'info',
-        confirmButtonColor: '#462c14',
+        confirmButtonColor: '#E6BB71',
         confirmButtonText: 'OK',
         timer: 2000,
-        timerProgressBar: true
+        timerProgressBar: true,
+        background: '#462c14',
+        color: '#ffffff'
       }).then(() => {
         window.location.reload();
       });
     }
+  };
+
+  const handleGoBack = () => {
+    navigate(-1); // Go back to previous page
   };
 
   useEffect(() => {
@@ -135,6 +159,14 @@ function PrivacyPolicy() {
 
   return (
     <div className="privacy-policy-container">
+      {/* Back Button */}
+      <button onClick={handleGoBack} className="back-button" aria-label="Go back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Back
+      </button>
+
       <div className="privacy-policy">
         <h1>Privacy Policy</h1>
         <p className="last-updated">Last Updated: {currentDate}</p>
@@ -187,23 +219,31 @@ function PrivacyPolicy() {
 
         <section>
           <h2>5. Contact Us</h2>
-          <p>Email: <strong>privacy@maicrafts.com</strong></p>
+          <p>Email: <strong>maicrafts.ph@gmail.com</strong></p>
+          <p>Phone: <strong>0977 179 1089</strong></p>
         </section>
 
         {consentHistory.length > 0 && (
           <section>
             <h2>6. Your Consent History</h2>
             {loading ? (
-              <p>Loading...</p>
+              <div className="loading-spinner">
+                <div className="spinner-border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <p>Loading your consent history...</p>
+              </div>
             ) : (
               <table className="history-table">
-                <thead><tr><th>Date</th><th>Consent Type</th><th>Status</th></tr></thead>
+                <thead>
+                  <tr><th>Date & Time</th><th>Consent Type</th><th>Status</th></tr>
+                </thead>
                 <tbody>
                   {consentHistory.slice(0, 10).map((record) => (
                     <tr key={record.id}>
                       <td>{new Date(record.created_at).toLocaleString()}</td>
-                      <td>{record.consent_type.replace(/_/g, ' ')}</td>
-                      <td>{record.consent_value ? <span className="status-accepted">Accepted</span> : <span className="status-declined">Declined</span>}</td>
+                      <td>{record.consent_type?.replace(/_/g, ' ') || record.consent_type}</td>
+                      <td>{record.consent_value ? <span className="status-accepted">✓ Accepted</span> : <span className="status-declined">✗ Declined</span>}</td>
                     </tr>
                   ))}
                 </tbody>

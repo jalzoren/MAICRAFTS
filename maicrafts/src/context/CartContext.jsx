@@ -4,6 +4,29 @@ import { useAuth } from "./AuthContext";
 
 const CartContext = createContext(null);
 
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
 export const useCart = () => {
   const ctx = useContext(CartContext);
   if (!ctx) throw new Error("useCart must be used inside <CartProvider>");
@@ -53,7 +76,8 @@ export const CartProvider = ({ children }) => {
   const loadUserCart = async (userId) => {
     setIsCartLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/cart/${userId}`);
+      const headers = getAuthHeaders(); // ✅ Add this
+      const res = await fetch(`http://localhost:5000/api/cart/${userId}`, { headers });
 
       if (res.status === 404) {
         loadGuestCart();
@@ -110,9 +134,10 @@ export const CartProvider = ({ children }) => {
       const guestItems = raw ? JSON.parse(raw) : [];
       if (guestItems.length === 0) return;
 
+      const headers = getAuthHeaders(); // ✅ Add this
       await fetch(`http://localhost:5000/api/cart/merge`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers, // ✅ Use headers
         body: JSON.stringify({ userId, guestItems }),
       });
 
@@ -161,9 +186,10 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
+      const headers = getAuthHeaders(); // ✅ Add this
       await fetch("http://localhost:5000/api/cart", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers, // ✅ Use headers
         body: JSON.stringify({
           user_id: user.id,
           product_id: product.product_id,
@@ -190,11 +216,12 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
+      const headers = getAuthHeaders(); // ✅ Add this
       let url = `http://localhost:5000/api/cart/${user.id}/${productId}`;
       if (note !== undefined) {
         url += `?note=${encodeURIComponent(note)}`;
       }
-      await fetch(url, { method: "DELETE" });
+      await fetch(url, { method: "DELETE", headers }); // ✅ Add headers
       await loadUserCart(user.id);
     } catch (err) {
       console.error("removeItem failed:", err);
@@ -216,13 +243,14 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
+      const headers = getAuthHeaders(); // ✅ Add this
       const payload = { quantity };
       if (note !== undefined) {
         payload.note = note;
       }
       await fetch(`http://localhost:5000/api/cart/${user.id}/${productId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: headers, // ✅ Use headers
         body: JSON.stringify(payload),
       });
       await loadUserCart(user.id);
@@ -239,7 +267,8 @@ export const CartProvider = ({ children }) => {
       return;
     }
     try {
-      await fetch(`http://localhost:5000/api/cart/${user.id}`, { method: "DELETE" });
+      const headers = getAuthHeaders(); // ✅ Add this
+      await fetch(`http://localhost:5000/api/cart/${user.id}`, { method: "DELETE", headers }); // ✅ Add headers
       setItems([]);
       window.dispatchEvent(new Event("cart-updated"));
     } catch (err) {

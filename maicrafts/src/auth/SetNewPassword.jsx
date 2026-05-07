@@ -20,6 +20,8 @@ const SetNewPassword = () => {
   const [email, setEmail] = useState("");
   const [isEmailLoading, setIsEmailLoading] = useState(true);
 
+  const [policy, setPolicy] = useState(null);
+
   // Get email from sessionStorage on component mount
   useEffect(() => {
     const storedEmail = sessionStorage.getItem("resetEmail");
@@ -33,6 +35,23 @@ const SetNewPassword = () => {
     setEmail(storedEmail);
     setIsEmailLoading(false);
   }, [navigate]);
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/password-settings");
+        const data = await res.json();
+  
+        if (res.ok) {
+          setPolicy(data);
+        }
+      } catch (err) {
+        console.error("Failed to load password policy", err);
+      }
+    };
+  
+    fetchPolicy();
+  }, []);
 
   const checkPasswordStrength = (password) => {
     if (!password) return "";
@@ -70,20 +89,52 @@ const SetNewPassword = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+  
     if (!formData.password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
+    } else if (policy) {
+  
+      if (formData.password.length < policy.min_length) {
+        newErrors.password = `Password must be at least ${policy.min_length} characters`;
+      }
+  
+      if (
+        policy.require_uppercase &&
+        upperCount < policy.uppercase_min_count
+      ) {
+        newErrors.password = `Password must contain at least ${policy.uppercase_min_count} uppercase letter(s)`;
+      }
+  
+      if (
+        policy.require_lowercase &&
+        lowerCount < policy.lowercase_min_count
+      ) {
+        newErrors.password = `Password must contain at least ${policy.lowercase_min_count} lowercase letter(s)`;
+      }
+  
+      if (
+        policy.require_number &&
+        numCount < policy.number_min_count
+      ) {
+        newErrors.password = `Password must contain at least ${policy.number_min_count} number(s)`;
+      }
+  
+      if (
+        policy.require_special_char &&
+        specialCount < policy.special_char_min_count
+      ) {
+        newErrors.password = `Password must contain at least ${policy.special_char_min_count} special character(s)`;
+      }
     }
-    
+  
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password";
-    } else if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match";
     }
-    
+  
     setErrors(newErrors);
+  
     return Object.keys(newErrors).length === 0;
   };
 
@@ -252,6 +303,18 @@ const handleSubmit = async (e) => {
     );
   }
 
+  const upperCount = (formData.password.match(/[A-Z]/g) || []).length;
+
+  const lowerCount = (formData.password.match(/[a-z]/g) || []).length;
+
+  const numCount = (formData.password.match(/\d/g) || []).length;
+
+  const specialCount = policy?.special_char_set
+    ? [...formData.password].filter((ch) =>
+        policy.special_char_set.includes(ch)
+      ).length
+    : 0;
+
   return (
     <div className="set-new-password-page">
       {/* Video Background */}
@@ -326,23 +389,76 @@ const handleSubmit = async (e) => {
               )}
               
               <div className="password-requirements">
-                <span className="requirement-title">Password requirements:</span>
+                <span className="requirement-title">
+                  Password requirements:
+                </span>
+
                 <ul className="requirement-list">
-                  <li className={formData.password?.length >= 8 ? "met" : ""}>
-                    • At least 8 characters
-                  </li>
-                  <li className={/[A-Z]/.test(formData.password) ? "met" : ""}>
-                    • At least one uppercase letter
-                  </li>
-                  <li className={/[a-z]/.test(formData.password) ? "met" : ""}>
-                    • At least one lowercase letter
-                  </li>
-                  <li className={/\d/.test(formData.password) ? "met" : ""}>
-                    • At least one number
-                  </li>
-                  <li className={/[!@#$%^&*(),.?":{}|<>]/.test(formData.password) ? "met" : ""}>
-                    • At least one special character (recommended)
-                  </li>
+                  {policy && (
+                    <>
+                      <li
+                        className={
+                          formData.password?.length >= policy.min_length
+                            ? "met"
+                            : ""
+                        }
+                      >
+                        • At least {policy.min_length} characters
+                      </li>
+
+                      {policy.require_uppercase && (
+                        <li
+                          className={
+                            upperCount >= policy.uppercase_min_count
+                              ? "met"
+                              : ""
+                          }
+                        >
+                          • At least {policy.uppercase_min_count} uppercase
+                          letter(s)
+                        </li>
+                      )}
+
+                      {policy.require_lowercase && (
+                        <li
+                          className={
+                            lowerCount >= policy.lowercase_min_count
+                              ? "met"
+                              : ""
+                          }
+                        >
+                          • At least {policy.lowercase_min_count} lowercase
+                          letter(s)
+                        </li>
+                      )}
+
+                      {policy.require_number && (
+                        <li
+                          className={
+                            numCount >= policy.number_min_count
+                              ? "met"
+                              : ""
+                          }
+                        >
+                          • At least {policy.number_min_count} number(s)
+                        </li>
+                      )}
+
+                      {policy.require_special_char && (
+                        <li
+                          className={
+                            specialCount >=
+                            policy.special_char_min_count
+                              ? "met"
+                              : ""
+                          }
+                        >
+                          • At least {policy.special_char_min_count} special
+                          character(s)
+                        </li>
+                      )}
+                    </>
+                  )}
                 </ul>
               </div>
             </div>

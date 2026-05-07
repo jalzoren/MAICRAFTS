@@ -4,24 +4,28 @@ import {
   logConsent,
   getConsentHistory,
   getUserConsentHistory,
-  getConsentStats
+  getConsentStats,
+  generateCsrfToken
 } from '../controllers/consentController.js';
 
 const router = express.Router();
 
 // Test route
 router.get('/test', (req, res) => {
-  console.log('✅ Test route hit');
+  console.log('✅ Consent test route hit');
   res.json({ 
     success: true, 
     message: 'Consent route is working!' 
   });
 });
 
+// GET /csrf-token - Generate CSRF token
+router.get('/csrf-token', generateCsrfToken);
+
 // POST /log - Save consent to Supabase
 router.post('/log', logConsent);
 
-// GET /history/:visitorId - Get consent history by visitor ID
+// GET /history/:visitorId - Get consent history
 router.get('/history/:visitorId', getConsentHistory);
 
 // GET /user/:userId - Get consent history by user ID

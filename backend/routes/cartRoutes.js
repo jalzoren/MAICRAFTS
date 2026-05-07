@@ -1,8 +1,59 @@
 // cartRoutes.js 
 import express from 'express';
 import supabase, { supabaseAdmin } from '../supabaseClient.js';
+import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
+
+// ========== AUTH MIDDLEWARE ==========
+router.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log('🔐 [cartRoutes] Auth Header:', authHeader ? 'Present' : 'Missing');
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      req.user = null;
+      return next();
+    }
+
+    if (user) {
+      const { data: dbUser, error: dbError } = await supabase
+        .from("users")
+        .select("role, first_name, last_name")
+        .eq("email", user.email)
+        .single();
+      
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: userRole,
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
+      };
+      
+      console.log('✅ [cartRoutes] Authenticated user:', req.user.email);
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    req.user = null;
+  }
+
+  next();
+});
+// ========== END AUTH MIDDLEWARE ==========
 
 // Helper to normalize note (store as string)
 const normalizeNote = (note) => {
@@ -15,6 +66,20 @@ const normalizeNote = (note) => {
 router.get('/cart/:userId', async (req, res) => {
 	try {
 		const userId = req.params.userId;
+		
+		// Verify user can only access their own cart
+		if (req.user && req.user.id !== userId) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'FAILED',
+				module: 'CART',
+				description: `Unauthorized attempt to view cart for user ${userId}`,
+			});
+			return res.status(403).json({ success: false, error: 'Unauthorized' });
+		}
+		
 		const { data: cartRows, error: cartErr } = await supabaseAdmin
 			.from('cart')
 			.select('*')
@@ -56,6 +121,18 @@ router.get('/cart/:userId', async (req, res) => {
 			};
 		});
 
+		// ✅ VIEW CART AUDIT (fire and forget)
+		if (req.user?.id && req.user.id === userId) {
+			createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'VIEW',
+				module: 'CART',
+				description: `Viewed cart with ${cart.length} items`,
+			}).catch(err => console.error('Audit log error:', err));
+		}
+
 		res.json({ success: true, cart });
 	} catch (error) {
 		console.error('GET /cart/:userId error:', error);
@@ -69,6 +146,13 @@ router.post('/cart', async (req, res) => {
 		const { user_id, product_id, quantity = 1, note = null } = req.body;
 		if (!user_id || !product_id) return res.status(400).json({ success: false, error: 'Missing user_id or product_id' });
 
+		// Get product info for audit
+		const { data: product } = await supabaseAdmin
+			.from('products')
+			.select('name, price')
+			.eq('id', product_id)
+			.single();
+
 		const nNote = normalizeNote(note);
 		const { data: existing } = await supabaseAdmin
 			.from('cart')
@@ -77,17 +161,32 @@ router.post('/cart', async (req, res) => {
 			.eq('product_id', product_id)
 			.eq('note', nNote);
 
+		let result;
 		if (existing && existing.length > 0) {
 			const row = existing[0];
 			const newQty = (row.quantity || 0) + Number(quantity);
 			const { data, error } = await supabaseAdmin.from('cart').update({ quantity: newQty }).eq('cart_id', row.cart_id).select();
 			if (error) return res.status(500).json({ success: false, error: error.message });
-			return res.json({ success: true, data: data?.[0] });
+			result = data?.[0];
+		} else {
+			const { data, error } = await supabaseAdmin.from('cart').insert([{ user_id, product_id, quantity, note: nNote }]).select();
+			if (error) return res.status(500).json({ success: false, error: error.message });
+			result = data?.[0];
 		}
 
-		const { data, error } = await supabaseAdmin.from('cart').insert([{ user_id, product_id, quantity, note: nNote }]).select();
-		if (error) return res.status(500).json({ success: false, error: error.message });
-		res.status(201).json({ success: true, data: data?.[0] });
+		// ✅ ADD TO CART AUDIT (await - important)
+		if (req.user?.id) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'CREATE',
+				module: 'CART',
+				description: `Added ${quantity} x "${product?.name || product_id}" to cart`,
+			});
+		}
+
+		res.status(201).json({ success: true, data: result });
 	} catch (error) {
 		console.error('POST /cart error:', error);
 		res.status(500).json({ success: false, error: error.message });
@@ -100,6 +199,7 @@ router.post('/cart/merge', async (req, res) => {
 		const { userId, guestItems } = req.body;
 		if (!userId || !Array.isArray(guestItems)) return res.status(400).json({ success: false, error: 'Missing userId or guestItems' });
 
+		const mergedItems = [];
 		for (const item of guestItems) {
 			const product_id = item.product_id || item.id || item.productId;
 			const quantity = item.quantity || item.qty || 1;
@@ -119,6 +219,19 @@ router.post('/cart/merge', async (req, res) => {
 			} else {
 				await supabaseAdmin.from('cart').insert([{ user_id: userId, product_id, quantity, note }]);
 			}
+			mergedItems.push({ product_id, quantity });
+		}
+
+		// ✅ MERGE CART AUDIT
+		if (req.user?.id && mergedItems.length > 0) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'MERGE',
+				module: 'CART',
+				description: `Merged ${mergedItems.length} guest items into cart`,
+			});
 		}
 
 		const { data: cartRows } = await supabaseAdmin.from('cart').select('*').eq('user_id', userId);
@@ -137,11 +250,31 @@ router.put('/cart/:userId/:productId', async (req, res) => {
 		const { quantity, note } = req.body;
 		if (quantity === undefined) return res.status(400).json({ success: false, error: 'Missing quantity' });
 
+		// Get product info for audit
+		const { data: product } = await supabaseAdmin
+			.from('products')
+			.select('name')
+			.eq('id', productId)
+			.single();
+
 		let q = supabaseAdmin.from('cart').update({ quantity }).eq('user_id', userId).eq('product_id', productId);
 		if (note !== undefined) q = q.eq('note', normalizeNote(note));
 
 		const { data, error } = await q.select();
 		if (error) return res.status(500).json({ success: false, error: error.message });
+
+		// ✅ UPDATE CART QUANTITY AUDIT
+		if (req.user?.id) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'UPDATE',
+				module: 'CART',
+				description: `Updated quantity of "${product?.name || productId}" to ${quantity}`,
+			});
+		}
+
 		res.json({ success: true, data });
 	} catch (error) {
 		console.error('PUT /cart error:', error);
@@ -156,11 +289,31 @@ router.delete('/cart/:userId/:productId', async (req, res) => {
 		const productId = req.params.productId;
 		const { note } = req.query;
 
+		// Get product info for audit
+		const { data: product } = await supabaseAdmin
+			.from('products')
+			.select('name')
+			.eq('id', productId)
+			.single();
+
 		let q = supabaseAdmin.from('cart').delete().eq('user_id', userId).eq('product_id', productId);
 		if (note !== undefined) q = q.eq('note', note);
 
 		const { data, error } = await q.select();
 		if (error) return res.status(500).json({ success: false, error: error.message });
+
+		// ✅ REMOVE FROM CART AUDIT
+		if (req.user?.id) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'DELETE',
+				module: 'CART',
+				description: `Removed "${product?.name || productId}" from cart`,
+			});
+		}
+
 		res.json({ success: true, data });
 	} catch (error) {
 		console.error('DELETE /cart error:', error);
@@ -172,8 +325,28 @@ router.delete('/cart/:userId/:productId', async (req, res) => {
 router.delete('/cart/:userId', async (req, res) => {
 	try {
 		const userId = req.params.userId;
+		
+		// Get count of items before clearing
+		const { count: itemCount } = await supabaseAdmin
+			.from('cart')
+			.select('*', { count: 'exact', head: true })
+			.eq('user_id', userId);
+
 		const { data, error } = await supabaseAdmin.from('cart').delete().eq('user_id', userId).select();
 		if (error) return res.status(500).json({ success: false, error: error.message });
+
+		// ✅ CLEAR CART AUDIT
+		if (req.user?.id && itemCount > 0) {
+			await createAuditLog({
+				user_id: req.user.id,
+				user_email: req.user.email,
+				user_role: req.user.role,
+				action: 'DELETE',
+				module: 'CART',
+				description: `Cleared entire cart (${itemCount} items removed)`,
+			});
+		}
+
 		res.json({ success: true, data });
 	} catch (error) {
 		console.error('DELETE /cart (clear) error:', error);

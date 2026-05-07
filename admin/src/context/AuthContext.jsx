@@ -20,6 +20,66 @@ export const AuthProvider = ({ children }) => {
   const [sessionReady, setSessionReady] = useState(false);
   const inactivityTimer = useRef(null);
   const warningTimer = useRef(null);
+
+   // ✅ ADD refreshUser FUNCTION
+   const refreshUser = async () => {
+    try {
+      console.log('🔄 Refreshing user data...');
+      
+      const sessionData = sessionStorage.getItem(SESSION_KEY);
+      if (!sessionData) {
+        console.log('No session found');
+        return null;
+      }
+      
+      const session = JSON.parse(sessionData);
+      const token = session.user?.access_token;
+      
+      if (!token) {
+        console.log('No token found');
+        return null;
+      }
+      
+      // Fetch updated user data from backend
+      const response = await fetch('http://localhost:5000/api/users/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const updatedUser = data.user || data;
+        console.log('✅ User data refreshed:', updatedUser);
+        
+        // Update session with new user data
+        const updatedSession = {
+          ...session,
+          user: {
+            ...session.user,
+            firstName: updatedUser.first_name,
+            lastName: updatedUser.last_name,
+            middleName: updatedUser.middle_name,
+            phone: updatedUser.contact_number,
+            avatar: updatedUser.profile_url,
+          }
+        };
+        
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedSession));
+        setUser(updatedSession.user);
+        
+        return updatedSession.user;
+      } else {
+        console.error('Failed to refresh user:', response.status);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      return null;
+    }
+  };
+  
 const resetInactivityTimer = () => {
   // Clear both timers
   if (inactivityTimer.current) {

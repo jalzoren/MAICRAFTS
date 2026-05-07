@@ -53,6 +53,7 @@ const formatDateTime = (value) => {
 
 const AdminAuditLogs = () => {
   const [logs, setLogs] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState("system");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -61,29 +62,50 @@ const AdminAuditLogs = () => {
     const fetchAuditLogs = async () => {
       setLoading(true);
       setError("");
-
+  
       try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/audit-logs`);
-
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
+        // fetch BOTH APIs
+        const [authResponse, systemResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/admin/audit-logs`),
+          fetch(`${API_BASE_URL}/api/admin/system-audit-logs`),
+        ]);
+  
+        if (!authResponse.ok || !systemResponse.ok) {
+          throw new Error("Failed to fetch audit logs");
         }
-
-        const payload = await response.json();
-        const data = Array.isArray(payload)
-          ? payload
-          : payload.data || payload.logs || [];
-
-        setLogs(data);
+  
+        const authPayload = await authResponse.json();
+        const systemPayload = await systemResponse.json();
+  
+        const authData = Array.isArray(authPayload)
+          ? authPayload
+          : authPayload.data || authPayload.logs || [];
+  
+        const systemData = Array.isArray(systemPayload)
+          ? systemPayload
+          : systemPayload.data || systemPayload.logs || [];
+  
+        // combine both logs
+        const combinedLogs = [...systemData, ...authData];
+  
+        // sort newest first
+        combinedLogs.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+  
+        setLogs(combinedLogs);
+        setTotalCount(systemData.length);
+  
       } catch (fetchError) {
         console.error("Failed to fetch audit logs:", fetchError);
+  
         setLogs([]);
         setError("Unable to load audit logs right now.");
       } finally {
         setLoading(false);
       }
     };
-
+  
     fetchAuditLogs();
   }, []);
 
@@ -133,7 +155,7 @@ const AdminAuditLogs = () => {
             >
               <FiShield />
               System Audit
-              <span className="audit-tab-count">{systemLogs.length}</span>
+              <span className="audit-tab-count">{totalCount}</span>
             </button>
 
             <button

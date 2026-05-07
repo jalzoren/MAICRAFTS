@@ -1,9 +1,64 @@
 import express from 'express';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { supabaseAdmin } from '../supabaseClient.js';
+import supabase, { supabaseAdmin } from '../supabaseClient.js'; 
+import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
+
+// ========== AUTH MIDDLEWARE ==========
+router.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log('🔐 [forgotPassword] Auth Header:', authHeader ? 'Present' : 'Missing');
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      req.user = null;
+      return next();
+    }
+
+    if (user) {
+      const { data: dbUser, error: dbError } = await supabase
+        .from("users")
+        .select("role, first_name, last_name")
+        .eq("email", user.email)
+        .single();
+      
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: userRole,
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
+      };
+      
+      console.log('✅ [forgotPassword] Authenticated user:', {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role
+      });
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    req.user = null;
+  }
+
+  next();
+});
+// ========== END AUTH MIDDLEWARE ==========
+
 const RESET_CODE_TTL_MS = 10 * 60 * 1000;
 const GENERIC_RESET_MESSAGE = 'If this email exists, a reset code has been sent.';
 
@@ -21,7 +76,7 @@ const normalizeOtp = (value = '') => String(value).trim();
 const findUserByEmail = async (email) => {
   const { data, error } = await supabaseAdmin
     .from('users')
-    .select('id, email')
+    .select('id, email, role') 
     .ilike('email', email)
     .maybeSingle();
 
@@ -77,10 +132,29 @@ router.post('/forgot-password', async (req, res) => {
 
     if (userError) {
       console.error('Forgot password user lookup error:', userError);
+
+      await createAuditLog({
+        user_id: null,
+        user_email: email,
+        user_role: 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `Password reset request failed: Database error - ${userError.message}`,
+      });
+
       return res.status(500).json({ message: 'Failed to verify email.' });
     }
 
     if (!user) {
+      await createAuditLog({
+        user_id: null,
+        user_email: email,
+        user_role: 'CUSTOMER',
+        action: 'REQUEST',
+        module: 'PASSWORD_RESET',
+        description: `Password reset requested for non-existent email: ${email}`,
+      });
+
       return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
     }
 
@@ -97,6 +171,16 @@ router.post('/forgot-password', async (req, res) => {
 
     if (insertError) {
       console.error('Forgot password insert error:', insertError);
+
+      await createAuditLog({
+        user_id: user.id,
+        user_email: email,
+        user_role: user.role || 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `Failed to generate reset OTP for ${email}`,
+      });
+
       return res.status(500).json({ message: 'Failed to generate reset code.' });
     }
 
@@ -134,15 +218,46 @@ router.post('/forgot-password', async (req, res) => {
           </div>
         `,
       });
+
+
+      await createAuditLog({
+        user_id: user.id,
+        user_email: email,
+        user_role: user.role || 'CUSTOMER',
+        action: 'REQUEST',
+        module: 'PASSWORD_RESET',
+        description: `Password reset OTP sent to ${email}`,
+      });
+
     } catch (mailError) {
       console.error('Forgot password email error:', mailError);
       await cleanupResetRecords(email);
+
+      await createAuditLog({
+        user_id: user.id,
+        user_email: email,
+        user_role: user.role || 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `Failed to send reset email to ${email}: ${mailError.message}`,
+      });
+
       return res.status(500).json({ message: 'Failed to send reset email.' });
     }
 
     return res.status(200).json({ message: GENERIC_RESET_MESSAGE });
   } catch (err) {
     console.error('Forgot password error:', err);
+
+    await createAuditLog({
+      user_id: null,
+      user_email: email,
+      user_role: 'CUSTOMER',
+      action: 'ERROR',
+      module: 'PASSWORD_RESET',
+      description: `Forgot password error: ${err.message}`,
+    });
+
     return res.status(500).json({ message: 'Internal server error.' });
   }
 });
@@ -156,21 +271,62 @@ router.post('/verify-reset-otp', async (req, res) => {
   }
 
   try {
+    const { user } = await findUserByEmail(email);
     const { data, error } = await getLatestResetRecord(email);
 
     if (error) {
       console.error('Verify OTP error:', error);
+
+      await createAuditLog({
+        user_id: user?.id || null,
+        user_email: email,
+        user_role: user?.role || 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `OTP verification database error: ${error.message}`,
+      });
+
       return res.status(500).json({ message: 'Failed to verify reset code.' });
     }
 
     const validationError = validateResetRecord(data, otp);
     if (validationError) {
+
+      await createAuditLog({
+        user_id: user?.id || null,
+        user_email: email,
+        user_role: user?.role || 'CUSTOMER',
+        action: 'FAILED',
+        module: 'PASSWORD_RESET',
+        description: `OTP verification failed for ${email}: ${validationError.message}`,
+      });
+
       return res.status(validationError.status).json({ message: validationError.message });
     }
+
+    await createAuditLog({
+      user_id: user?.id || null,
+      user_email: email,
+      user_role: user?.role || 'CUSTOMER',
+      action: 'VERIFY',
+      module: 'PASSWORD_RESET',
+      description: `OTP verified successfully for ${email}`,
+    });
+
 
     return res.status(200).json({ message: 'OTP verified successfully.' });
   } catch (err) {
     console.error('Verify OTP error:', err);
+    
+    await createAuditLog({
+      user_id: null,
+      user_email: email,
+      user_role: 'CUSTOMER',
+      action: 'ERROR',
+      module: 'PASSWORD_RESET',
+      description: `OTP verification error: ${err.message}`,
+    });
+
     return res.status(500).json({ message: 'Internal server error.' });
   }
 });
@@ -189,26 +345,68 @@ router.post('/reset-password', async (req, res) => {
   }
 
   try {
+    const { user, error: userError } = await findUserByEmail(email);
     const { data: resetRecord, error: resetLookupError } = await getLatestResetRecord(email);
 
     if (resetLookupError) {
       console.error('Reset password lookup error:', resetLookupError);
+       // ✅ ADD AUDIT LOG
+       await createAuditLog({
+        user_id: user?.id || null,
+        user_email: email,
+        user_role: user?.role || 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `Reset record lookup error: ${resetLookupError.message}`,
+      });
+
       return res.status(500).json({ message: 'Failed to verify reset code.' });
     }
 
     const validationError = validateResetRecord(resetRecord, otp);
     if (validationError) {
+
+      await createAuditLog({
+        user_id: user?.id || null,
+        user_email: email,
+        user_role: user?.role || 'CUSTOMER',
+        action: 'FAILED',
+        module: 'PASSWORD_RESET',
+        description: `Password reset failed for ${email}: ${validationError.message}`,
+      });
+
       return res.status(validationError.status).json({ message: validationError.message });
     }
 
-    const { user, error: userError } = await findUserByEmail(email);
 
     if (userError) {
       console.error('Reset password user lookup error:', userError);
+
+       // ✅ ADD AUDIT LOG
+       await createAuditLog({
+        user_id: null,
+        user_email: email,
+        user_role: 'CUSTOMER',
+        action: 'ERROR',
+        module: 'PASSWORD_RESET',
+        description: `Password reset user lookup error: ${userError.message}`,
+      });
+
       return res.status(500).json({ message: 'Failed to look up user.' });
     }
 
     if (!user) {
+
+       // ✅ ADD AUDIT LOG
+       await createAuditLog({
+        user_id: null,
+        user_email: email,
+        user_role: 'CUSTOMER',
+        action: 'FAILED',
+        module: 'PASSWORD_RESET',
+        description: `Password reset failed: User not found for ${email}`,
+      });
+
       return res.status(404).json({ message: 'User not found.' });
     }
 
@@ -218,6 +416,16 @@ router.post('/reset-password', async (req, res) => {
 
     if (updateError) {
       console.error('Reset password update error:', updateError);
+        // ✅ ADD AUDIT LOG
+        await createAuditLog({
+          user_id: user.id,
+          user_email: email,
+          user_role: user.role || 'CUSTOMER',
+          action: 'ERROR',
+          module: 'PASSWORD_RESET',
+          description: `Password update failed for ${email}: ${updateError.message}`,
+        });
+
       return res.status(500).json({ message: 'Failed to update password.' });
     }
 
@@ -229,6 +437,18 @@ router.post('/reset-password', async (req, res) => {
     if (markUsedError) {
       console.warn('Password reset mark-used warning:', markUsedError.message);
     }
+
+    await cleanupResetRecords(email);
+
+    // ✅ SUCCESSFUL PASSWORD RESET AUDIT
+    await createAuditLog({
+      user_id: user.id,
+      user_email: email,
+      user_role: user.role || 'CUSTOMER',
+      action: 'RESET',
+      module: 'PASSWORD_RESET',
+      description: `Password reset successfully for ${email}`,
+    });
 
     return res.status(200).json({ message: 'Password reset successfully.' });
   } catch (err) {
