@@ -187,4 +187,99 @@ router.put('/orders/:orderId/status', async (req, res) => {
   }
 });
 
+// GET orders for a specific user (customer orders tab)
+router.get('/orders/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { data: orders, error } = await supabaseAdmin
+      .from('orders')
+      .select(`
+        *,
+        order_items (
+          quantity,
+          price,
+          product:products (id, name, image, main_image)
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Transform to match frontend expectations
+    const formattedOrders = orders.map(order => ({
+      id: order.order_number,
+      order_id: order.order_id,
+      date: new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }),
+      status: order.order_status === 'pending' ? 'Processing' :
+              order.order_status === 'confirmed' ? 'Processing' :
+              order.order_status === 'preparing' ? 'Processing' :
+              order.order_status === 'shipped' ? 'Shipped' :
+              order.order_status === 'completed' ? 'Delivered' : 'Cancelled',
+      total: order.total_amount,
+      items: order.order_items.map(item => item.product?.name).join(', '),
+      qty: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
+      price: order.order_items[0]?.price || 0,
+      image: order.order_items[0]?.product?.main_image || order.order_items[0]?.product?.image || null,
+      customerName: order.customer_name,
+      contactNumber: order.phone_number,
+      address: order.shipping_address ? `${order.shipping_address.street}, ${order.shipping_address.barangay}, ${order.shipping_address.city}, ${order.shipping_address.province}` : '',
+      orderPlaced: new Date(order.created_at).toLocaleString(),
+      preparingToShip: order.order_status === 'preparing' || order.order_status === 'shipped' || order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
+      orderShipped: order.order_status === 'shipped' || order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
+      outForDelivery: order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
+      delivered: order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
+      paymentMethod: 'PayMongo', // or from order.payment_method if stored
+      deliveryMode: order.shipping_option === 'delivery' ? 'Delivery' : 'Pickup',
+      shippingFee: order.shipping_fee,
+    }));
+
+    res.json({ success: true, data: formattedOrders });
+  } catch (error) {
+    console.error('Error fetching user orders:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST – Cancel order (customer request)
+router.post('/orders/:orderId/cancel', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    // First check if order exists and is cancellable (status pending or confirmed)
+    const { data: order, error: fetchError } = await supabaseAdmin
+      .from('orders')
+      .select('order_status')
+      .eq('order_id', orderId)
+      .single();
+
+    if (fetchError || !order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    if (!['pending', 'confirmed'].includes(order.order_status)) {
+      return res.status(400).json({ success: false, error: 'Order cannot be cancelled at this stage' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('orders')
+      .update({ 
+        order_status: 'cancelled',
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId);
+
+    if (error) throw error;
+
+    // Log the cancellation reason (optional – can store in a separate table)
+    console.log(`Order ${orderId} cancelled. Reason: ${reason}`);
+
+    res.json({ success: true, message: 'Order cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

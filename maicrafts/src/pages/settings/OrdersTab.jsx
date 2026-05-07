@@ -1,171 +1,15 @@
 // src/pages/settings/OrdersTab.jsx
 import "./css/OrdersTab.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   FaBox, FaTruck, FaClipboardCheck, FaStar, FaTimesCircle, 
   FaSearch, FaMapMarkerAlt, FaBan, FaArrowLeft,
   FaBoxOpen, FaShippingFast, FaHandHoldingHeart
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
-// Import images directly from assets folder
-import doll1Img from "../../assets/doll.png";
-import doll2Img from "../../assets/doll2.png";
-import doll3Img from "../../assets/doll3.png";
-import doll4Img from "../../assets/doll4.png";
-import doll5Img from "../../assets/doll5.png";
-import dollPlaceholder from "../../assets/doll5.png";
-
-// Mock orders data
-const MOCK_ORDERS = [
-  { 
-    id: "#ORD-0021", 
-    date: "April 10, 2026",  
-    status: "Delivered",  
-    total: "850.00",   
-    items: "Crochet Bunny Doll",
-    qty: 1,
-    price: "850.00",
-    image: doll1Img,
-    customerName: "Maria Santos",
-    contactNumber: "+63 912 345 6789",
-    address: "123 Mabini Street, Barangay San Antonio, Pasig City, Metro Manila, Philippines 1600",
-    orderPlaced: "April 10, 2026 at 2:30 PM",
-    preparingToShip: "April 11, 2026 at 9:00 AM",
-    orderShipped: "April 12, 2026 at 10:30 AM",
-    outForDelivery: "April 13, 2026 at 8:00 AM",
-    delivered: "April 13, 2026 at 2:15 PM",
-    paymentMethod: "Credit Card",
-    deliveryMode: "Standard Delivery (3-5 business days)",
-    shippingFee: "50.00"
-  },
-  { 
-    id: "#ORD-0018", 
-    date: "March 28, 2026",  
-    status: "Processing", 
-    total: "1200.00", 
-    items: "Custom Crochet Doll",
-    qty: 1,
-    price: "1200.00",
-    image: doll2Img,
-    customerName: "Juan Dela Cruz",
-    contactNumber: "+63 998 765 4321",
-    address: "456 Rizal Avenue, Barangay San Lorenzo, Makati City, Metro Manila, Philippines 1200",
-    orderPlaced: "March 28, 2026 at 5:45 PM",
-    preparingToShip: "March 29, 2026 at 10:00 AM",
-    orderShipped: null,
-    outForDelivery: null,
-    delivered: null,
-    paymentMethod: "GCash",
-    deliveryMode: "Express Delivery (1-2 business days)",
-    shippingFee: "100.00"
-  },
-  { 
-    id: "#ORD-0014", 
-    date: "March 5, 2026",   
-    status: "Delivered",  
-    total: "430.00",   
-    items: "Mini Crochet Doll (x2)",
-    qty: 2,
-    price: "215.00",
-    image: doll3Img,
-    customerName: "Anna Rodriguez",
-    contactNumber: "+63 917 123 4567",
-    address: "789 P. Burgos Street, Barangay Poblacion, Mandaluyong City, Metro Manila, Philippines 1550",
-    orderPlaced: "March 5, 2026 at 10:15 AM",
-    preparingToShip: "March 6, 2026 at 11:00 AM",
-    orderShipped: "March 7, 2026 at 9:30 AM",
-    outForDelivery: "March 8, 2026 at 7:00 AM",
-    delivered: "March 8, 2026 at 1:45 PM",
-    paymentMethod: "Bank Transfer",
-    deliveryMode: "Standard Delivery (3-5 business days)",
-    shippingFee: "0.00"
-  },
-  { 
-    id: "#ORD-0009", 
-    date: "Feb 14, 2026",    
-    status: "Cancelled",  
-    total: "680.00",   
-    items: "Crochet Flower Doll",
-    qty: 1,
-    price: "680.00",
-    image: doll4Img,
-    customerName: "Michael Tan",
-    contactNumber: "+63 923 456 7890",
-    address: "321 E. Rodriguez Avenue, Quezon City, Metro Manila, Philippines 1100",
-    orderPlaced: "Feb 14, 2026 at 3:20 PM",
-    preparingToShip: null,
-    orderShipped: null,
-    outForDelivery: null,
-    delivered: null,
-    paymentMethod: "Credit Card",
-    deliveryMode: "Standard Delivery (3-5 business days)",
-    shippingFee: "50.00"
-  },
-  { 
-    id: "#ORD-0007", 
-    date: "Jan 28, 2026",    
-    status: "Delivered",  
-    total: "950.00",   
-    items: "Crochet Teddy Bear Doll",
-    qty: 1,
-    price: "950.00",
-    image: doll5Img,
-    customerName: "Sarah Lee",
-    contactNumber: "+63 932 567 8901",
-    address: "555 Katipunan Avenue, Loyola Heights, Quezon City, Metro Manila, Philippines 1108",
-    orderPlaced: "Jan 28, 2026 at 1:00 PM",
-    preparingToShip: "Jan 29, 2026 at 10:30 AM",
-    orderShipped: "Jan 30, 2026 at 2:00 PM",
-    outForDelivery: "Jan 31, 2026 at 9:00 AM",
-    delivered: "Jan 31, 2026 at 4:30 PM",
-    paymentMethod: "PayPal",
-    deliveryMode: "Express Delivery (1-2 business days)",
-    shippingFee: "100.00"
-  },
-  { 
-    id: "#ORD-0005", 
-    date: "Jan 15, 2026",    
-    status: "Delivered",  
-    total: "1500.00",   
-    items: "Custom Portrait Doll",
-    qty: 1,
-    price: "1500.00",
-    image: doll2Img,
-    customerName: "David Garcia",
-    contactNumber: "+63 945 678 9012",
-    address: "888 C5 Road, Barangay Ugong, Pasig City, Metro Manila, Philippines 1604",
-    orderPlaced: "Jan 15, 2026 at 9:30 AM",
-    preparingToShip: "Jan 16, 2026 at 1:00 PM",
-    orderShipped: "Jan 17, 2026 at 11:00 AM",
-    outForDelivery: "Jan 18, 2026 at 8:30 AM",
-    delivered: "Jan 18, 2026 at 3:00 PM",
-    paymentMethod: "Credit Card",
-    deliveryMode: "Standard Delivery (3-5 business days)",
-    shippingFee: "0.00"
-  },
-  { 
-    id: "#ORD-0003", 
-    date: "Jan 5, 2026",    
-    status: "Cancelled",  
-    total: "350.00",   
-    items: "Crochet Keychain Doll",
-    qty: 1,
-    price: "350.00",
-    image: doll3Img,
-    customerName: "Lisa Wong",
-    contactNumber: "+63 956 789 0123",
-    address: "777 Boni Avenue, Mandaluyong City, Metro Manila, Philippines 1550",
-    orderPlaced: "Jan 5, 2026 at 11:45 AM",
-    preparingToShip: null,
-    orderShipped: null,
-    outForDelivery: null,
-    delivered: null,
-    paymentMethod: "GCash",
-    deliveryMode: "Standard Delivery (3-5 business days)",
-    shippingFee: "50.00"
-  },
-];
+const dollPlaceholder = "https://via.placeholder.com/70?text=🌸";
 
 const STATUS_COLORS = {
   Delivered: "status--green",
@@ -176,6 +20,11 @@ const STATUS_COLORS = {
 const STATUS_OPTIONS = ["All", "Delivered", "Processing", "Cancelled"];
 
 const OrdersTab = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -187,18 +36,53 @@ const OrdersTab = () => {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
-  const navigate = useNavigate();
 
-  const filteredOrders = MOCK_ORDERS.filter(order => {
+  // Fetch orders from API when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      fetchOrders();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/user/${user.id}`);
+      const result = await response.json();
+      if (result.success) {
+        setOrders(result.data);
+      } else {
+        setError(result.error);
+        // Fallback to empty array
+        setOrders([]);
+      }
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      setError(err.message);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Compute counts from real orders
+  const totalOrders = orders.length;
+  const processingOrders = orders.filter(o => o.status === "Processing").length;
+  const deliveredOrders = orders.filter(o => o.status === "Delivered").length;
+  const cancelledOrders = orders.filter(o => o.status === "Cancelled").length;
+
+  const filteredOrders = orders.filter(order => {
     const matchesStatus = selectedStatus === "All" || order.status === selectedStatus;
-    const matchesSearch = order.items.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = order.items?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.id?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
   const getStatusCount = (status) => {
-    if (status === "All") return MOCK_ORDERS.length;
-    return MOCK_ORDERS.filter(o => o.status === status).length;
+    if (status === "All") return orders.length;
+    return orders.filter(o => o.status === status).length;
   };
 
   const handleCancelOrder = (order) => {
@@ -206,17 +90,32 @@ const OrdersTab = () => {
     setShowCancelModal(true);
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     if (!cancelReason.trim()) {
       alert("Please provide a reason for cancellation");
       return;
     }
     
-    console.log("Cancelling order:", selectedOrder.id, "Reason:", cancelReason);
-    setShowCancelModal(false);
-    setCancelReason("");
-    setSelectedOrder(null);
-    alert("Cancellation request submitted successfully! The seller will process your request within a few hours.");
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder.order_id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: cancelReason })
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert("Cancellation request submitted successfully!");
+        setShowCancelModal(false);
+        setCancelReason("");
+        setSelectedOrder(null);
+        fetchOrders(); // refresh list
+      } else {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error('Cancel error:', error);
+      alert("Failed to cancel order. Please try again.");
+    }
   };
 
   const handleTrackOrder = (order) => {
@@ -249,13 +148,14 @@ const OrdersTab = () => {
     alert("Product added to cart! Redirecting to checkout...");
   };
 
-  // Calculate which steps are completed based on order status
   const getCompletedSteps = (order) => {
     if (!order) return 0;
-    if (order.status === "Cancelled") return 0;
-    if (order.status === "Processing") return 2;
-    if (order.status === "Delivered") return 4;
-    return 1;
+    const status = order.status?.toLowerCase();
+    if (status === 'cancelled') return 0;
+    if (status === 'processing') return 1;
+    if (status === 'shipped') return 2;
+    if (status === 'delivered') return 4;
+    return 0;
   };
 
   const progressSteps = [
@@ -265,9 +165,16 @@ const OrdersTab = () => {
     { label: "To Rate", icon: <FaStar />, key: "delivered" }
   ];
 
-  // Only calculate these when trackingOrder exists
   const completedCount = trackingOrder ? getCompletedSteps(trackingOrder) : 0;
   const progressPercentage = trackingOrder ? (completedCount / 4) * 100 : 0;
+
+  if (loading) {
+    return (
+      <div className="tab-content">
+        <div style={{ textAlign: "center", padding: "2rem" }}>Loading orders...</div>
+      </div>
+    );
+  }
 
   if (view === "track" && trackingOrder) {
     return (
@@ -281,7 +188,7 @@ const OrdersTab = () => {
           <p className="tracking-order-id">Order ID: {trackingOrder.id}</p>
         </div>
 
-        {/* Progress Bar with Icons - Modern Design */}
+        {/* Progress Bar */}
         <div className="progress-container">
           <div className="progress-steps-modern">
             {progressSteps.map((step, index) => {
@@ -485,35 +392,35 @@ const OrdersTab = () => {
         <div className="card">
           <div className="card-info">
             <p className="card-title">Total Orders</p>
-            <p className="card-number">{MOCK_ORDERS.length}</p>
+            <p className="card-number">{totalOrders}</p>
           </div>
           <div className="card-icon"><FaBox /></div>
         </div>
         <div className="card">
           <div className="card-info">
             <p className="card-title">To Ship</p>
-            <p className="card-number">{MOCK_ORDERS.filter(o => o.status === "Processing").length}</p>
+            <p className="card-number">{processingOrders}</p>
           </div>
           <div className="card-icon"><FaTruck /></div>
         </div>
         <div className="card">
           <div className="card-info">
             <p className="card-title">To Receive</p>
-            <p className="card-number">{MOCK_ORDERS.filter(o => o.status === "Delivered").length}</p>
+            <p className="card-number">{deliveredOrders}</p>
           </div>
           <div className="card-icon"><FaClipboardCheck /></div>
         </div>
         <div className="card">
           <div className="card-info">
             <p className="card-title">To Rate</p>
-            <p className="card-number">{MOCK_ORDERS.filter(o => o.status === "Delivered").length}</p>
+            <p className="card-number">{deliveredOrders}</p>
           </div>
           <div className="card-icon"><FaStar /></div>
         </div>
         <div className="card">
           <div className="card-info">
             <p className="card-title">Canceled</p>
-            <p className="card-number">{MOCK_ORDERS.filter(o => o.status === "Cancelled").length}</p>
+            <p className="card-number">{cancelledOrders}</p>
           </div>
           <div className="card-icon"><FaTimesCircle /></div>
         </div>
@@ -559,30 +466,41 @@ const OrdersTab = () => {
         <div className="section-header">
           <h2 className="section-heading">Order History</h2>
           <p className="order-count-display">
-            Showing {filteredOrders.length} of {MOCK_ORDERS.length} orders
+            Showing {filteredOrders.length} of {totalOrders} orders
           </p>
         </div>
         
-        {filteredOrders.length === 0 ? (
+        {error && (
+          <div className="empty-state">
+            <p className="empty-msg">Error loading orders: {error}</p>
+            <button className="clear-filters-btn" onClick={fetchOrders}>Retry</button>
+          </div>
+        )}
+        
+        {!error && filteredOrders.length === 0 && (
           <div className="empty-state">
             <p className="empty-msg">No orders found matching your criteria.</p>
-            <button 
-              className="clear-filters-btn"
-              onClick={() => {
-                setSelectedStatus("All");
-                setSearchTerm("");
-              }}
-            >
-              Clear Filters
-            </button>
+            {(selectedStatus !== "All" || searchTerm) && (
+              <button 
+                className="clear-filters-btn"
+                onClick={() => {
+                  setSelectedStatus("All");
+                  setSearchTerm("");
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-        ) : (
+        )}
+        
+        {!error && filteredOrders.length > 0 && (
           <div className="orders-list">
             {filteredOrders.map((o) => (
               <div className="order-row" key={o.id}>
                 <div className="order-image">
                   <img 
-                    src={o.image} 
+                    src={o.image || dollPlaceholder} 
                     alt={o.items}
                     onError={(e) => {
                       e.target.onerror = null;
@@ -640,7 +558,7 @@ const OrdersTab = () => {
               <div className="cancel-order-details">
                 <div className="cancel-product-info">
                   <img 
-                    src={selectedOrder.image} 
+                    src={selectedOrder.image || dollPlaceholder} 
                     alt={selectedOrder.items}
                     className="cancel-product-image"
                   />

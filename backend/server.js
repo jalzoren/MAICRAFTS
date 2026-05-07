@@ -5,7 +5,6 @@ import cors from 'cors';
 import crypto from 'crypto';                
 import { supabaseAdmin } from './supabaseClient.js';
 import cookieParser from 'cookie-parser';
-import crypto from 'crypto';
 import authRoutes from './routes/register.js';
 import verifyEmailRouter from "./routes/verify.js";
 import loginRoutes from './routes/login.js';
