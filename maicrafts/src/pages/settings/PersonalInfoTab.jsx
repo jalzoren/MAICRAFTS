@@ -69,15 +69,27 @@ const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
 
     setIsSaving(true);
     try {
-      const isEdit   = mode === "edit";
+      const isEdit = mode === "edit";
       const endpoint = isEdit
         ? `http://localhost:5000/api/address/${initial.address_id}`
         : `http://localhost:5000/api/address`;
 
-      const res  = await fetch(endpoint, {
-        method:  isEdit ? "PUT" : "POST",
+      // Build clean address object without extra fields (first, last, phone)
+      const addressPayload = {
+        userId: userId,
+        region: form.region,
+        province: form.province,
+        city: form.city,
+        barangay: form.barangay,
+        postal_code: form.postal_code,
+        home_address: form.home_address,
+        is_default: form.is_default,
+      };
+
+      const res = await fetch(endpoint, {
+        method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ ...form, userId }),
+        body: JSON.stringify(addressPayload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
