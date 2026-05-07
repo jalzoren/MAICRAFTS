@@ -18,6 +18,7 @@ import settingsPassword from './routes/passwordSettings.js';
 import auditLogsRoute from './routes/auditLogs.js';
 import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
+import changePasswordRoutes from './routes/changepassword.js';
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/password-settings', settingsPassword);  
 app.use("/api", setPasswordRoute);
 app.use('/api/consent', consentRoutes);
+app.use('/api', changePasswordRoutes);
 
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {

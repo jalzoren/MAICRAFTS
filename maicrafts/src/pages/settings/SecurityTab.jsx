@@ -6,15 +6,75 @@ import { SiGoogleauthenticator } from "react-icons/si";
 import Swal from "sweetalert2";
 import "./css/ChangePassword.css";
 
+
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
 // ─────────────────────────────────────────────
 // Password strength helpers
 // ─────────────────────────────────────────────
-const checkStrength = (pw) => {
-  if (!pw) return "";
-  const has = (r) => r.test(pw);
-  const score = [has(/[A-Z]/), has(/[a-z]/), has(/\d/), has(/[!@#$%^&*(),.?":{}|<>]/)].filter(Boolean).length;
-  if (pw.length >= 10 && score >= 3) return "strong";
-  if (pw.length >= 8  && score >= 2) return "medium";
+const checkStrength = (pw, policy) => {
+  if (!pw || !policy) return "weak";
+
+  let score = 0;
+  let maxScore = 0;
+
+  // length rule
+  maxScore++;
+  if (pw.length >= policy.min_length) score++;
+
+  // uppercase
+  if (policy.require_uppercase) {
+    maxScore++;
+    if ((pw.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count) score++;
+  }
+
+  // lowercase
+  if (policy.require_lowercase) {
+    maxScore++;
+    if ((pw.match(/[a-z]/g) || []).length >= policy.lowercase_min_count) score++;
+  }
+
+  // numbers
+  if (policy.require_number) {
+    maxScore++;
+    if ((pw.match(/\d/g) || []).length >= policy.number_min_count) score++;
+  }
+
+  // special chars
+  if (policy.require_special_char) {
+    maxScore++;
+    const specials = [...pw].filter(ch =>
+      policy.special_char_set.includes(ch)
+    ).length;
+
+    if (specials >= policy.special_char_min_count) score++;
+  }
+
+  const ratio = score / maxScore;
+
+  if (ratio >= 0.8) return "strong";
+  if (ratio >= 0.5) return "medium";
   return "weak";
 };
 
@@ -29,37 +89,127 @@ const strengthMeta = {
 // Appears after EITHER path (current pw or OTP)
 // ─────────────────────────────────────────────
 const ChangePasswordModal = ({ user, onClose, onSuccess, isLoading, setIsLoading, verifiedViaOTP }) => {
+  const [policy, setPolicy] = useState(null); 
   const [form,   setForm]   = useState({ newPassword: "", confirmPassword: "" });
   const [show,   setShow]   = useState({ new: false, confirm: false });
   const [errors, setErrors] = useState({});
+  
 
-  const strength = checkStrength(form.newPassword);
+  const strength = checkStrength(form.newPassword, policy);
   const meta     = strengthMeta[strength] || {};
 
-  const requirements = [
-    { label: "At least one lowercase character", met: /[a-z]/.test(form.newPassword) },
-    { label: "At least one uppercase character", met: /[A-Z]/.test(form.newPassword) },
-    { label: "8–16 characters",                  met: form.newPassword.length >= 8 && form.newPassword.length <= 16 },
-    { label: "Only letters, numbers, and common punctuation can be used",
-      met: /^[a-zA-Z0-9!@#$%^&*(),.?":{}|<>]+$/.test(form.newPassword) && form.newPassword.length > 0 },
-  ];
+  const requirements = policy
+  ? [
+      {
+        label: `At least ${policy.min_length} characters`,
+        met: form.newPassword.length >= policy.min_length,
+      },
+
+      ...(policy.require_uppercase
+        ? [{
+            label: `${policy.uppercase_min_count} uppercase letter(s)`,
+            met: (form.newPassword.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count,
+          }]
+        : []),
+
+      ...(policy.require_lowercase
+        ? [{
+            label: `${policy.lowercase_min_count} lowercase letter(s)`,
+            met: (form.newPassword.match(/[a-z]/g) || []).length >= policy.lowercase_min_count,
+          }]
+        : []),
+
+      ...(policy.require_number
+        ? [{
+            label: `${policy.number_min_count} number(s)`,
+            met: (form.newPassword.match(/\d/g) || []).length >= policy.number_min_count,
+          }]
+        : []),
+
+      ...(policy.require_special_char
+        ? [{
+            label: `${policy.special_char_min_count} special character(s)`,
+            met: [...form.newPassword].filter(ch =>
+              policy.special_char_set.includes(ch)
+            ).length >= policy.special_char_min_count,
+          }]
+        : []),
+    ]
+  : [];
 
   const validate = () => {
     const errs = {};
-    if (!form.newPassword)                errs.newPassword = "New password is required";
-    else if (form.newPassword.length < 8) errs.newPassword = "Password must be at least 8 characters";
-    else if (form.newPassword.length > 16) errs.newPassword = "Password must be at most 16 characters";
-    if (!form.confirmPassword)            errs.confirmPassword = "Please confirm your password";
-    else if (form.newPassword !== form.confirmPassword) errs.confirmPassword = "Passwords do not match";
+  
+    if (!policy) {
+      errs.newPassword = "Password policy not loaded";
+      setErrors(errs);
+      return false;
+    }
+  
+    const pw = form.newPassword;
+  
+    if (!pw) errs.newPassword = "New password is required";
+  
+    if (pw.length < policy.min_length)
+      errs.newPassword = `Minimum ${policy.min_length} characters required`;
+  
+    if (policy.require_uppercase &&
+        (pw.match(/[A-Z]/g) || []).length < policy.uppercase_min_count)
+      errs.newPassword = `At least ${policy.uppercase_min_count} uppercase letter(s) required`;
+  
+    if (policy.require_lowercase &&
+        (pw.match(/[a-z]/g) || []).length < policy.lowercase_min_count)
+      errs.newPassword = `At least ${policy.lowercase_min_count} lowercase letter(s) required`;
+  
+    if (policy.require_number &&
+        (pw.match(/\d/g) || []).length < policy.number_min_count)
+      errs.newPassword = `At least ${policy.number_min_count} number(s) required`;
+  
+    if (policy.require_special_char) {
+      const specials = [...pw].filter(ch =>
+        policy.special_char_set.includes(ch)
+      ).length;
+  
+      if (specials < policy.special_char_min_count)
+        errs.newPassword = `At least ${policy.special_char_min_count} special character(s) required`;
+    }
+  
+    if (!form.confirmPassword)
+      errs.confirmPassword = "Please confirm your password";
+  
+    if (pw !== form.confirmPassword)
+      errs.confirmPassword = "Passwords do not match";
+  
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
+
+ 
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const res = await fetch("http://localhost:5000/api/password-settings");
+        const data = await res.json();
+  
+        if (res.ok) {
+          setPolicy(data);
+        }
+      } catch (err) {
+        console.error("Failed to load policy", err);
+      }
+    };
+  
+    fetchPolicy();
+  }, []);
 
   const handleSave = async () => {
     if (!validate()) return;
 
     setIsLoading(true);
     try {
+      const authHeaders = getAuthHeaders();
+
       let endpoint, body;
 
       if (verifiedViaOTP) {
@@ -82,7 +232,7 @@ const ChangePasswordModal = ({ user, onClose, onSuccess, isLoading, setIsLoading
 
       const res  = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -113,6 +263,21 @@ const ChangePasswordModal = ({ user, onClose, onSuccess, isLoading, setIsLoading
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const isPolicyValid = () => {
+    if (!policy) return false;
+  
+    const pw = form.newPassword;
+  
+    return (
+      pw.length >= policy.min_length &&
+      (!policy.require_uppercase || (pw.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count) &&
+      (!policy.require_lowercase || (pw.match(/[a-z]/g) || []).length >= policy.lowercase_min_count) &&
+      (!policy.require_number || (pw.match(/\d/g) || []).length >= policy.number_min_count) &&
+      (!policy.require_special_char ||
+        [...pw].filter(ch => policy.special_char_set.includes(ch)).length >= policy.special_char_min_count)
+    );
   };
 
   // Close on backdrop click
@@ -226,7 +391,7 @@ const ChangePasswordModal = ({ user, onClose, onSuccess, isLoading, setIsLoading
           <button className="cpw-btn cpw-btn--cancel" onClick={onClose} disabled={isLoading}>
             CANCEL
           </button>
-          <button className="cpw-btn cpw-btn--save" onClick={handleSave} disabled={isLoading}>
+          <button className="cpw-btn cpw-btn--save" onClick={handleSave}  disabled={isLoading || !isPolicyValid()}>
             {isLoading ? <span className="sec-spinner" /> : "SAVE"}
           </button>
         </div>
@@ -252,9 +417,15 @@ const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, s
 
     try {
       // Verify current password by attempting login with it
+      const sessionData = sessionStorage.getItem('mc_session');
+      const token = sessionData ? JSON.parse(sessionData).user?.access_token : null;
+
       const res  = await fetch("http://localhost:5000/api/verify-current-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+         headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
         body: JSON.stringify({ email: user.email, password: currentPassword }),
       });
       const data = await res.json();
