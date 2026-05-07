@@ -1,0 +1,176 @@
+.ep-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 47, 47, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 2000;
+  animation: ep-fade-up 0.2s ease;
+}
+
+.ep-modal {
+  width: min(960px, 100%);
+  background: #fffdf8;
+  border-radius: 24px;
+  border: 1px solid #ead8bf;
+  box-shadow: 0 30px 80px rgba(59, 47, 47, 0.35);
+  overflow: hidden;
+  animation: ep-fade-up 0.3s ease;
+}
+
+.ep-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(59, 47, 47, 0.12);
+  background: rgba(217, 181, 111, 0.12);
+}
+
+.ep-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #4a3327;
+}
+
+.ep-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  color: rgba(59, 47, 47, 0.8);
+}
+
+.ep-modal-body {
+  padding: 22px 24px 26px;
+  display: grid;
+  gap: 20px;
+}
+
+.ep-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.ep-modal-field {
+  display: grid;
+  gap: 8px;
+}
+
+.ep-modal-field--span-2 {
+  grid-column: span 2;
+}
+
+.ep-modal-field--span-4 {
+  grid-column: span 4;
+}
+
+.ep-modal-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a3327;
+}
+
+.ep-modal-input {
+  border: 1px solid rgba(59, 47, 47, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: #3b2f2f;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ep-modal-input:focus {
+  outline: none;
+  border-color: rgba(217, 181, 111, 0.9);
+  box-shadow: 0 0 0 3px rgba(217, 181, 111, 0.25);
+}
+
+.ep-modal-input[readonly] {
+  background: rgba(59, 47, 47, 0.06);
+  color: rgba(59, 47, 47, 0.75);
+}
+
+.ep-modal-input--error {
+  border-color: #b42318;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.12);
+}
+
+.ep-modal-error {
+  font-size: 12px;
+  color: #b42318;
+}
+
+.ep-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.ep-modal-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #3b2f2f;
+  background: linear-gradient(135deg, #f1d39d 0%, #d9b56f 100%);
+  box-shadow: 0 10px 18px rgba(217, 181, 111, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ep-modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 22px rgba(217, 181, 111, 0.4);
+}
+
+.ep-modal-btn--ghost {
+  background: rgba(59, 47, 47, 0.08);
+  color: #4a3327;
+  box-shadow: none;
+}
+
+@keyframes ep-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .ep-modal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ep-modal-field--span-2,
+  .ep-modal-field--span-4 {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .ep-modal-body {
+    padding: 18px;
+  }
+
+  .ep-modal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ep-modal-field--span-2,
+  .ep-modal-field--span-4 {
+    grid-column: span 1;
+  }
+}
