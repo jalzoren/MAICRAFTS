@@ -6,6 +6,7 @@ import Users from "./pages/admin/Users";
 import Dashboard from "./pages/seller/SellerDashboard";
 import Products from "./pages/seller/Products";
 import OrderManagement from "./pages/seller/OrderManagement";
+import SellerProfile from "./pages/seller/SellerProfile";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import OrderDetails from "./pages/seller/OrderDetails";
@@ -124,6 +125,11 @@ function App() {
           <Route path="/seller/orders/:id" element={
             <ProtectedRoute allowedRoles={["seller"]}>
               <OrderDetails />
+            </ProtectedRoute>
+          } />
+          <Route path="/seller/profile" element={
+            <ProtectedRoute allowedRoles={["seller"]}>
+              <SellerProfile />
             </ProtectedRoute>
           } />
           <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />

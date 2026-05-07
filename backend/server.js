@@ -2,6 +2,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';                
+import { supabaseAdmin } from './supabaseClient.js';
 import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
 import authRoutes from './routes/register.js';
@@ -19,8 +21,6 @@ import settingsPassword from './routes/passwordSettings.js';
 import auditLogsRoute from './routes/auditLogs.js';
 import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
-import productRoutes from './routes/productRoutes.js';
-import changePasswordRoutes from './routes/changepassword.js';
 
 const app = express();
 
@@ -54,6 +54,63 @@ app.use((req, res, next) => {
     return res.sendStatus(200);
   }
   next();
+});
+
+// Use express.raw to get the raw body for signature verification
+app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+  const signatureHeader = req.headers['paymongo-signature'];
+  if (!signatureHeader) {
+    console.error('Missing paymongo-signature header');
+    return res.status(401).send('Unauthorized');
+  }
+
+  // Parse the signature header: format "t=timestamp, te=signature"
+  const parts = signatureHeader.split(',');
+  const timestamp = parts.find(p => p.startsWith('t='))?.slice(2);
+  const receivedSignature = parts.find(p => p.startsWith('te='))?.slice(3);
+
+  if (!timestamp || !receivedSignature) {
+    console.error('Invalid signature format');
+    return res.status(400).send('Bad Request');
+  }
+
+  // Re-create the signature using your webhook secret
+  const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
+  const payload = req.body.toString(); // raw body string
+  const signedPayload = `${timestamp}.${payload}`;
+  const generatedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(signedPayload)
+    .digest('hex');
+
+  // Use constant-time comparison to avoid timing attacks
+  if (!crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(receivedSignature))) {
+    console.error('Invalid signature');
+    return res.status(401).send('Unauthorized');
+  }
+
+  // Signature is valid – now parse the JSON body
+  const event = JSON.parse(payload);
+  console.log('Verified webhook event:', event);
+
+  // Process the event (same as before)
+  if (event.data?.attributes?.type === 'checkout_session.payment_paid') {
+    const sessionId = event.data.id;
+    console.log(`✅ Payment succeeded for session ${sessionId}`);
+
+    // Update order status
+    const { error } = await supabaseAdmin
+      .from('orders')
+      .update({ payment_status: 'paid', order_status: 'confirmed' })
+      .eq('payment_session_id', sessionId);
+
+    if (error) {
+      console.error('Failed to update order:', error);
+      return res.status(500).send('Webhook handling failed');
+    }
+  }
+
+  res.sendStatus(200);
 });
 
 // Cookie Parser
@@ -143,7 +200,6 @@ app.use((err, req, res, next) => {
   });
 });
 app.use('/api/consent', consentRoutes);
-app.use('/api', changePasswordRoutes);
 
 const PORT = process.env.PORT || 5000;
 const HOST = process.env.HOST || '0.0.0.0';
