@@ -4,6 +4,30 @@ import Swal from 'sweetalert2';
 import "./AddUserModal.css";
 
 
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
+
 function AddUser({ onClose, onUserAdded, requestData }) {
   const [lastName, setLastName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -86,9 +110,11 @@ function AddUser({ onClose, onUserAdded, requestData }) {
         didOpen: () => Swal.showLoading()
       });
 
+      const headers = getAuthHeaders();
+
       const response = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,  // ← ADD THIS
         body: JSON.stringify(newUser),
       });
 

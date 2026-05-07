@@ -26,10 +26,34 @@ const Users = () => {
   const [lockedAccountsCount, setLockedAccountsCount] = useState(0);
   const [actualLockedUsers, setActualLockedUsers] = useState([]);
 
+  const getAuthHeaders = () => {
+    try {
+      const sessionData = sessionStorage.getItem('mc_session');
+      if (!sessionData) return {};
+      
+      const session = JSON.parse(sessionData);
+      const token = session.user?.access_token;
+      
+      if (!token) {
+        console.warn('No access token found in session');
+        return {};
+      }
+      
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+    } catch (error) {
+      console.error('Error getting auth headers:', error);
+      return {};
+    }
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/users', { headers });
       const data = await response.json();
       
       if (!response.ok) throw new Error(data.error || 'Failed to fetch users');
@@ -61,7 +85,8 @@ const Users = () => {
 
   const fetchRequests = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/contact-admin");
+      const headers = getAuthHeaders();
+      const res = await fetch("http://localhost:5000/api/contact-admin", { headers });
       const data = await res.json();
   
       if (!res.ok) throw new Error(data.error);
@@ -76,7 +101,8 @@ const Users = () => {
 const fetchLockedAccountsCount = async () => {
     try {
       // Change this URL to match your settings route
-      const response = await fetch("http://localhost:5000/api/settings/locked-accounts");
+      const headers = getAuthHeaders();
+      const response = await fetch("http://localhost:5000/api/settings/locked-accounts", { headers });
       const data = await response.json();
       
       const currentTime = new Date();
@@ -150,9 +176,10 @@ const fetchLockedAccountsCount = async () => {
 
   const handleSaveRole = async (userId) => {
     try {
+      const headers = getAuthHeaders();
       const response = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify({ role: editingRole })
       });
 
@@ -199,9 +226,10 @@ const fetchLockedAccountsCount = async () => {
 
     if (result.isConfirmed) {
       try {
+        const headers = getAuthHeaders();
         const response = await fetch(`http://localhost:5000/api/users/${userId}/status`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({ is_active: user.isLocked })
         });
         
@@ -246,8 +274,10 @@ const fetchLockedAccountsCount = async () => {
 
     if (result.isConfirmed) {
       try {
+        const headers = getAuthHeaders();
         const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: headers
         });
 
         if (!response.ok) throw new Error('Failed to delete user');
@@ -678,9 +708,10 @@ const fetchLockedAccountsCount = async () => {
                       className="btn add"
                       onClick={async () => {
                         try {
+                          const headers = getAuthHeaders();
                           const res = await fetch(
                             `http://localhost:5000/api/contact-admin/${selectedRequest.id}/approve`,
-                            { method: "PUT" }
+                            { method: "PUT", headers: headers }
                           );
                       
                           if (!res.ok) throw new Error("Failed");
