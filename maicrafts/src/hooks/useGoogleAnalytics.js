@@ -10,7 +10,7 @@ export const initializeCsrfToken = async () => {
     console.log('🔄 Initializing CSRF token...');
     
     // Try the direct endpoint first
-    let response = await fetch(`${API_URL}/api/csrf-token`, {
+    let response = await fetch(`${API_URL}/csrf-token`, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -19,8 +19,8 @@ export const initializeCsrfToken = async () => {
     });
     
     if (!response.ok) {
-      console.log('Trying /api/consent/csrf-token...');
-      response = await fetch(`${API_URL}/api/consent/csrf-token`, {
+      console.log('Trying /consent/csrf-token...');
+      response = await fetch(`${API_URL}/consent/csrf-token`, {
         method: 'GET',
         credentials: 'include',
         headers: {
