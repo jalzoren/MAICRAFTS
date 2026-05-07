@@ -38,7 +38,7 @@ const getShippingFee = (city) => {
   const normalizedCity = city.trim().toLowerCase();
   const isMetroManila = METRO_MANILA_CITIES.includes(normalizedCity);
   if (!isMetroManila) return 50;
-  // Special rule: Pasig (including "Pasig City") is free
+
   if (normalizedCity === 'pasig' || normalizedCity === 'pasig city') return 0;
   return 20;
 };
