@@ -20,6 +20,7 @@ import settingsPassword from './routes/passwordSettings.js';
 import auditLogsRoute from './routes/auditLogs.js';
 import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
+import productRoutes from './routes/productRoutes.js'
 
 const app = express();
 
