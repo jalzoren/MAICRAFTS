@@ -1,6 +1,7 @@
 // ordersRoutes.js
 import express from 'express';
-import { supabaseAdmin } from '../supabaseClient.js';
+import axios from "axios";
+import { supabase, supabaseAdmin } from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
@@ -55,6 +56,139 @@ router.use(async (req, res, next) => {
 });
 // ========== END AUTH MIDDLEWARE ==========
 
+// POST – Confirm order receipt (customer)
+router.post('/orders/:orderId/confirm-receipt', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Not authenticated' });
+    }
+
+    // Fetch the order to verify ownership and status
+    const { data: order, error: fetchError } = await supabaseAdmin
+      .from('orders')
+      .select('order_status, user_id')
+      .eq('order_id', orderId)
+      .single();
+
+    if (fetchError || !order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    if (order.user_id !== userId) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    if (order.order_status !== 'completed') {
+      return res.status(400).json({ success: false, error: 'Order is not yet delivered' });
+    }
+
+    // Update confirmation timestamp
+    const { error: updateError } = await supabaseAdmin
+      .from('orders')
+      .update({ customer_confirmed_at: new Date().toISOString() })
+      .eq('order_id', orderId);
+
+    if (updateError) throw updateError;
+
+    // Optional: audit log
+    if (req.user?.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'CONFIRM',
+        module: 'ORDER',
+        description: `Customer confirmed receipt of order ${order.order_number}`,
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, message: 'Order receipt confirmed' });
+  } catch (error) {
+    console.error('Error confirming receipt:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Business location (from .env)
+const BUSINESS_LAT = parseFloat(process.env.BUSINESS_LAT) || 14.5869;
+const BUSINESS_LNG = parseFloat(process.env.BUSINESS_LNG) || 121.0618;
+
+// Helper: Geocode an address string to lat/lng using Nominatim (OpenStreetMap)
+const geocodeAddress = async (addressString) => {
+  if (!addressString) return null;
+  try {
+    const encoded = encodeURIComponent(addressString);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`;
+    const response = await axios.get(url, {
+      headers: { 'User-Agent': 'MAICRAFTS/1.0' }
+    });
+    if (response.data && response.data.length > 0) {
+      const { lat, lon } = response.data[0];
+      return { lat: parseFloat(lat), lng: parseFloat(lon) };
+    }
+  } catch (err) {
+    console.error("Geocoding error:", err.message);
+  }
+  return null;
+};
+
+// Haversine distance (km)
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+// Calculate ETA based on distance (1 km = 15 minutes)
+const calculateETA = (distanceKm, shippedAt) => {
+  const travelMinutes = distanceKm * 15;
+  const arrival = new Date(shippedAt);
+  arrival.setMinutes(arrival.getMinutes() + travelMinutes);
+  return arrival;
+};
+
+const getUserAddressCoords = async (userId) => {
+  const { data, error } = await supabaseAdmin
+    .from('address')
+    .select('lat, lng')
+    .eq('user', userId)
+    .eq('is_default', true)
+    .single();
+  if (error || !data) return null;
+  return data;
+};
+
+// Helper: Deduct stock for order items (only once)
+const deductStockForOrder = async (orderId, orderItems) => {
+  for (const item of orderItems) {
+    const { data: product, error: fetchError } = await supabaseAdmin
+      .from('products')
+      .select('stock')
+      .eq('id', item.product_id)
+      .single();
+    if (fetchError) continue;
+    const newStock = Math.max(0, product.stock - item.quantity);
+    await supabaseAdmin
+      .from('products')
+      .update({ stock: newStock, updated_at: new Date().toISOString() })
+      .eq('id', item.product_id);
+    await supabaseAdmin.from('stock_history').insert([{
+      product_id: item.product_id,
+      quantity_change: -item.quantity,
+      reason: `Order #${orderId} processed (status changed to preparing)`,
+      admin_name: 'System (Order)'
+    }]);
+  }
+};
+
 // GET all orders (seller dashboard) - WITH order_items
 router.get('/orders', async (req, res) => {
   try {
@@ -63,7 +197,16 @@ router.get('/orders', async (req, res) => {
     // Step 1: Fetch orders
     let query = supabaseAdmin
       .from('orders')
-      .select('*', { count: 'exact' })
+      .select(`
+        *,
+        order_items (
+          order_item_id,
+          product_id,
+          quantity,
+          price,
+          product:products (id, name, image, main_image)
+        )
+      `)
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
     
@@ -124,11 +267,12 @@ router.get('/orders', async (req, res) => {
         user_role: req.user.role,
         action: 'VIEW',
         module: 'ORDER',
-        description: `Viewed orders list (${orders?.length || 0} orders)`,
+        description: `Viewed orders list (${data?.length || 0} orders)`,
       }).catch(err => console.error('Audit log error:', err));
     }
 
-    res.json({ success: true, data: orders || [], total: count || 0, limit, offset });
+
+    res.json({ success: true, data: data || [], total: count || 0, limit, offset });
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -138,7 +282,7 @@ router.get('/orders', async (req, res) => {
 // GET order stats
 router.get('/orders/stats/summary', async (req, res) => {
   try {
-    const statuses = ['pending', 'confirmed', 'preparing', 'shipped', 'completed', 'cancelled'];
+    const statuses = ['pending', 'preparing', 'shipped', 'completed'];
     const stats = { totalOrders: 0 };
     for (const status of statuses) {
       const { count, error } = await supabaseAdmin
@@ -150,20 +294,17 @@ router.get('/orders/stats/summary', async (req, res) => {
       stats.totalOrders += count || 0;
     }
 
-
-      // ✅ AUDIT LOG ONLY (fire and forget)
-      if (req.user?.id) {
-        createAuditLog({
-          user_id: req.user.id,
-          user_email: req.user.email,
-          user_role: req.user.role,
-          action: 'VIEW',
-          module: 'ORDER',
-          description: `Viewed order stats summary`,
-        }).catch(err => console.error('Audit log error:', err));
-      }
-
-
+    // Audit Log
+    if (req.user?.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'VIEW',
+        module: 'ORDER',
+        description: `Viewed order stats summary`,
+      }).catch(() => {});
+    }
     res.json({ success: true, data: stats });
   } catch (error) {
     console.error('Error fetching order stats:', error);
@@ -175,33 +316,29 @@ router.get('/orders/stats/summary', async (req, res) => {
 router.get('/orders/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
-    // Fetch order
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('*')
       .eq('order_id', orderId)
       .single();
     if (orderError || !order) return res.status(404).json({ success: false, error: 'Order not found' });
-    // Fetch its items
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .select('*')
+      .select('*, product:products (id, name, image, main_image)')
       .eq('order_id', orderId);
     if (itemsError) throw itemsError;
 
-      // ✅ AUDIT LOG ONLY (fire and forget)
-      if (req.user?.id) {
-        createAuditLog({
-          user_id: req.user.id,
-          user_email: req.user.email,
-          user_role: req.user.role,
-          action: 'VIEW',
-          module: 'ORDER',
-          description: `Viewed order details: ${order.order_number}`,
-        }).catch(err => console.error('Audit log error:', err));
-      }
-
-
+    // Audit Log
+    if (req.user?.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'VIEW',
+        module: 'ORDER',
+        description: `Viewed order details: ${order.order_number}`,
+      }).catch(() => {});
+    }
     res.json({ success: true, data: { ...order, items: items || [] } });
   } catch (error) {
     console.error('Error fetching order:', error);
@@ -209,7 +346,7 @@ router.get('/orders/:orderId', async (req, res) => {
   }
 });
 
-// POST – Create new order (using normalized order_items)
+// POST – Create new order
 router.post('/orders', async (req, res) => {
   try {
     const {
@@ -219,7 +356,7 @@ router.post('/orders', async (req, res) => {
       address_id,
       address,
       special_instructions,
-      items,        // array of items
+      items,   
       subtotal,
       shipping_fee,
       total_amount,
@@ -326,7 +463,7 @@ router.post('/orders', async (req, res) => {
   }
 });
 
-// PUT – Update order status (seller)
+// PUT – Update order status (seller) – with stock deduction
 router.put('/orders/:orderId/status', async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -334,30 +471,73 @@ router.put('/orders/:orderId/status', async (req, res) => {
     if (!order_status && !payment_status) {
       return res.status(400).json({ success: false, error: 'At least one status field required' });
     }
-    const updateData = { updated_at: new Date().toISOString() };
+
+    if (order_status && !['pending', 'preparing', 'shipped', 'completed'].includes(order_status.toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Invalid order status' });
+    }
+
+    const { data: currentOrder, error: fetchError } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+    if (fetchError || !currentOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    let stockDeducted = currentOrder.stock_deducted || false;
+    if (order_status === 'preparing' && !stockDeducted) {
+      const { data: orderItems, error: itemsError } = await supabaseAdmin
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId);
+      if (itemsError) throw itemsError;
+      if (orderItems && orderItems.length) {
+        await deductStockForOrder(orderId, orderItems);
+        stockDeducted = true;
+      }
+    }
+
+    // ✅ Compute and store ETA when status becomes 'shipped'
+    let deliveryEta = null;
+    if (order_status === 'shipped' && currentOrder.shipping_option === 'delivery') {
+      const coords = await getUserAddressCoords(currentOrder.user_id);
+      if (coords && coords.lat && coords.lng) {
+        const distance = getDistance(BUSINESS_LAT, BUSINESS_LNG, coords.lat, coords.lng);
+        const travelMinutes = distance * 15;
+        const arrival = new Date();
+        arrival.setMinutes(arrival.getMinutes() + travelMinutes);
+        deliveryEta = arrival.toISOString();
+      }
+    }
+
+    const updateData = {
+      updated_at: new Date().toISOString(),
+      stock_deducted: stockDeducted,
+      ...(deliveryEta && { delivery_eta: deliveryEta }),   // ✅ store ETA
+    };
     if (order_status) updateData.order_status = order_status.toLowerCase();
     if (payment_status) updateData.payment_status = payment_status.toLowerCase();
+
     const { data, error } = await supabaseAdmin
       .from('orders')
       .update(updateData)
       .eq('order_id', orderId)
       .select();
+
     if (error) throw error;
 
+    if (req.user?.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'UPDATE',
+        module: 'ORDER',
+        description: `Updated order ${currentOrder.order_number} status to ${order_status || 'unchanged'}`,
+      });
+    }
 
-      // ✅ AUDIT LOG ONLY (await - important for status change)
-      if (req.user?.id) {
-        await createAuditLog({
-          user_id: req.user.id,
-          user_email: req.user.email,
-          user_role: req.user.role,
-          action: 'UPDATE',
-          module: 'ORDER',
-          description: `Updated order ${oldOrder?.order_number || orderId}: ${statusChanges.join(', ')}`,
-        });
-      }
-
-      
     res.json({ success: true, message: 'Order updated successfully', data: data?.[0] });
   } catch (error) {
     console.error('Error updating order:', error);
@@ -365,13 +545,94 @@ router.put('/orders/:orderId/status', async (req, res) => {
   }
 });
 
-// GET orders for a specific user (customer orders tab)
+// POST – Bulk update order status (seller)
+router.post('/orders/bulk-status', async (req, res) => {
+  try {
+    const { order_ids, order_status } = req.body;
+    if (!order_ids || !Array.isArray(order_ids) || order_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'No order IDs provided' });
+    }
+    if (!order_status || !['pending', 'preparing', 'shipped', 'completed'].includes(order_status.toLowerCase())) {
+      return res.status(400).json({ success: false, error: 'Invalid order status' });
+    }
+
+    let updatedCount = 0;
+    const errors = [];
+
+    for (const orderId of order_ids) {
+      // Get current order
+      const { data: currentOrder, error: fetchError } = await supabaseAdmin
+        .from('orders')
+        .select('*')
+        .eq('order_id', orderId)
+        .single();
+      if (fetchError || !currentOrder) {
+        errors.push(`Order ${orderId} not found`);
+        continue;
+      }
+
+      let stockDeducted = currentOrder.stock_deducted || false;
+      // If status is changing to 'preparing' and stock not deducted yet, deduct stock
+      if (order_status === 'preparing' && !stockDeducted) {
+        const { data: orderItems, error: itemsError } = await supabaseAdmin
+          .from('order_items')
+          .select('*')
+          .eq('order_id', orderId);
+        if (itemsError) {
+          errors.push(`Failed to fetch items for order ${orderId}`);
+          continue;
+        }
+        if (orderItems && orderItems.length) {
+          await deductStockForOrder(orderId, orderItems);
+          stockDeducted = true;
+        }
+      }
+
+      const updateData = {
+        updated_at: new Date().toISOString(),
+        stock_deducted: stockDeducted,
+        order_status: order_status.toLowerCase()
+      };
+
+      const { error: updateError } = await supabaseAdmin
+        .from('orders')
+        .update(updateData)
+        .eq('order_id', orderId);
+
+      if (updateError) {
+        errors.push(`Failed to update order ${orderId}: ${updateError.message}`);
+      } else {
+        updatedCount++;
+        // Audit log for each order (optional, could be batched)
+        if (req.user?.id) {
+          createAuditLog({
+            user_id: req.user.id,
+            user_email: req.user.email,
+            user_role: req.user.role,
+            action: 'BULK_UPDATE',
+            module: 'ORDER',
+            description: `Bulk updated order ${currentOrder.order_number} status to ${order_status}`,
+          }).catch(() => {});
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Updated ${updatedCount} order(s)`,
+      updated: updatedCount,
+      errors: errors.length ? errors : undefined
+    });
+  } catch (error) {
+    console.error('Error in bulk status update:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 router.get('/orders/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-
-     // Verify user can only access their own orders
-     if (req.user && req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+    if (req.user && req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
       await createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -383,10 +644,12 @@ router.get('/orders/user/:userId', async (req, res) => {
       return res.status(403).json({ success: false, error: 'Unauthorized' });
     }
 
+    // ✅ Correct select syntax – customer_confirmed_at is a top‑level column
     const { data: orders, error } = await supabaseAdmin
       .from('orders')
       .select(`
         *,
+        customer_confirmed_at,
         order_items (
           quantity,
           price,
@@ -402,32 +665,28 @@ router.get('/orders/user/:userId', async (req, res) => {
       let addressString = 'Pickup (no address)';
       if (order.shipping_address) {
         let addr = order.shipping_address;
-        // Parse if it's a JSON string
         if (typeof addr === 'string') {
-          try {
-            addr = JSON.parse(addr);
-          } catch (e) {
-            addr = {};
-          }
+          try { addr = JSON.parse(addr); } catch(e) { addr = {}; }
         }
-        const parts = [
-          addr.street,
-          addr.barangay,
-          addr.city,
-          addr.province
-        ].filter(p => p && p.trim());
+        const parts = [addr.street, addr.barangay, addr.city, addr.province].filter(p => p && p.trim());
         addressString = parts.length ? parts.join(', ') : 'Address not provided';
+      }
+
+      let customerStatus = '';
+      switch (order.order_status) {
+        case 'pending': customerStatus = 'Order Placed'; break;
+        case 'preparing': customerStatus = 'Preparing'; break;
+        case 'shipped': customerStatus = 'Shipped'; break;
+        case 'completed': customerStatus = 'Delivered'; break;
+        case 'cancelled': customerStatus = 'Cancelled'; break;
+        default: customerStatus = 'Order Placed';
       }
 
       return {
         id: order.order_number,
         order_id: order.order_id,
         date: new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }),
-        status: order.order_status === 'pending' ? 'Processing' :
-                order.order_status === 'confirmed' ? 'Processing' :
-                order.order_status === 'preparing' ? 'Processing' :
-                order.order_status === 'shipped' ? 'Shipped' :
-                order.order_status === 'completed' ? 'Delivered' : 'Cancelled',
+        status: customerStatus,
         total: order.total_amount,
         items: order.order_items.map(item => item.product?.name).join(', '),
         qty: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
@@ -436,29 +695,28 @@ router.get('/orders/user/:userId', async (req, res) => {
         customerName: order.customer_name,
         contactNumber: order.phone_number,
         address: addressString,
-        specialInstructions: order.special_instructions || null, 
+        specialInstructions: order.special_instructions || null,
         orderPlaced: new Date(order.created_at).toLocaleString(),
-        preparingToShip: order.order_status !== 'pending' && order.order_status !== 'cancelled' 
-          ? new Date(order.updated_at).toLocaleString() 
+        preparingToShip: order.order_status !== 'pending' && order.order_status !== 'cancelled'
+          ? new Date(order.updated_at).toLocaleString()
           : null,
-        orderShipped: (order.order_status === 'shipped' || order.order_status === 'completed') 
-          ? new Date(order.updated_at).toLocaleString() 
+        orderShipped: (order.order_status === 'shipped' || order.order_status === 'completed')
+          ? new Date(order.updated_at).toLocaleString()
           : null,
-        outForDelivery: order.order_status === 'completed' 
-          ? new Date(order.updated_at).toLocaleString() 
+        delivered: order.order_status === 'completed'
+          ? new Date(order.updated_at).toLocaleString()
           : null,
-        delivered: order.order_status === 'completed' 
-          ? new Date(order.updated_at).toLocaleString() 
+        eta: order.delivery_eta
+          ? new Date(order.delivery_eta).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
           : null,
         paymentMethod: 'PayMongo',
         deliveryMode: order.shipping_option === 'delivery' ? 'Delivery' : 'Pickup',
         shippingFee: order.shipping_fee,
+        customerConfirmedAt: order.customer_confirmed_at,   // ✅ included for frontend
       };
     });
 
-
-     // ✅ AUDIT LOG ONLY (fire and forget)
-     if (req.user?.id && req.user.id === userId) {
+    if (req.user?.id && req.user.id === userId) {
       createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -466,9 +724,8 @@ router.get('/orders/user/:userId', async (req, res) => {
         action: 'VIEW',
         module: 'ORDER',
         description: `Viewed personal orders (${formattedOrders.length} orders)`,
-      }).catch(err => console.error('Audit log error:', err));
+      }).catch(() => {});
     }
-
 
     res.json({ success: true, data: formattedOrders });
   } catch (error) {
@@ -525,99 +782,6 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
     res.json({ success: true, message: 'Order cancelled successfully' });
   } catch (error) {
     console.error('Error cancelling order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-// GET single order with its items
-router.get('/orders/:orderId', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    
-    // Fetch order
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('order_id', orderId)
-      .single();
-    
-    if (orderError || !order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    
-    // Parse shipping_address if it's a string
-    if (order.shipping_address && typeof order.shipping_address === 'string') {
-      try {
-        order.shipping_address = JSON.parse(order.shipping_address);
-      } catch (e) {
-        console.error('Error parsing address:', e);
-      }
-    }
-    
-    // Fetch items
-    const { data: order_items, error: itemsError } = await supabaseAdmin
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId);
-    
-    if (itemsError) throw itemsError;
-    
-    res.json({ 
-      success: true, 
-      data: { 
-        ...order, 
-        order_items: order_items || [] 
-      } 
-    });
-  } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-router.get('/orders/:orderId', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    
-    // Fetch order
-    const { data: order, error: orderError } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('order_id', orderId)
-      .single();
-    
-    if (orderError || !order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-    
-    // Parse shipping_address
-    if (order.shipping_address && typeof order.shipping_address === 'string') {
-      try {
-        let addressStr = order.shipping_address;
-        if (addressStr.startsWith('"') && addressStr.endsWith('"')) {
-          addressStr = JSON.parse(addressStr);
-        }
-        order.shipping_address = JSON.parse(addressStr);
-      } catch (e) {}
-    }
-    
-    // Fetch order_items
-    const { data: order_items, error: itemsError } = await supabaseAdmin
-      .from('order_items')
-      .select('*')
-      .eq('order_id', orderId);
-    
-    if (itemsError) throw itemsError;
-    
-    // Return with order_items (THIS IS KEY)
-    res.json({ 
-      success: true, 
-      data: { 
-        ...order, 
-        order_items: order_items || []  // Must be "order_items"
-      } 
-    });
-  } catch (error) {
-    console.error('Error fetching order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

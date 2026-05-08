@@ -1433,6 +1433,14 @@
   animation: shimmer 2s infinite;
 }
 
+.confirm-receipt-btn {
+  background-color: #10b981;
+  color: white;
+}
+.confirm-receipt-btn:hover {
+  background-color: #059669;
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);
