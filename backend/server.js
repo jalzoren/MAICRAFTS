@@ -21,6 +21,7 @@ import auditLogsRoute from './routes/auditLogs.js';
 import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
 import productRoutes from './routes/productRoutes.js'
+import paymentRoutes from './routes/paymentRoutes.js';
 
 const app = express();
 
@@ -177,11 +178,13 @@ app.use('/api/address', addressRoutes);
 app.use('/api', productRoutes); 
 app.use('/api', cartRoutes);
 app.use('/api', ordersRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use("/api", contactAdminRoute);
 app.use("/api", auditLogsRoute);
 app.use('/api/settings', settingsRoutes);              
 app.use('/api/password-settings', settingsPassword);  
 app.use("/api", setPasswordRoute);
+
 
 // 404 handler
 app.use((req, res) => {

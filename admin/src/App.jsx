@@ -1,3 +1,4 @@
+// App.jsx (Admin Panel, Seller and Super Admin Dashboard)
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";

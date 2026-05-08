@@ -110,7 +110,7 @@ router.post('/orders', async (req, res) => {
     if (!customerName) customerName = 'Guest Customer';
 
     const orderNumber = `ORD-${Date.now()}`;
-    const shippingAddressJSON = address ? JSON.stringify(address) : null;
+    const shippingAddressObject = address ? address : null;
 
     // 1. Insert into orders table (snapshots)
     const { data: order, error: orderError } = await supabaseAdmin
@@ -121,7 +121,7 @@ router.post('/orders', async (req, res) => {
         customer_name: customerName,
         customer_email: email,
         phone_number: phoneNumber,
-        shipping_address: shippingAddressJSON,
+        shipping_address: shippingAddressObject,
         shipping_option: shipping_option,
         order_status: 'pending',
         payment_status: 'unpaid',
@@ -206,33 +206,63 @@ router.get('/orders/user/:userId', async (req, res) => {
 
     if (error) throw error;
 
-    // Transform to match frontend expectations
-    const formattedOrders = orders.map(order => ({
-      id: order.order_number,
-      order_id: order.order_id,
-      date: new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }),
-      status: order.order_status === 'pending' ? 'Processing' :
-              order.order_status === 'confirmed' ? 'Processing' :
-              order.order_status === 'preparing' ? 'Processing' :
-              order.order_status === 'shipped' ? 'Shipped' :
-              order.order_status === 'completed' ? 'Delivered' : 'Cancelled',
-      total: order.total_amount,
-      items: order.order_items.map(item => item.product?.name).join(', '),
-      qty: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
-      price: order.order_items[0]?.price || 0,
-      image: order.order_items[0]?.product?.main_image || order.order_items[0]?.product?.image || null,
-      customerName: order.customer_name,
-      contactNumber: order.phone_number,
-      address: order.shipping_address ? `${order.shipping_address.street}, ${order.shipping_address.barangay}, ${order.shipping_address.city}, ${order.shipping_address.province}` : '',
-      orderPlaced: new Date(order.created_at).toLocaleString(),
-      preparingToShip: order.order_status === 'preparing' || order.order_status === 'shipped' || order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
-      orderShipped: order.order_status === 'shipped' || order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
-      outForDelivery: order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
-      delivered: order.order_status === 'completed' ? new Date(order.updated_at).toLocaleString() : null,
-      paymentMethod: 'PayMongo', // or from order.payment_method if stored
-      deliveryMode: order.shipping_option === 'delivery' ? 'Delivery' : 'Pickup',
-      shippingFee: order.shipping_fee,
-    }));
+    const formattedOrders = orders.map(order => {
+      let addressString = 'Pickup (no address)';
+      if (order.shipping_address) {
+        let addr = order.shipping_address;
+        // Parse if it's a JSON string
+        if (typeof addr === 'string') {
+          try {
+            addr = JSON.parse(addr);
+          } catch (e) {
+            addr = {};
+          }
+        }
+        const parts = [
+          addr.street,
+          addr.barangay,
+          addr.city,
+          addr.province
+        ].filter(p => p && p.trim());
+        addressString = parts.length ? parts.join(', ') : 'Address not provided';
+      }
+
+      return {
+        id: order.order_number,
+        order_id: order.order_id,
+        date: new Date(order.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }),
+        status: order.order_status === 'pending' ? 'Processing' :
+                order.order_status === 'confirmed' ? 'Processing' :
+                order.order_status === 'preparing' ? 'Processing' :
+                order.order_status === 'shipped' ? 'Shipped' :
+                order.order_status === 'completed' ? 'Delivered' : 'Cancelled',
+        total: order.total_amount,
+        items: order.order_items.map(item => item.product?.name).join(', '),
+        qty: order.order_items.reduce((sum, item) => sum + item.quantity, 0),
+        price: order.order_items[0]?.price || 0,
+        image: order.order_items[0]?.product?.main_image || order.order_items[0]?.product?.image || null,
+        customerName: order.customer_name,
+        contactNumber: order.phone_number,
+        address: addressString,
+        specialInstructions: order.special_instructions || null, 
+        orderPlaced: new Date(order.created_at).toLocaleString(),
+        preparingToShip: order.order_status !== 'pending' && order.order_status !== 'cancelled' 
+          ? new Date(order.updated_at).toLocaleString() 
+          : null,
+        orderShipped: (order.order_status === 'shipped' || order.order_status === 'completed') 
+          ? new Date(order.updated_at).toLocaleString() 
+          : null,
+        outForDelivery: order.order_status === 'completed' 
+          ? new Date(order.updated_at).toLocaleString() 
+          : null,
+        delivered: order.order_status === 'completed' 
+          ? new Date(order.updated_at).toLocaleString() 
+          : null,
+        paymentMethod: 'PayMongo',
+        deliveryMode: order.shipping_option === 'delivery' ? 'Delivery' : 'Pickup',
+        shippingFee: order.shipping_fee,
+      };
+    });
 
     res.json({ success: true, data: formattedOrders });
   } catch (error) {

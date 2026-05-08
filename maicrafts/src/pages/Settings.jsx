@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { FiLogOut } from "react-icons/fi";
 import { BsBell, BsShieldLock, BsBoxSeam } from "react-icons/bs";
 import { FiUser } from "react-icons/fi";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from "../context/AuthContext";     // ← uses AuthContext now
 import { useRef } from "react";
 
@@ -23,13 +23,32 @@ const NAV_ITEMS = [
 ];
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState("personal");
-  const { user, logout, refreshUser } = useAuth(); 
+  const { user, logout, refreshUser } = useAuth();
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+
 
   console.log('🔥🔥🔥 SETTINGS IS RENDERING 🔥🔥🔥');
   console.log('User:', user);
+
+  //  Single useState – read initial tab from URL
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && NAV_ITEMS.some(item => item.key === tab)) return tab;
+    return 'personal';
+  });
+
+  //  Listen for URL changes (e.g., when user clicks back/forward)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && NAV_ITEMS.some(item => item.key === tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   const handleLogout = () => {
     logout();
@@ -45,35 +64,28 @@ const Settings = () => {
 
   const TAB_CONTENT = {
     personal: <PersonalInfoTab user={user || {}} />,
-    security: <SecurityTab     user={user || {}} />,
-    orders:   <OrdersTab />,
-    //notif:    <NotifTab />,
+    security: <SecurityTab user={user || {}} />,
+    orders: <OrdersTab />,
   };
 
-  // ── Upload profile photo to Supabase Storage ──
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
-
-    // Validate: image only, max 2MB
     if (!file.type.startsWith("image/")) return;
     if (file.size > 2 * 1024 * 1024) {
       alert("Image must be under 2MB.");
       return;
     }
-
     try {
       const formData = new FormData();
       formData.append("avatar", file);
-
-      const res  = await fetch(`http://localhost:5000/api/users/${user.id}/avatar`, {
+      const res = await fetch(`http://localhost:5000/api/users/${user.id}/avatar`, {
         method: "POST",
-        body:   formData,
+        body: formData,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
-
-      await refreshUser();   // pulls new profile_url into AuthContext
+      await refreshUser();
     } catch (err) {
       console.error("Avatar upload failed:", err);
     }

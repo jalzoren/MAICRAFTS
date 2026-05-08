@@ -1,6 +1,8 @@
+// src/pages/PaymentSuccess.jsx
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import Swal from 'sweetalert2';
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -12,14 +14,23 @@ const PaymentSuccess = () => {
     if (orderId) {
       localStorage.removeItem('checkout_items');
       clearCart();
-      setTimeout(() => navigate(`/order-success?order_id=${orderId}`), 3000);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Payment Successful!',
+        text: 'Your order has been placed successfully.',
+        confirmButtonColor: '#E6BB71',
+        timer: 2000,
+        showConfirmButton: true
+      }).then(() => {
+        navigate('/settings?tab=orders');
+      });
     }
   }, [orderId, navigate, clearCart]);
 
   return (
     <div style={{ textAlign: 'center', padding: '4rem' }}>
-      <h1>Payment Successful!</h1>
-      <p>Your order has been paid. Redirecting to order confirmation...</p>
+      <h1>Processing payment...</h1>
     </div>
   );
 };
