@@ -1,8 +1,59 @@
 // ordersRoutes.js
 import express from 'express';
 import { supabaseAdmin } from '../supabaseClient.js';
+import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
+
+// ========== AUTH MIDDLEWARE (for audit to know who is making requests) ==========
+router.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log('🔐 [ordersRoutes] Auth Header:', authHeader ? 'Present' : 'Missing');
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      req.user = null;
+      return next();
+    }
+
+    if (user) {
+      const { data: dbUser, error: dbError } = await supabase
+        .from("users")
+        .select("role, first_name, last_name")
+        .eq("email", user.email)
+        .single();
+      
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: userRole,
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
+      };
+      
+      console.log('✅ [ordersRoutes] Authenticated user:', req.user.email);
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    req.user = null;
+  }
+
+  next();
+});
+// ========== END AUTH MIDDLEWARE ==========
 
 // GET all orders (seller dashboard)
 router.get('/orders', async (req, res) => {
@@ -16,6 +67,21 @@ router.get('/orders', async (req, res) => {
     if (status) query = query.eq('order_status', status.toLowerCase());
     const { data, error, count } = await query;
     if (error) throw error;
+
+
+     // ✅ AUDIT LOG ONLY (fire and forget)
+     if (req.user?.id) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'VIEW',
+        module: 'ORDER',
+        description: `Viewed orders list (${data?.length || 0} orders)`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
+
+
     res.json({ success: true, data: data || [], total: count || 0, limit, offset });
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -37,6 +103,21 @@ router.get('/orders/stats/summary', async (req, res) => {
       stats[status] = count || 0;
       stats.totalOrders += count || 0;
     }
+
+
+      // ✅ AUDIT LOG ONLY (fire and forget)
+      if (req.user?.id) {
+        createAuditLog({
+          user_id: req.user.id,
+          user_email: req.user.email,
+          user_role: req.user.role,
+          action: 'VIEW',
+          module: 'ORDER',
+          description: `Viewed order stats summary`,
+        }).catch(err => console.error('Audit log error:', err));
+      }
+
+
     res.json({ success: true, data: stats });
   } catch (error) {
     console.error('Error fetching order stats:', error);
@@ -61,6 +142,20 @@ router.get('/orders/:orderId', async (req, res) => {
       .select('*')
       .eq('order_id', orderId);
     if (itemsError) throw itemsError;
+
+      // ✅ AUDIT LOG ONLY (fire and forget)
+      if (req.user?.id) {
+        createAuditLog({
+          user_id: req.user.id,
+          user_email: req.user.email,
+          user_role: req.user.role,
+          action: 'VIEW',
+          module: 'ORDER',
+          description: `Viewed order details: ${order.order_number}`,
+        }).catch(err => console.error('Audit log error:', err));
+      }
+
+
     res.json({ success: true, data: { ...order, items: items || [] } });
   } catch (error) {
     console.error('Error fetching order:', error);
@@ -151,6 +246,28 @@ router.post('/orders', async (req, res) => {
 
     if (itemsError) throw itemsError;
 
+        // ✅ AUDIT LOG ONLY (await - important for order creation)
+    if (req.user?.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'CREATE',
+        module: 'ORDER',
+        description: `Created order ${orderNumber} with ${items.length} items, total ₱${total_amount}`,
+      });
+    } else if (user_id) {
+      // Guest order but with user_id - still log
+      await createAuditLog({
+        user_id: user_id,
+        user_email: email,
+        user_role: 'CUSTOMER',
+        action: 'CREATE',
+        module: 'ORDER',
+        description: `Created order ${orderNumber} with ${items.length} items, total ₱${total_amount}`,
+      });
+    }
+
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
@@ -180,6 +297,21 @@ router.put('/orders/:orderId/status', async (req, res) => {
       .eq('order_id', orderId)
       .select();
     if (error) throw error;
+
+
+      // ✅ AUDIT LOG ONLY (await - important for status change)
+      if (req.user?.id) {
+        await createAuditLog({
+          user_id: req.user.id,
+          user_email: req.user.email,
+          user_role: req.user.role,
+          action: 'UPDATE',
+          module: 'ORDER',
+          description: `Updated order ${oldOrder?.order_number || orderId}: ${statusChanges.join(', ')}`,
+        });
+      }
+
+      
     res.json({ success: true, message: 'Order updated successfully', data: data?.[0] });
   } catch (error) {
     console.error('Error updating order:', error);
@@ -191,6 +323,20 @@ router.put('/orders/:orderId/status', async (req, res) => {
 router.get('/orders/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+
+     // Verify user can only access their own orders
+     if (req.user && req.user.id !== userId && req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'FAILED',
+        module: 'ORDER',
+        description: `Unauthorized attempt to view orders for user ${userId}`,
+      });
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
     const { data: orders, error } = await supabaseAdmin
       .from('orders')
       .select(`
@@ -264,6 +410,20 @@ router.get('/orders/user/:userId', async (req, res) => {
       };
     });
 
+
+     // ✅ AUDIT LOG ONLY (fire and forget)
+     if (req.user?.id && req.user.id === userId) {
+      createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'VIEW',
+        module: 'ORDER',
+        description: `Viewed personal orders (${formattedOrders.length} orders)`,
+      }).catch(err => console.error('Audit log error:', err));
+    }
+
+
     res.json({ success: true, data: formattedOrders });
   } catch (error) {
     console.error('Error fetching user orders:', error);
@@ -301,6 +461,17 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
       .eq('order_id', orderId);
 
     if (error) throw error;
+
+    if (req.user?.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'CANCEL',
+        module: 'ORDER',
+        description: `Cancelled order ${order.order_number}. Reason: ${reason || 'No reason provided'}`,
+      });
+    }
 
     // Log the cancellation reason (optional – can store in a separate table)
     console.log(`Order ${orderId} cancelled. Reason: ${reason}`);

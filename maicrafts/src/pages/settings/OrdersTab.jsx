@@ -37,6 +37,29 @@ const OrdersTab = () => {
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
 
+  const getAuthHeaders = () => {
+    try {
+      const sessionData = sessionStorage.getItem('mc_session');
+      if (!sessionData) return {};
+      
+      const session = JSON.parse(sessionData);
+      const token = session.user?.access_token;
+      
+      if (!token) {
+        console.warn('No access token found in session');
+        return {};
+      }
+      
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+    } catch (error) {
+      console.error('Error getting auth headers:', error);
+      return {};
+    }
+  };
+
   // Fetch orders from API when user is authenticated
   useEffect(() => {
     if (isAuthenticated && user?.id) {
@@ -49,7 +72,8 @@ const OrdersTab = () => {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/user/${user.id}`);
+      const headers = getAuthHeaders(); // ✅ Add this
+      const response = await fetch(`http://localhost:5000/api/orders/user/${user.id}`, { headers });
       const result = await response.json();
       if (result.success) {
         setOrders(result.data);
@@ -97,9 +121,10 @@ const OrdersTab = () => {
     }
     
     try {
+      const headers = getAuthHeaders();
       const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder.order_id}/cancel`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers, // ✅ Use headers
         body: JSON.stringify({ reason: cancelReason })
       });
       const result = await response.json();

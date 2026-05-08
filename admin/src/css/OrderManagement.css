@@ -72,8 +72,7 @@ body {
 /* ---------- Page Wrapper ---------- */
 .order-management {
   max-width: 1280px;
-  margin: 0 auto;
-  padding: 36px 40px 60px;
+  margin: 20px auto;
   background-color: var(--bg-page);
   min-height: 100vh;
 }
@@ -520,4 +519,50 @@ body {
   align-items: center;
   padding: 0 4px;
   user-select: none;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 60px;
+  color: #8B7355;
+  font-size: 16px;
+}
+
+.no-results {
+  text-align: center;
+  padding: 48px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.dropdown-container {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  min-width: 150px;
+  overflow: hidden;
+}
+
+.dropdown-menu div {
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-menu div:hover {
+  background-color: #f7fafc;
+}
+
+.view-details-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
