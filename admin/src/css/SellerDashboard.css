@@ -234,3 +234,428 @@
     align-self: flex-start;
   }
 }
+
+/* Additional styles for the enhanced dashboard */
+
+/* Charts Grid */
+.sd-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1200px) {
+  .sd-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Chart Card Variations */
+.sd-chart-card.large {
+  grid-column: span 2;
+}
+
+@media (max-width: 1200px) {
+  .sd-chart-card.large {
+    grid-column: span 1;
+  }
+}
+
+.sd-chart-subtitle {
+  font-size: 12px;
+  color: #8B7355;
+  margin-left: 12px;
+  font-weight: normal;
+}
+
+/* Stat Card Icons */
+.sd-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(200, 150, 42, 0.1);
+}
+
+.sd-stat-value.warning {
+  color: #e67e22;
+}
+
+.sd-stat-value.success {
+  color: #27ae60;
+}
+
+.sd-stat-value.danger {
+  color: #e74c3c;
+}
+
+/* Recent Orders Table */
+.sd-main-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  flex: 1;
+}
+
+.sd-recent-orders-table {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.sd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.sd-table th {
+  text-align: left;
+  padding: 12px;
+  background: #fdf6e8;
+  color: #3D1A00;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.sd-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0e6d3;
+  color: #5a3e28;
+  font-size: 14px;
+}
+
+.sd-table tr:hover {
+  background: #fef9f0;
+}
+
+.sd-order-id {
+  font-weight: 600;
+  color: #C8962A;
+}
+
+/* Status Badges */
+.sd-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sd-status-pending {
+  background: #fff3e0;
+  color: #e67e22;
+}
+
+.sd-status-completed {
+  background: #e8f5e9;
+  color: #27ae60;
+}
+
+.sd-status-shipped {
+  background: #e3f2fd;
+  color: #2980b9;
+}
+
+.sd-status-processing {
+  background: #f3e5f5;
+  color: #8e44ad;
+}
+
+/* Top Products Section */
+.sd-top-products {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sd-top-products-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.sd-product-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px;
+  background: #fef9f0;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sd-product-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sd-product-rank {
+  width: 40px;
+  height: 40px;
+  background: #C8962A;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.sd-product-info {
+  flex: 1;
+}
+
+.sd-product-name {
+  font-weight: 600;
+  color: #3D1A00;
+  margin-bottom: 4px;
+}
+
+.sd-product-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.sd-product-sales {
+  color: #7f8c8d;
+}
+
+.sd-product-revenue {
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.sd-product-progress {
+  width: 200px;
+  height: 6px;
+  background: #e0d4c3;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sd-progress-bar {
+  height: 100%;
+  background: #C8962A;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Custom Tooltip */
+.custom-tooltip {
+  background: white;
+  border: 1px solid #C8962A;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-label {
+  font-weight: 600;
+  color: #3D1A00;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.tooltip-value {
+  font-size: 12px;
+  margin: 2px 0;
+}
+
+/* Loading State */
+.sd-loading {
+  text-align: center;
+  padding: 40px;
+  color: #8B7355;
+  font-size: 14px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .sd-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .sd-product-progress {
+    width: 120px;
+  }
+
+  .sd-table th,
+  .sd-table td {
+    padding: 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sd-stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sd-product-card {
+    flex-wrap: wrap;
+  }
+
+  .sd-product-progress {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* Additional CSS for the main chart card */
+
+/* Main Chart Card */
+.sd-main-chart-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sd-chart-header {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.sd-chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #3D1A00;
+}
+
+.sd-chart-subtitle {
+  font-size: 13px;
+  color: #8B7355;
+  margin-left: 12px;
+  font-weight: normal;
+}
+
+.sd-chart-arrow {
+  margin-left: auto;
+  font-size: 20px;
+  color: #C8962A;
+}
+
+/* Stat Icons */
+.sd-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(200, 150, 42, 0.1);
+}
+
+/* Stats Row - 4 cards */
+.sd-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1024px) {
+  .sd-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .sd-stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Placeholder Content */
+.sd-placeholder-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: #8B7355;
+  background: #fef9f0;
+  border-radius: 12px;
+  margin-top: 16px;
+}
+
+.sd-placeholder-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Update existing stat card styles */
+.sd-stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sd-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.sd-stat-label {
+  font-size: 13px;
+  color: #8B7355;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.sd-stat-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.sd-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #3D1A00;
+}
+
+/* Bottom row remains the same */
+.sd-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .sd-bottom-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sd-main-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.sd-chart-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}

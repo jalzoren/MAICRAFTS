@@ -1,149 +1,268 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "../../css/OrderManagement.css";
 import { useNavigate } from "react-router-dom";
-
-// Icons as inline SVGs
-const ShoppingBagIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
-    <line x1="3" y1="6" x2="21" y2="6" />
-    <path d="M16 10a4 4 0 01-8 0" />
-  </svg>
-);
-
-const HourglassIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 22h14" />
-    <path d="M5 2h14" />
-    <path d="M17 22v-4.172a2 2 0 00-.586-1.414L12 12l-4.414 4.414A2 2 0 007 17.828V22" />
-    <path d="M7 2v4.172a2 2 0 00.586 1.414L12 12l4.414-4.414A2 2 0 0017 6.172V2" />
-  </svg>
-);
-
-const BriefcaseIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-    <path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" />
-  </svg>
-);
-
-const TruckIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="1" y="3" width="15" height="13" />
-    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-    <circle cx="5.5" cy="18.5" r="2.5" />
-    <circle cx="18.5" cy="18.5" r="2.5" />
-  </svg>
-);
-
-const CheckCircleIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-    <polyline points="22 4 12 14.01 9 11.01" />
-  </svg>
-);
-
-const XCircleIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="15" y1="9" x2="9" y2="15" />
-    <line x1="9" y1="9" x2="15" y2="15" />
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" />
-    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-  </svg>
-);
-
-const ChevronDownIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
+import { 
+  FiShoppingBag, 
+  FiClock, 
+  FiBriefcase, 
+  FiTruck, 
+  FiCheckCircle, 
+  FiXCircle, 
+  FiSearch, 
+  FiChevronDown 
+} from "react-icons/fi";
 
 // Stat Card Component
-const StatCard = ({ label, value, icon, iconClass }) => (
+const StatCard = ({ label, value, icon: Icon, iconClass }) => (
   <div className="stat-card">
     <div className="stat-card__content">
       <span className="stat-card__label">{label}</span>
       <span className="stat-card__value">{value.toLocaleString()}</span>
     </div>
     <div className={`stat-card__icon ${iconClass}`}>
-      {icon}
+      <Icon size={24} />
     </div>
   </div>
 );
 
 // Status Badge Component
-const StatusBadge = ({ status }) => (
-  <span className={`status-badge status-badge--${status.toLowerCase()}`}>
-    {status}
-  </span>
-);
+const StatusBadge = ({ status }) => {
+  const getStatusClass = (status) => {
+    const statusMap = {
+      'pending': 'pending',
+      'confirmed': 'pending',
+      'preparing': 'preparing',
+      'shipped': 'shipped',
+      'completed': 'completed',
+      'cancelled': 'cancelled'
+    };
+    return statusMap[status?.toLowerCase()] || 'pending';
+  };
+
+  const getDisplayStatus = (status) => {
+    const displayMap = {
+      'pending': 'Pending',
+      'confirmed': 'Confirmed',
+      'preparing': 'Preparing',
+      'shipped': 'Shipped',
+      'completed': 'Completed',
+      'cancelled': 'Cancelled'
+    };
+    return displayMap[status?.toLowerCase()] || status;
+  };
+
+  return (
+    <span className={`status-badge status-badge--${getStatusClass(status)}`}>
+      {getDisplayStatus(status)}
+    </span>
+  );
+};
 
 // Payment Status Component
-const PaymentStatus = ({ status }) => (
-  <span className={`payment-status payment-status--${status.toLowerCase()}`}>
-    <span className="payment-status__dot" />
-    {status}
-  </span>
-);
+const PaymentStatus = ({ status }) => {
+  const getDisplayStatus = (status) => {
+    const displayMap = {
+      'paid': 'Paid',
+      'unpaid': 'Unpaid',
+      'refunded': 'Refunded'
+    };
+    return displayMap[status?.toLowerCase()] || 'Unpaid';
+  };
 
-// Sample data
-const orders = [
-  {
-    id: "#ORD-2485",
-    customerName: "Jerimiah Bitancor",
-    date: "Oct 24, 2023",
-    items: "2 Items",
-    totalAmount: "₱145.00",
-    status: "Pending",
-    payment: "Paid",
-  },
-  {
-    id: "#ORD-2484",
-    customerName: "Bianca Rain Castillon",
-    date: "Oct 23, 2023",
-    items: "1 Item",
-    totalAmount: "₱85.50",
-    status: "Preparing",
-    payment: "Paid",
-  },
-  {
-    id: "#ORD-2483",
-    customerName: "Laurence Flavier",
-    date: "Oct 22, 2023",
-    items: "4 Items",
-    totalAmount: "₱100.20",
-    status: "Completed",
-    payment: "Paid",
-  },
-  {
-    id: "#ORD-2482",
-    customerName: "Lyn Czyla Alpuerto",
-    date: "Oct 21, 2023",
-    items: "1 Item",
-    totalAmount: "₱45.00",
-    status: "Cancelled",
-    payment: "Refunded",
-  },
-  {
-    id: "#ORD-2481",
-    customerName: "Neil Adrian Onrubia",
-    date: "Oct 21, 2023",
-    items: "3 Items",
-    totalAmount: "₱210.00",
-    status: "Shipped",
-    payment: "Paid",
-  },
-];
+  return (
+    <span className={`payment-status payment-status--${status?.toLowerCase() || 'unpaid'}`}>
+      <span className="payment-status__dot" />
+      {getDisplayStatus(status)}
+    </span>
+  );
+};
+
+// Helper function to get auth headers
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
 
 const OrderManagement = () => {
   const navigate = useNavigate();
- 
+  const [orders, setOrders] = useState([]);
+  const [orderStats, setOrderStats] = useState({
+    totalOrders: 0,
+    pending: 0,
+    confirmed: 0,
+    preparing: 0,
+    shipped: 0,
+    completed: 0,
+    cancelled: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterPayment, setFilterPayment] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ordersPerPage = 5;
+
+  // Fetch order stats from API
+  const fetchOrderStats = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/orders/orders/stats/summary', { headers });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        setOrderStats({
+          totalOrders: data.data.totalOrders || 0,
+          pending: (data.data.pending || 0) + (data.data.confirmed || 0),
+          confirmed: data.data.confirmed || 0,
+          preparing: data.data.preparing || 0,
+          shipped: data.data.shipped || 0,
+          completed: data.data.completed || 0,
+          cancelled: data.data.cancelled || 0
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
+    }
+  };
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/orders/orders', { headers });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        // Transform orders to match component structure
+        const transformedOrders = data.data.map(order => ({
+          id: order.order_number,
+          cleanId: order.order_id,
+          customerName: order.customer_name,
+          date: new Date(order.created_at).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+          }),
+          items: 0, // Will be updated when we fetch items
+          totalAmount: order.total_amount,
+          status: order.order_status,
+          payment: order.payment_status,
+          customerEmail: order.customer_email,
+          customerPhone: order.phone_number || 'N/A',
+          customerAddress: order.shipping_address ? 
+            `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}` : 'N/A',
+          notes: order.special_instructions || 'No special instructions',
+          shipping: order.shipping_fee
+        }));
+        
+        // Fetch order items count for each order
+        const ordersWithItems = await Promise.all(
+          transformedOrders.map(async (order) => {
+            try {
+              const itemsResponse = await fetch(`http://localhost:5000/api/orders/orders/${order.cleanId}`, { headers });
+              const itemsData = await itemsResponse.json();
+              return {
+                ...order,
+                items: itemsData.data?.items?.length || 0
+              };
+            } catch (error) {
+              return { ...order, items: 0 };
+            }
+          })
+        );
+        
+        setOrders(ordersWithItems);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter orders
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPayment = filterPayment === "All" || 
+      (filterPayment === "Paid" && order.payment === "paid") ||
+      (filterPayment === "Refunded" && order.payment === "refunded") ||
+      (filterPayment === "Pending" && (order.payment === "unpaid" || order.payment === "pending"));
+    const matchesStatus = filterStatus === "All" || 
+      order.status === filterStatus.toLowerCase();
+    return matchesSearch && matchesPayment && matchesStatus;
+  });
+
+  // Pagination
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
+  const handleViewDetails = (order) => {
+    navigate(`/seller/orders/${order.cleanId}`, { state: { order } });
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (type, value) => {
+    if (type === 'payment') {
+      setFilterPayment(value);
+      setShowPaymentDropdown(false);
+    } else {
+      setFilterStatus(value);
+      setShowStatusDropdown(false);
+    }
+    setCurrentPage(1);
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([
+        fetchOrderStats(),
+        fetchOrders()
+      ]);
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="order-management">
+        <div className="page-header">
+          <h1 className="page-header__title">Order Management</h1>
+          <p className="page-header__breadcrumb">Seller Dashboard / Order Management</p>
+        </div>
+        <div className="loading-spinner">Loading orders...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="order-management">
       {/* Page Header */}
@@ -156,38 +275,38 @@ const OrderManagement = () => {
       <div className="stat-cards">
         <StatCard
           label="TOTAL ORDERS"
-          value={1248}
-          icon={<ShoppingBagIcon />}
+          value={orderStats.totalOrders}
+          icon={FiShoppingBag}
           iconClass="stat-card__icon--blue"
         />
         <StatCard
           label="PENDING"
-          value={45}
-          icon={<HourglassIcon />}
+          value={orderStats.pending}
+          icon={FiClock}
           iconClass="stat-card__icon--yellow"
         />
         <StatCard
           label="PREPARING"
-          value={18}
-          icon={<BriefcaseIcon />}
+          value={orderStats.preparing}
+          icon={FiBriefcase}
           iconClass="stat-card__icon--purple"
         />
         <StatCard
           label="SHIPPED"
-          value={32}
-          icon={<TruckIcon />}
+          value={orderStats.shipped}
+          icon={FiTruck}
           iconClass="stat-card__icon--orange"
         />
         <StatCard
           label="COMPLETED"
-          value={1185}
-          icon={<CheckCircleIcon />}
+          value={orderStats.completed}
+          icon={FiCheckCircle}
           iconClass="stat-card__icon--green"
         />
         <StatCard
           label="CANCELLED"
-          value={1}
-          icon={<XCircleIcon />}
+          value={orderStats.cancelled}
+          icon={FiXCircle}
           iconClass="stat-card__icon--red"
         />
       </div>
@@ -195,21 +314,52 @@ const OrderManagement = () => {
       {/* Filters & Search */}
       <div className="filters-bar">
         <div className="filters-bar__dropdowns">
-          <button className="dropdown-btn">
-            Payment Status
-            <span className="dropdown-btn__icon"><ChevronDownIcon /></span>
-          </button>
-          <button className="dropdown-btn">
-            Order Status
-            <span className="dropdown-btn__icon"><ChevronDownIcon /></span>
-          </button>
+          <div className="dropdown-container">
+            <button 
+              className="dropdown-btn"
+              onClick={() => setShowPaymentDropdown(!showPaymentDropdown)}
+            >
+              Payment Status: {filterPayment}
+              <span className="dropdown-btn__icon"><FiChevronDown /></span>
+            </button>
+            {showPaymentDropdown && (
+              <div className="dropdown-menu">
+                <div onClick={() => handleFilterChange('payment', 'All')}>All</div>
+                <div onClick={() => handleFilterChange('payment', 'Paid')}>Paid</div>
+                <div onClick={() => handleFilterChange('payment', 'Refunded')}>Refunded</div>
+                <div onClick={() => handleFilterChange('payment', 'Pending')}>Pending</div>
+              </div>
+            )}
+          </div>
+          <div className="dropdown-container">
+            <button 
+              className="dropdown-btn"
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+            >
+              Order Status: {filterStatus}
+              <span className="dropdown-btn__icon"><FiChevronDown /></span>
+            </button>
+            {showStatusDropdown && (
+              <div className="dropdown-menu">
+                <div onClick={() => handleFilterChange('status', 'All')}>All</div>
+                <div onClick={() => handleFilterChange('status', 'Pending')}>Pending</div>
+                <div onClick={() => handleFilterChange('status', 'Confirmed')}>Confirmed</div>
+                <div onClick={() => handleFilterChange('status', 'Preparing')}>Preparing</div>
+                <div onClick={() => handleFilterChange('status', 'Shipped')}>Shipped</div>
+                <div onClick={() => handleFilterChange('status', 'Completed')}>Completed</div>
+                <div onClick={() => handleFilterChange('status', 'Cancelled')}>Cancelled</div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="search-box">
-          <span className="search-box__icon"><SearchIcon /></span>
+          <span className="search-box__icon"><FiSearch /></span>
           <input
             type="text"
             className="search-box__input"
             placeholder="Search by Order ID, Customer Name..."
+            value={searchTerm}
+            onChange={handleSearchChange}
           />
         </div>
       </div>
@@ -230,50 +380,60 @@ const OrderManagement = () => {
             </tr>
           </thead>
           <tbody>
-          {orders.map((order) => {
-
-            const cleanId = order.id.replace("#", "");
-
-            return (
+            {currentOrders.map((order) => (
               <tr key={order.id}>
                 <td className="order-id">{order.id}</td>
                 <td className="customer-name">{order.customerName}</td>
                 <td className="order-date">{order.date}</td>
-                <td className="order-items">{order.items}</td>
-                <td className="order-amount">{order.totalAmount}</td>
-
-                <td>
-                  <StatusBadge status={order.status} />
-                </td>
-
-                <td>
-                  <PaymentStatus status={order.payment} />
-                </td>
-
+                <td className="order-items">{order.items} {order.items === 1 ? 'Item' : 'Items'}</td>
+                <td className="order-amount">₱{order.totalAmount?.toFixed(2)}</td>
+                <td><StatusBadge status={order.status} /></td>
+                <td><PaymentStatus status={order.payment} /></td>
                 <td>
                   <button
                     className="view-details-btn"
-                    onClick={() => navigate(`/seller/orders/${cleanId}`)}
+                    onClick={() => handleViewDetails(order)}
                   >
                     View Details
                   </button>
                 </td>
               </tr>
-            );
-          })}
-        </tbody>
+            ))}
+          </tbody>
         </table>
+        {filteredOrders.length === 0 && (
+          <div className="no-results">No orders found</div>
+        )}
       </div>
 
       {/* Pagination */}
-      <div className="pagination">
-        <button className="pagination__btn pagination__btn--nav">Previous</button>
-        <button className="pagination__btn pagination__btn--active">1</button>
-        <button className="pagination__btn">2</button>
-        <button className="pagination__btn">3</button>
-        <span className="pagination__ellipsis">...</span>
-        <button className="pagination__btn pagination__btn--nav">Next</button>
-      </div>
+      {filteredOrders.length > 0 && (
+        <div className="pagination">
+          <button 
+            className="pagination__btn pagination__btn--nav"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+          {[...Array(totalPages)].map((_, index) => (
+            <button
+              key={index}
+              className={`pagination__btn ${currentPage === index + 1 ? 'pagination__btn--active' : ''}`}
+              onClick={() => setCurrentPage(index + 1)}
+            >
+              {index + 1}
+            </button>
+          ))}
+          <button 
+            className="pagination__btn pagination__btn--nav"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 };
