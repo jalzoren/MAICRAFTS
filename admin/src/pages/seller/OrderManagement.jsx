@@ -10,8 +10,7 @@ import {
   FiCheckCircle, 
   FiXCircle, 
   FiSearch, 
-  FiChevronDown,
-  FiEye
+  FiChevronDown 
 } from "react-icons/fi";
 
 // Stat Card Component
@@ -67,17 +66,8 @@ const PaymentStatus = ({ status }) => {
     return displayMap[status?.toLowerCase()] || 'Unpaid';
   };
 
-  const getStatusClass = (status) => {
-    const classMap = {
-      'paid': 'paid',
-      'unpaid': 'unpaid',
-      'refunded': 'refunded'
-    };
-    return classMap[status?.toLowerCase()] || 'unpaid';
-  };
-
   return (
-    <span className={`payment-status payment-status--${getStatusClass(status)}`}>
+    <span className={`payment-status payment-status--${status?.toLowerCase() || 'unpaid'}`}>
       <span className="payment-status__dot" />
       {getDisplayStatus(status)}
     </span>
@@ -119,7 +109,6 @@ const OrderManagement = () => {
     completed: 0
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPayment, setFilterPayment] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -130,34 +119,11 @@ const OrderManagement = () => {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const ordersPerPage = 5;
 
-  const API_BASE_URL = 'http://localhost:5000/api';
-
-  // Format date function - uses database created_at
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date:', dateString);
-        return 'N/A';
-      }
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'N/A';
-    }
-  };
-
   // Fetch order stats from API
   const fetchOrderStats = async () => {
     try {
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders/stats/summary', { headers });
+      const response = await fetch('http://localhost:5000/api/orders/stats/summary', { headers });
       const data = await response.json();
       if (data.success && data.data) {
         setOrderStats({
@@ -178,55 +144,30 @@ const OrderManagement = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      setError(null);
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders', { headers });
+      const response = await fetch('http://localhost:5000/api/orders', { headers });
       const data = await response.json();
-      
       if (data.success && data.data) {
-        // Transform orders to match component structure
         const transformedOrders = data.data.map(order => ({
           id: order.order_number,
           cleanId: order.order_id,
           customerName: order.customer_name,
-          date: new Date(order.created_at).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
-          }),
-          items: 0, // Will be updated when we fetch items
+          date: new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          items: order.order_items ? order.order_items.length : 0,
           totalAmount: order.total_amount,
           status: order.order_status,
           payment: order.payment_status,
           customerEmail: order.customer_email,
           customerPhone: order.phone_number || 'N/A',
           customerAddress: order.shipping_address ? 
-            `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}` : 'N/A',
+            (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address)?.street || '' : 'N/A',
           notes: order.special_instructions || 'No special instructions',
           shipping: order.shipping_fee
         }));
-        
-        // Fetch order items count for each order
-        const ordersWithItems = await Promise.all(
-          transformedOrders.map(async (order) => {
-            try {
-              const itemsResponse = await fetch(`http://localhost:5000/api/orders/orders/${order.cleanId}`, { headers });
-              const itemsData = await itemsResponse.json();
-              return {
-                ...order,
-                items: itemsData.data?.items?.length || 0
-              };
-            } catch (error) {
-              return { ...order, items: 0 };
-            }
-          })
-        );
-        
-        setOrders(ordersWithItems);
+        setOrders(transformedOrders);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
-      setError('Network error. Please make sure the server is running on port 5000');
     } finally {
       setLoading(false);
     }
@@ -237,13 +178,12 @@ const OrderManagement = () => {
     const matchesSearch = 
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-    
     const matchesPayment = filterPayment === "All" || 
-      order.payment === filterPayment.toLowerCase();
-    
+      (filterPayment === "Paid" && order.payment === "paid") ||
+      (filterPayment === "Refunded" && order.payment === "refunded") ||
+      (filterPayment === "Pending" && (order.payment === "unpaid" || order.payment === "pending"));
     const matchesStatus = filterStatus === "All" || 
       order.status === filterStatus.toLowerCase();
-    
     return matchesSearch && matchesPayment && matchesStatus;
   });
 
@@ -347,23 +287,6 @@ const OrderManagement = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="order-management">
-        <div className="page-header">
-          <h1 className="page-header__title">Order Management</h1>
-          <p className="page-header__breadcrumb">Seller Dashboard / Order Management</p>
-        </div>
-        <div className="error-message">
-          <p>{error}</p>
-          <p style={{ fontSize: '14px', marginTop: '10px' }}>
-            Make sure your backend server is running on port 5000
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="order-management">
       {/* Page Header */}
@@ -414,15 +337,15 @@ const OrderManagement = () => {
               className="dropdown-btn"
               onClick={() => setShowPaymentDropdown(!showPaymentDropdown)}
             >
-              Payment: {filterPayment}
+              Payment Status: {filterPayment}
               <span className="dropdown-btn__icon"><FiChevronDown /></span>
             </button>
             {showPaymentDropdown && (
               <div className="dropdown-menu">
                 <div onClick={() => handleFilterChange('payment', 'All')}>All</div>
-                <div onClick={() => handleFilterChange('payment', 'paid')}>Paid</div>
-                <div onClick={() => handleFilterChange('payment', 'refunded')}>Refunded</div>
-                <div onClick={() => handleFilterChange('payment', 'unpaid')}>Unpaid</div>
+                <div onClick={() => handleFilterChange('payment', 'Paid')}>Paid</div>
+                <div onClick={() => handleFilterChange('payment', 'Refunded')}>Refunded</div>
+                <div onClick={() => handleFilterChange('payment', 'Pending')}>Pending</div>
               </div>
             )}
           </div>
@@ -431,18 +354,16 @@ const OrderManagement = () => {
               className="dropdown-btn"
               onClick={() => setShowStatusDropdown(!showStatusDropdown)}
             >
-              Status: {filterStatus}
+              Order Status: {filterStatus}
               <span className="dropdown-btn__icon"><FiChevronDown /></span>
             </button>
             {showStatusDropdown && (
               <div className="dropdown-menu">
                 <div onClick={() => handleFilterChange('status', 'All')}>All</div>
                 <div onClick={() => handleFilterChange('status', 'Pending')}>Pending</div>
-                <div onClick={() => handleFilterChange('status', 'Confirmed')}>Confirmed</div>
                 <div onClick={() => handleFilterChange('status', 'Preparing')}>Preparing</div>
                 <div onClick={() => handleFilterChange('status', 'Shipped')}>Shipped</div>
                 <div onClick={() => handleFilterChange('status', 'Completed')}>Completed</div>
-                <div onClick={() => handleFilterChange('status', 'Cancelled')}>Cancelled</div>
               </div>
             )}
           </div>
@@ -474,7 +395,7 @@ const OrderManagement = () => {
               <th>ORDER NO.</th>
               <th>CUSTOMER NAME</th>
               <th>DATE</th>
-              <th>QUANTITY</th>
+              <th>ITEMS</th>
               <th>TOTAL AMOUNT</th>
               <th>STATUS</th>
               <th>PAYMENT</th>
@@ -484,6 +405,13 @@ const OrderManagement = () => {
           <tbody>
             {currentOrders.map((order) => (
               <tr key={order.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedOrderIds.includes(order.cleanId)}
+                    onChange={() => toggleSelectOrder(order.cleanId)}
+                  />
+                </td>
                 <td className="order-id">{order.id}</td>
                 <td className="customer-name">{order.customerName}</td>
                 <td className="order-date">{order.date}</td>
@@ -500,13 +428,16 @@ const OrderManagement = () => {
                   </button>
                 </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
+        {filteredOrders.length === 0 && (
+          <div className="no-results">No orders found</div>
+        )}
       </div>
 
       {/* Pagination */}
-      {filteredOrders.length > 0 && totalPages > 1 && (
+      {filteredOrders.length > 0 && (
         <div className="pagination">
           <button 
             className="pagination__btn pagination__btn--nav"
