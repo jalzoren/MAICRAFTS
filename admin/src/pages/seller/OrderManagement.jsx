@@ -9,7 +9,8 @@ import {
   FiCheckCircle, 
   FiXCircle, 
   FiSearch, 
-  FiChevronDown 
+  FiChevronDown,
+  FiEye
 } from "react-icons/fi";
 
 // Stat Card Component
@@ -30,7 +31,7 @@ const StatusBadge = ({ status }) => {
   const getStatusClass = (status) => {
     const statusMap = {
       'pending': 'pending',
-      'confirmed': 'pending',
+      'confirmed': 'confirmed',
       'preparing': 'preparing',
       'shipped': 'shipped',
       'completed': 'completed',
@@ -69,8 +70,17 @@ const PaymentStatus = ({ status }) => {
     return displayMap[status?.toLowerCase()] || 'Unpaid';
   };
 
+  const getStatusClass = (status) => {
+    const classMap = {
+      'paid': 'paid',
+      'unpaid': 'unpaid',
+      'refunded': 'refunded'
+    };
+    return classMap[status?.toLowerCase()] || 'unpaid';
+  };
+
   return (
-    <span className={`payment-status payment-status--${status?.toLowerCase() || 'unpaid'}`}>
+    <span className={`payment-status payment-status--${getStatusClass(status)}`}>
       <span className="payment-status__dot" />
       {getDisplayStatus(status)}
     </span>
@@ -114,6 +124,7 @@ const OrderManagement = () => {
     cancelled: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPayment, setFilterPayment] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
@@ -122,11 +133,34 @@ const OrderManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 5;
 
+  const API_BASE_URL = 'http://localhost:5000/api';
+
+  // Format date function - uses database created_at
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date:', dateString);
+        return 'N/A';
+      }
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
+    }
+  };
+
   // Fetch order stats from API
   const fetchOrderStats = async () => {
     try {
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders/stats/summary', { headers });
+      const response = await fetch(`${API_BASE_URL}/orders/stats/summary`, { headers });
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -149,53 +183,46 @@ const OrderManagement = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      setError(null);
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders', { headers });
+      const response = await fetch(`${API_BASE_URL}/orders`, { headers });
       const data = await response.json();
       
+      console.log('API Response:', data);
+      
       if (data.success && data.data) {
-        // Transform orders to match component structure
-        const transformedOrders = data.data.map(order => ({
-          id: order.order_number,
-          cleanId: order.order_id,
-          customerName: order.customer_name,
-          date: new Date(order.created_at).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
-          }),
-          items: 0, // Will be updated when we fetch items
-          totalAmount: order.total_amount,
-          status: order.order_status,
-          payment: order.payment_status,
-          customerEmail: order.customer_email,
-          customerPhone: order.phone_number || 'N/A',
-          customerAddress: order.shipping_address ? 
-            `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}` : 'N/A',
-          notes: order.special_instructions || 'No special instructions',
-          shipping: order.shipping_fee
-        }));
+        const transformedOrders = data.data.map(order => {
+          // Calculate total quantity from order_items
+          const totalQuantity = order.order_items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
+          
+          // Log the created_at to verify
+          console.log(`Order ${order.order_number} created_at:`, order.created_at);
+          console.log(`Formatted date:`, formatDate(order.created_at));
+          
+          return {
+            id: order.order_number,
+            cleanId: order.order_id,
+            customerName: order.customer_name,
+            date: formatDate(order.created_at), // Use database created_at
+            totalQuantity: totalQuantity,
+            totalAmount: parseFloat(order.total_amount) || 0,
+            status: order.order_status,
+            payment: order.payment_status,
+            customerEmail: order.customer_email,
+            customerPhone: order.phone_number || 'N/A',
+            notes: order.special_instructions || 'No special instructions',
+            shipping: parseFloat(order.shipping_fee) || 0
+          };
+        });
         
-        // Fetch order items count for each order
-        const ordersWithItems = await Promise.all(
-          transformedOrders.map(async (order) => {
-            try {
-              const itemsResponse = await fetch(`http://localhost:5000/api/orders/orders/${order.cleanId}`, { headers });
-              const itemsData = await itemsResponse.json();
-              return {
-                ...order,
-                items: itemsData.data?.items?.length || 0
-              };
-            } catch (error) {
-              return { ...order, items: 0 };
-            }
-          })
-        );
-        
-        setOrders(ordersWithItems);
+        console.log('Transformed orders:', transformedOrders);
+        setOrders(transformedOrders);
+      } else {
+        setError(data.error || 'Failed to load orders');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setError('Network error. Please make sure the server is running on port 5000');
     } finally {
       setLoading(false);
     }
@@ -206,12 +233,13 @@ const OrderManagement = () => {
     const matchesSearch = 
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+    
     const matchesPayment = filterPayment === "All" || 
-      (filterPayment === "Paid" && order.payment === "paid") ||
-      (filterPayment === "Refunded" && order.payment === "refunded") ||
-      (filterPayment === "Pending" && (order.payment === "unpaid" || order.payment === "pending"));
+      order.payment === filterPayment.toLowerCase();
+    
     const matchesStatus = filterStatus === "All" || 
       order.status === filterStatus.toLowerCase();
+    
     return matchesSearch && matchesPayment && matchesStatus;
   });
 
@@ -259,6 +287,23 @@ const OrderManagement = () => {
           <p className="page-header__breadcrumb">Seller Dashboard / Order Management</p>
         </div>
         <div className="loading-spinner">Loading orders...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="order-management">
+        <div className="page-header">
+          <h1 className="page-header__title">Order Management</h1>
+          <p className="page-header__breadcrumb">Seller Dashboard / Order Management</p>
+        </div>
+        <div className="error-message">
+          <p>{error}</p>
+          <p style={{ fontSize: '14px', marginTop: '10px' }}>
+            Make sure your backend server is running on port 5000
+          </p>
+        </div>
       </div>
     );
   }
@@ -319,15 +364,15 @@ const OrderManagement = () => {
               className="dropdown-btn"
               onClick={() => setShowPaymentDropdown(!showPaymentDropdown)}
             >
-              Payment Status: {filterPayment}
+              Payment: {filterPayment}
               <span className="dropdown-btn__icon"><FiChevronDown /></span>
             </button>
             {showPaymentDropdown && (
               <div className="dropdown-menu">
                 <div onClick={() => handleFilterChange('payment', 'All')}>All</div>
-                <div onClick={() => handleFilterChange('payment', 'Paid')}>Paid</div>
-                <div onClick={() => handleFilterChange('payment', 'Refunded')}>Refunded</div>
-                <div onClick={() => handleFilterChange('payment', 'Pending')}>Pending</div>
+                <div onClick={() => handleFilterChange('payment', 'paid')}>Paid</div>
+                <div onClick={() => handleFilterChange('payment', 'refunded')}>Refunded</div>
+                <div onClick={() => handleFilterChange('payment', 'unpaid')}>Unpaid</div>
               </div>
             )}
           </div>
@@ -336,18 +381,18 @@ const OrderManagement = () => {
               className="dropdown-btn"
               onClick={() => setShowStatusDropdown(!showStatusDropdown)}
             >
-              Order Status: {filterStatus}
+              Status: {filterStatus}
               <span className="dropdown-btn__icon"><FiChevronDown /></span>
             </button>
             {showStatusDropdown && (
               <div className="dropdown-menu">
                 <div onClick={() => handleFilterChange('status', 'All')}>All</div>
-                <div onClick={() => handleFilterChange('status', 'Pending')}>Pending</div>
-                <div onClick={() => handleFilterChange('status', 'Confirmed')}>Confirmed</div>
-                <div onClick={() => handleFilterChange('status', 'Preparing')}>Preparing</div>
-                <div onClick={() => handleFilterChange('status', 'Shipped')}>Shipped</div>
-                <div onClick={() => handleFilterChange('status', 'Completed')}>Completed</div>
-                <div onClick={() => handleFilterChange('status', 'Cancelled')}>Cancelled</div>
+                <div onClick={() => handleFilterChange('status', 'pending')}>Pending</div>
+                <div onClick={() => handleFilterChange('status', 'confirmed')}>Confirmed</div>
+                <div onClick={() => handleFilterChange('status', 'preparing')}>Preparing</div>
+                <div onClick={() => handleFilterChange('status', 'shipped')}>Shipped</div>
+                <div onClick={() => handleFilterChange('status', 'completed')}>Completed</div>
+                <div onClick={() => handleFilterChange('status', 'cancelled')}>Cancelled</div>
               </div>
             )}
           </div>
@@ -372,7 +417,7 @@ const OrderManagement = () => {
               <th>ORDER NO.</th>
               <th>CUSTOMER NAME</th>
               <th>DATE</th>
-              <th>ITEMS</th>
+              <th>QUANTITY</th>
               <th>TOTAL AMOUNT</th>
               <th>STATUS</th>
               <th>PAYMENT</th>
@@ -380,34 +425,37 @@ const OrderManagement = () => {
             </tr>
           </thead>
           <tbody>
-            {currentOrders.map((order) => (
-              <tr key={order.id}>
-                <td className="order-id">{order.id}</td>
-                <td className="customer-name">{order.customerName}</td>
-                <td className="order-date">{order.date}</td>
-                <td className="order-items">{order.items} {order.items === 1 ? 'Item' : 'Items'}</td>
-                <td className="order-amount">₱{order.totalAmount?.toFixed(2)}</td>
-                <td><StatusBadge status={order.status} /></td>
-                <td><PaymentStatus status={order.payment} /></td>
-                <td>
-                  <button
-                    className="view-details-btn"
-                    onClick={() => handleViewDetails(order)}
-                  >
-                    View Details
-                  </button>
-                </td>
+            {currentOrders.length > 0 ? (
+              currentOrders.map((order) => (
+                <tr key={order.id}>
+                  <td className="order-id">{order.id}</td>
+                  <td className="customer-name">{order.customerName}</td>
+                  <td className="order-date">{order.date}</td>
+                  <td className="order-quantity">{order.totalQuantity}</td>
+                  <td className="order-amount">₱{order.totalAmount.toFixed(2)}</td>
+                  <td><StatusBadge status={order.status} /></td>
+                  <td><PaymentStatus status={order.payment} /></td>
+                  <td>
+                    <button
+                      className="view-details-btn"
+                      onClick={() => handleViewDetails(order)}
+                    >
+                      <FiEye size={16} /> View Details
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="8" className="no-results">No orders found</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-        {filteredOrders.length === 0 && (
-          <div className="no-results">No orders found</div>
-        )}
       </div>
 
       {/* Pagination */}
-      {filteredOrders.length > 0 && (
+      {filteredOrders.length > 0 && totalPages > 1 && (
         <div className="pagination">
           <button 
             className="pagination__btn pagination__btn--nav"

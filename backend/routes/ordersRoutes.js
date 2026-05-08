@@ -55,34 +55,80 @@ router.use(async (req, res, next) => {
 });
 // ========== END AUTH MIDDLEWARE ==========
 
-// GET all orders (seller dashboard)
+// GET all orders (seller dashboard) - WITH order_items
 router.get('/orders', async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
+    
+    // Step 1: Fetch orders
     let query = supabaseAdmin
       .from('orders')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+    
     if (status) query = query.eq('order_status', status.toLowerCase());
-    const { data, error, count } = await query;
+    
+    const { data: orders, error, count } = await query;
     if (error) throw error;
 
+    console.log(`✅ Found ${orders?.length || 0} orders`);
 
-     // ✅ AUDIT LOG ONLY (fire and forget)
-     if (req.user?.id) {
+    // Step 2: Fetch order_items for all orders
+    if (orders && orders.length > 0) {
+      const orderIds = orders.map(order => order.order_id);
+      
+      const { data: items, error: itemsError } = await supabaseAdmin
+        .from('order_items')
+        .select('*')
+        .in('order_id', orderIds);
+      
+      console.log(`📦 Found ${items?.length || 0} total items`);
+      
+      if (!itemsError && items && items.length > 0) {
+        const itemsByOrder = {};
+        items.forEach(item => {
+          if (!itemsByOrder[item.order_id]) {
+            itemsByOrder[item.order_id] = [];
+          }
+          itemsByOrder[item.order_id].push(item);
+        });
+        
+        orders.forEach(order => {
+          // Parse shipping_address if it's a string
+          if (order.shipping_address && typeof order.shipping_address === 'string') {
+            try {
+              order.shipping_address = JSON.parse(order.shipping_address);
+            } catch (e) {
+              console.error('Error parsing shipping_address for order:', order.order_number);
+            }
+          }
+          order.order_items = itemsByOrder[order.order_id] || [];
+        });
+      } else {
+        orders.forEach(order => {
+          if (order.shipping_address && typeof order.shipping_address === 'string') {
+            try {
+              order.shipping_address = JSON.parse(order.shipping_address);
+            } catch (e) {}
+          }
+          order.order_items = [];
+        });
+      }
+    }
+
+    if (req.user?.id) {
       createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
         user_role: req.user.role,
         action: 'VIEW',
         module: 'ORDER',
-        description: `Viewed orders list (${data?.length || 0} orders)`,
+        description: `Viewed orders list (${orders?.length || 0} orders)`,
       }).catch(err => console.error('Audit log error:', err));
     }
 
-
-    res.json({ success: true, data: data || [], total: count || 0, limit, offset });
+    res.json({ success: true, data: orders || [], total: count || 0, limit, offset });
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -449,6 +495,99 @@ router.post('/orders/:orderId/cancel', async (req, res) => {
     res.json({ success: true, message: 'Order cancelled successfully' });
   } catch (error) {
     console.error('Error cancelling order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+// GET single order with its items
+router.get('/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Fetch order
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+    
+    if (orderError || !order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    // Parse shipping_address if it's a string
+    if (order.shipping_address && typeof order.shipping_address === 'string') {
+      try {
+        order.shipping_address = JSON.parse(order.shipping_address);
+      } catch (e) {
+        console.error('Error parsing address:', e);
+      }
+    }
+    
+    // Fetch items
+    const { data: order_items, error: itemsError } = await supabaseAdmin
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+    
+    if (itemsError) throw itemsError;
+    
+    res.json({ 
+      success: true, 
+      data: { 
+        ...order, 
+        order_items: order_items || [] 
+      } 
+    });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+router.get('/orders/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Fetch order
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+    
+    if (orderError || !order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    // Parse shipping_address
+    if (order.shipping_address && typeof order.shipping_address === 'string') {
+      try {
+        let addressStr = order.shipping_address;
+        if (addressStr.startsWith('"') && addressStr.endsWith('"')) {
+          addressStr = JSON.parse(addressStr);
+        }
+        order.shipping_address = JSON.parse(addressStr);
+      } catch (e) {}
+    }
+    
+    // Fetch order_items
+    const { data: order_items, error: itemsError } = await supabaseAdmin
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId);
+    
+    if (itemsError) throw itemsError;
+    
+    // Return with order_items (THIS IS KEY)
+    res.json({ 
+      success: true, 
+      data: { 
+        ...order, 
+        order_items: order_items || []  // Must be "order_items"
+      } 
+    });
+  } catch (error) {
+    console.error('Error fetching order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
