@@ -189,12 +189,10 @@ const deductStockForOrder = async (orderId, orderItems) => {
   }
 };
 
-// GET all orders (seller dashboard) - WITH order_items
+// GET all orders (seller dashboard)
 router.get('/orders', async (req, res) => {
   try {
     const { status, limit = 50, offset = 0 } = req.query;
-    
-    // Step 1: Fetch orders
     let query = supabaseAdmin
       .from('orders')
       .select(`
@@ -209,57 +207,11 @@ router.get('/orders', async (req, res) => {
       `)
       .order('created_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
-    
     if (status) query = query.eq('order_status', status.toLowerCase());
-    
-    const { data: orders, error, count } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
 
-    console.log(`✅ Found ${orders?.length || 0} orders`);
-
-    // Step 2: Fetch order_items for all orders
-    if (orders && orders.length > 0) {
-      const orderIds = orders.map(order => order.order_id);
-      
-      const { data: items, error: itemsError } = await supabaseAdmin
-        .from('order_items')
-        .select('*')
-        .in('order_id', orderIds);
-      
-      console.log(`📦 Found ${items?.length || 0} total items`);
-      
-      if (!itemsError && items && items.length > 0) {
-        const itemsByOrder = {};
-        items.forEach(item => {
-          if (!itemsByOrder[item.order_id]) {
-            itemsByOrder[item.order_id] = [];
-          }
-          itemsByOrder[item.order_id].push(item);
-        });
-        
-        orders.forEach(order => {
-          // Parse shipping_address if it's a string
-          if (order.shipping_address && typeof order.shipping_address === 'string') {
-            try {
-              order.shipping_address = JSON.parse(order.shipping_address);
-            } catch (e) {
-              console.error('Error parsing shipping_address for order:', order.order_number);
-            }
-          }
-          order.order_items = itemsByOrder[order.order_id] || [];
-        });
-      } else {
-        orders.forEach(order => {
-          if (order.shipping_address && typeof order.shipping_address === 'string') {
-            try {
-              order.shipping_address = JSON.parse(order.shipping_address);
-            } catch (e) {}
-          }
-          order.order_items = [];
-        });
-      }
-    }
-
+    // Audit Log
     if (req.user?.id) {
       createAuditLog({
         user_id: req.user.id,
@@ -268,10 +220,8 @@ router.get('/orders', async (req, res) => {
         action: 'VIEW',
         module: 'ORDER',
         description: `Viewed orders list (${data?.length || 0} orders)`,
-      }).catch(err => console.error('Audit log error:', err));
+      }).catch(() => {});
     }
-
-
     res.json({ success: true, data: data || [], total: count || 0, limit, offset });
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -734,56 +684,5 @@ router.get('/orders/user/:userId', async (req, res) => {
   }
 });
 
-// POST – Cancel order (customer request)
-router.post('/orders/:orderId/cancel', async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const { reason } = req.body;
-
-    // First check if order exists and is cancellable (status pending or confirmed)
-    const { data: order, error: fetchError } = await supabaseAdmin
-      .from('orders')
-      .select('order_status')
-      .eq('order_id', orderId)
-      .single();
-
-    if (fetchError || !order) {
-      return res.status(404).json({ success: false, error: 'Order not found' });
-    }
-
-    if (!['pending', 'confirmed'].includes(order.order_status)) {
-      return res.status(400).json({ success: false, error: 'Order cannot be cancelled at this stage' });
-    }
-
-    const { error } = await supabaseAdmin
-      .from('orders')
-      .update({ 
-        order_status: 'cancelled',
-        updated_at: new Date().toISOString()
-      })
-      .eq('order_id', orderId);
-
-    if (error) throw error;
-
-    if (req.user?.id) {
-      await createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: 'CANCEL',
-        module: 'ORDER',
-        description: `Cancelled order ${order.order_number}. Reason: ${reason || 'No reason provided'}`,
-      });
-    }
-
-    // Log the cancellation reason (optional – can store in a separate table)
-    console.log(`Order ${orderId} cancelled. Reason: ${reason}`);
-
-    res.json({ success: true, message: 'Order cancelled successfully' });
-  } catch (error) {
-    console.error('Error cancelling order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 export default router;
