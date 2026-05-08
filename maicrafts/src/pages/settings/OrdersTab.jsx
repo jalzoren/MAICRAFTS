@@ -261,6 +261,12 @@ const OrdersTab = () => {
               <p className="customer-name">{trackingOrder.customerName}</p>
               <p className="contact-number">📞 {trackingOrder.contactNumber}</p>
               <p className="address">{trackingOrder.address}</p>
+              {trackingOrder.specialInstructions && (
+                  <div className="info-row">
+                    <span className="info-label">Special Instructions:</span>
+                    <span className="info-value">{trackingOrder.specialInstructions}</span>
+                  </div>
+                )}
             </div>
             <div className="delivery-right">
               <div className="info-row">
@@ -549,18 +555,7 @@ const OrdersTab = () => {
                 </div>
                 
                 <div className="order-actions">
-                  {o.status !== "Cancelled" && o.status !== "Delivered" && (
-                    <button 
-                      className="action-btn cancel-btn"
-                      onClick={() => handleCancelOrder(o)}
-                    >
-                      <FaBan /> Cancel Order
-                    </button>
-                  )}
-                  <button 
-                    className="action-btn track-btn"
-                    onClick={() => handleTrackOrder(o)}
-                  >
+                  <button className="action-btn track-btn" onClick={() => handleTrackOrder(o)}>
                     <FaMapMarkerAlt /> Track Order
                   </button>
                 </div>
@@ -570,7 +565,7 @@ const OrdersTab = () => {
         )}
       </section>
 
-      {/* Cancel Order Modal */}
+      {/* Cancel Order Modal 
       {showCancelModal && selectedOrder && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -649,7 +644,7 @@ const OrdersTab = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
