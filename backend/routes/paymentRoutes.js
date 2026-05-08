@@ -2,8 +2,59 @@
 import express from 'express';
 import axios from 'axios';
 import supabase from '../supabaseClient.js';
+import { createAuditLog } from '../services/auditService.js';
 
 const router = express.Router();
+
+// ========== AUTH MIDDLEWARE (for audit to know who is making requests) ==========
+router.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  console.log('🔐 [paymentRoutes] Auth Header:', authHeader ? 'Present' : 'Missing');
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error) {
+      console.error('Supabase auth error:', error.message);
+      req.user = null;
+      return next();
+    }
+
+    if (user) {
+      const { data: dbUser, error: dbError } = await supabase
+        .from("users")
+        .select("role, first_name, last_name")
+        .eq("email", user.email)
+        .single();
+      
+      const userRole = dbUser?.role || 'CUSTOMER';
+      
+      req.user = {
+        id: user.id,
+        email: user.email,
+        role: userRole,
+        name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
+      };
+      
+      console.log('✅ [paymentRoutes] Authenticated user:', req.user.email);
+    } else {
+      req.user = null;
+    }
+  } catch (error) {
+    console.error('Token verification error:', error);
+    req.user = null;
+  }
+
+  next();
+});
+// ========== END AUTH MIDDLEWARE ==========
 
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET_KEY; 
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
@@ -65,6 +116,28 @@ router.post('/create-checkout-session', async (req, res) => {
       // Continue anyway; webhook may still work if we use order_id mapping (but safer to store)
     }
 
+     // ✅ AUDIT LOG ONLY (await - important for payment creation)
+     if (req.user?.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'CREATE',
+        module: 'PAYMENT',
+        description: `Initiated payment checkout for order ${order_id}, amount ₱${amount}`,
+      });
+    }  else {
+      // Fallback for guest checkout (if you allow guest payments)
+      await createAuditLog({
+        user_id: null,
+        user_email: req.body.email || 'guest@checkout',
+        user_role: 'GUEST',
+        action: 'CREATE',
+        module: 'PAYMENT',
+        description: `Guest initiated payment checkout for order ${order_id}, amount ₱${amount}`,
+      });
+    }
+
     res.json({
       success: true,
       checkout_url: session.attributes.checkout_url,
@@ -72,6 +145,20 @@ router.post('/create-checkout-session', async (req, res) => {
     });
   } catch (error) {
     console.error('PayMongo error:', error.response?.data || error.message);
+
+    // ✅ ERROR AUDIT LOG
+    if (req.user?.id) {
+      await createAuditLog({
+        user_id: req.user.id,
+        user_email: req.user.email,
+        user_role: req.user.role,
+        action: 'ERROR',
+        module: 'PAYMENT',
+        description: `Failed to create checkout session for order ${req.body?.order_id}: ${error.message}`,
+      });
+    }
+
+    
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 });

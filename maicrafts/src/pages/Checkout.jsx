@@ -43,6 +43,32 @@ const getShippingFee = (city) => {
   return 20;
 };
 
+
+// ✅ Add helper function for auth headers
+const getAuthHeaders = () => {
+  try {
+    const sessionData = sessionStorage.getItem('mc_session');
+    if (!sessionData) return {};
+    
+    const session = JSON.parse(sessionData);
+    const token = session.user?.access_token;
+    
+    if (!token) {
+      console.warn('No access token found in session');
+      return {};
+    }
+    
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  } catch (error) {
+    console.error('Error getting auth headers:', error);
+    return {};
+  }
+};
+
+
 // ── Component ──────────────────────────────────────────────────────────────
 const Checkout = () => {
   const navigate = useNavigate();
@@ -78,7 +104,8 @@ const Checkout = () => {
   const fetchAddresses = async () => {
     setLoadingAddresses(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/address/${user.id}`);
+      const headers = getAuthHeaders(); 
+      const res = await fetch(`http://localhost:5000/api/address/${user.id}`, { headers });
       const data = await res.json();
       if (res.ok) {
         setAddresses(data.addresses || []);
@@ -120,6 +147,7 @@ const Checkout = () => {
 
     setIsPlacingOrder(true);
     try {
+      const headers = getAuthHeaders();
       // 1. Create order in your database
       const orderData = {
         user_id: user?.id || null,
@@ -149,7 +177,7 @@ const Checkout = () => {
 
       const orderResponse = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify(orderData),
       });
       const orderResult = await orderResponse.json();
@@ -162,7 +190,7 @@ const Checkout = () => {
 
       const paymentRes = await fetch('http://localhost:5000/api/payment/create-checkout-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers, 
         body: JSON.stringify({
           amount: totalAmount,
           order_id: orderId,
