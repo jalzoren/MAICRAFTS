@@ -52,7 +52,8 @@ const SellerDashboard = () => {
   // Fetch product stats
   const fetchProductStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/stats/summary');
+      const headers = getAuthHeaders(); // ✅ Add this
+      const response = await fetch('http://localhost:5000/api/products/stats/summary',  { headers });
       const data = await response.json();
       
       if (data.success) {
@@ -71,7 +72,8 @@ const SellerDashboard = () => {
   // Fetch low stock products for chart
   const fetchLowStockProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/low-stock/list?limit=6');
+      const headers = getAuthHeaders(); // ✅ Add this
+      const response = await fetch('http://localhost:5000/api/products/low-stock/list?limit=6', { headers });
       const data = await response.json();
       
       if (data.success && data.data) {
