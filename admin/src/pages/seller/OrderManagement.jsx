@@ -31,11 +31,9 @@ const StatusBadge = ({ status }) => {
   const getStatusClass = (status) => {
     const statusMap = {
       'pending': 'pending',
-      'confirmed': 'pending',
       'preparing': 'preparing',
       'shipped': 'shipped',
-      'completed': 'completed',
-      'cancelled': 'cancelled'
+      'completed': 'completed'
     };
     return statusMap[status?.toLowerCase()] || 'pending';
   };
@@ -43,11 +41,9 @@ const StatusBadge = ({ status }) => {
   const getDisplayStatus = (status) => {
     const displayMap = {
       'pending': 'Pending',
-      'confirmed': 'Confirmed',
       'preparing': 'Preparing',
       'shipped': 'Shipped',
-      'completed': 'Completed',
-      'cancelled': 'Cancelled'
+      'completed': 'Completed'
     };
     return displayMap[status?.toLowerCase()] || status;
   };
@@ -108,11 +104,9 @@ const OrderManagement = () => {
   const [orderStats, setOrderStats] = useState({
     totalOrders: 0,
     pending: 0,
-    confirmed: 0,
     preparing: 0,
     shipped: 0,
-    completed: 0,
-    cancelled: 0
+    completed: 0
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -121,24 +115,23 @@ const OrderManagement = () => {
   const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const ordersPerPage = 5;
 
   // Fetch order stats from API
   const fetchOrderStats = async () => {
     try {
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders/stats/summary', { headers });
+      const response = await fetch('http://localhost:5000/api/orders/stats/summary', { headers });
       const data = await response.json();
-      
       if (data.success && data.data) {
         setOrderStats({
           totalOrders: data.data.totalOrders || 0,
-          pending: (data.data.pending || 0) + (data.data.confirmed || 0),
-          confirmed: data.data.confirmed || 0,
+          pending: (data.data.pending || 0),
           preparing: data.data.preparing || 0,
           shipped: data.data.shipped || 0,
-          completed: data.data.completed || 0,
-          cancelled: data.data.cancelled || 0
+          completed: data.data.completed || 0
         });
       }
     } catch (error) {
@@ -146,54 +139,32 @@ const OrderManagement = () => {
     }
   };
 
+
   // Fetch orders from API
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const headers = getAuthHeaders();
-      const response = await fetch('http://localhost:5000/api/orders/orders', { headers });
+      const response = await fetch('http://localhost:5000/api/orders', { headers });
       const data = await response.json();
-      
       if (data.success && data.data) {
-        // Transform orders to match component structure
         const transformedOrders = data.data.map(order => ({
           id: order.order_number,
           cleanId: order.order_id,
           customerName: order.customer_name,
-          date: new Date(order.created_at).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric' 
-          }),
-          items: 0, // Will be updated when we fetch items
+          date: new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          items: order.order_items ? order.order_items.length : 0,
           totalAmount: order.total_amount,
           status: order.order_status,
           payment: order.payment_status,
           customerEmail: order.customer_email,
           customerPhone: order.phone_number || 'N/A',
           customerAddress: order.shipping_address ? 
-            `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}` : 'N/A',
+            (typeof order.shipping_address === 'string' ? JSON.parse(order.shipping_address) : order.shipping_address)?.street || '' : 'N/A',
           notes: order.special_instructions || 'No special instructions',
           shipping: order.shipping_fee
         }));
-        
-        // Fetch order items count for each order
-        const ordersWithItems = await Promise.all(
-          transformedOrders.map(async (order) => {
-            try {
-              const itemsResponse = await fetch(`http://localhost:5000/api/orders/orders/${order.cleanId}`, { headers });
-              const itemsData = await itemsResponse.json();
-              return {
-                ...order,
-                items: itemsData.data?.items?.length || 0
-              };
-            } catch (error) {
-              return { ...order, items: 0 };
-            }
-          })
-        );
-        
-        setOrders(ordersWithItems);
+        setOrders(transformedOrders);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -252,6 +223,58 @@ const OrderManagement = () => {
     loadData();
   }, []);
 
+    // Helper to toggle selection of a single order
+  const toggleSelectOrder = (orderId) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  // Helper to select/deselect all on current page
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.length === currentOrders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(currentOrders.map(order => order.cleanId));
+    }
+  };
+
+  // Bulk update handler
+  const handleBulkStatusUpdate = async (newStatus) => {
+    if (selectedOrderIds.length === 0) {
+      alert('Please select at least one order');
+      return;
+    }
+    if (!window.confirm(`Update ${selectedOrderIds.length} order(s) to "${newStatus}"?`)) return;
+
+    setBulkUpdating(true);
+    try {
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/orders/bulk-status', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          order_ids: selectedOrderIds,
+          order_status: newStatus.toLowerCase()
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert(data.message);
+        setSelectedOrderIds([]);
+        fetchOrders();   // refresh list
+        fetchOrderStats(); // refresh stats
+      } else {
+        alert(data.error || 'Bulk update failed');
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      alert('Failed to update orders');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="order-management">
@@ -304,12 +327,6 @@ const OrderManagement = () => {
           icon={FiCheckCircle}
           iconClass="stat-card__icon--green"
         />
-        <StatCard
-          label="CANCELLED"
-          value={orderStats.cancelled}
-          icon={FiXCircle}
-          iconClass="stat-card__icon--red"
-        />
       </div>
 
       {/* Filters & Search */}
@@ -344,11 +361,9 @@ const OrderManagement = () => {
               <div className="dropdown-menu">
                 <div onClick={() => handleFilterChange('status', 'All')}>All</div>
                 <div onClick={() => handleFilterChange('status', 'Pending')}>Pending</div>
-                <div onClick={() => handleFilterChange('status', 'Confirmed')}>Confirmed</div>
                 <div onClick={() => handleFilterChange('status', 'Preparing')}>Preparing</div>
                 <div onClick={() => handleFilterChange('status', 'Shipped')}>Shipped</div>
                 <div onClick={() => handleFilterChange('status', 'Completed')}>Completed</div>
-                <div onClick={() => handleFilterChange('status', 'Cancelled')}>Cancelled</div>
               </div>
             )}
           </div>
@@ -370,6 +385,13 @@ const OrderManagement = () => {
         <table className="orders-table">
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={selectedOrderIds.length === currentOrders.length && currentOrders.length > 0}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th>ORDER NO.</th>
               <th>CUSTOMER NAME</th>
               <th>DATE</th>
@@ -383,6 +405,13 @@ const OrderManagement = () => {
           <tbody>
             {currentOrders.map((order) => (
               <tr key={order.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedOrderIds.includes(order.cleanId)}
+                    onChange={() => toggleSelectOrder(order.cleanId)}
+                  />
+                </td>
                 <td className="order-id">{order.id}</td>
                 <td className="customer-name">{order.customerName}</td>
                 <td className="order-date">{order.date}</td>
@@ -435,6 +464,17 @@ const OrderManagement = () => {
           </button>
         </div>
       )}
+
+      <div className="bulk-actions">
+        <button
+          className="btn-primary"
+          onClick={() => handleBulkStatusUpdate('preparing')}
+          disabled={selectedOrderIds.length === 0 || bulkUpdating}
+        >
+          {bulkUpdating ? 'Updating...' : 'Mark Selected as Preparing'}
+        </button>
+        {/* Optionally add similar buttons for shipped/completed */}
+      </div>
     </div>
   );
 };

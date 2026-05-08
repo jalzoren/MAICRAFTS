@@ -1,5 +1,6 @@
 // backend/routes/addressRoutes.js
 import express from 'express';
+import axios from 'axios';
 import supabase from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
 
@@ -55,6 +56,27 @@ router.use(async (req, res, next) => {
 });
 // ========== END AUTH MIDDLEWARE ==========
 
+// Geocoding helper
+const geocodeAddress = async (addressString) => {
+  if (!addressString) return null;
+  try {
+    const encoded = encodeURIComponent(addressString);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`;
+    const response = await axios.get(url, {
+      headers: { 'User-Agent': 'MAICRAFTS/1.0' }
+    });
+    if (response.data && response.data.length > 0) {
+      return {
+        lat: parseFloat(response.data[0].lat),
+        lng: parseFloat(response.data[0].lon)
+      };
+    }
+  } catch (err) {
+    console.error("Geocoding error:", err.message);
+  }
+  return null;
+};
+
 // GET all addresses for a user
 router.get('/:userId', async (req, res) => {
   const { userId } = req.params;
@@ -65,8 +87,7 @@ router.get('/:userId', async (req, res) => {
     .order('is_default', { ascending: false });
 
   if (error) return res.status(500).json({ message: error.message });
-   // ✅ VIEW AUDIT LOG (fire and forget)
-   if (req.user?.id) {
+  if (req.user?.id) {
     createAuditLog({
       user_id: req.user.id,
       user_email: req.user.email,
@@ -79,17 +100,20 @@ router.get('/:userId', async (req, res) => {
   res.json({ addresses: data });
 });
 
-// POST — add new address
+// POST – add new address (with geocoding)
 router.post('/', async (req, res) => {
   const { userId, region, province, city, barangay, postal_code, home_address, is_default } = req.body;
-  
   if (!userId) return res.status(400).json({ message: 'userId is required' });
-  
+
   if (is_default) {
     await supabase.from('address').update({ is_default: false }).eq('user', userId);
   }
-  
-  const { data, error } = await supabase.from('address').insert([{
+
+  // ✅ Build full address and geocode
+  const fullAddress = `${home_address}, ${barangay}, ${city}, ${province}`;
+  const coords = await geocodeAddress(fullAddress);
+
+  const addressData = {
     user: userId,
     region,
     province,
@@ -98,12 +122,14 @@ router.post('/', async (req, res) => {
     postal_code,
     home_address,
     is_default: is_default || false,
-  }]).select();
-  
+    lat: coords?.lat || null,
+    lng: coords?.lng || null,
+  };
+
+  const { data, error } = await supabase.from('address').insert([addressData]).select();
   if (error) return res.status(500).json({ message: error.message });
 
-   // ✅ CREATE AUDIT LOG
-   if (req.user?.id) {
+  if (req.user?.id) {
     await createAuditLog({
       user_id: req.user.id,
       user_email: req.user.email,
@@ -117,28 +143,41 @@ router.post('/', async (req, res) => {
   res.json({ address: data[0] });
 });
 
-
-// PUT — edit address
+// PUT – edit address (with geocoding)
 router.put('/:addressId', async (req, res) => {
   const { addressId } = req.params;
   const { userId, region, province, city, barangay, postal_code, home_address, is_default } = req.body;
-
   if (!userId) return res.status(400).json({ message: 'userId is required' });
 
   if (is_default) {
     await supabase.from('address').update({ is_default: false }).eq('user', userId);
   }
 
+  // ✅ Build full address and geocode
+  const fullAddress = `${home_address}, ${barangay}, ${city}, ${province}`;
+  const coords = await geocodeAddress(fullAddress);
+
+  const updateData = {
+    region,
+    province,
+    city,
+    barangay,
+    postal_code,
+    home_address,
+    is_default,
+    lat: coords?.lat || null,
+    lng: coords?.lng || null,
+  };
+
   const { data, error } = await supabase.from('address')
-    .update({ region, province, city, barangay, postal_code, home_address, is_default })
+    .update(updateData)
     .eq('address_id', addressId)
     .select();
 
   if (error) return res.status(500).json({ message: error.message });
   if (!data || data.length === 0) return res.status(404).json({ message: 'Address not found' });
 
-   // ✅ UPDATE AUDIT LOG
-   if (req.user?.id) {
+  if (req.user?.id) {
     await createAuditLog({
       user_id: req.user.id,
       user_email: req.user.email,
@@ -152,23 +191,21 @@ router.put('/:addressId', async (req, res) => {
   res.json({ address: data[0] });
 });
 
-// DELETE — remove address
+// DELETE – remove address
 router.delete('/:addressId', async (req, res) => {
   const { addressId } = req.params;
   const { error } = await supabase.from('address').delete().eq('address_id', addressId);
   if (error) return res.status(500).json({ message: error.message });
-    // ✅ DELETE AUDIT LOG
-    if (req.user?.id) {
-      await createAuditLog({
-        user_id: req.user.id,
-        user_email: req.user.email,
-        user_role: req.user.role,
-        action: "DELETE",
-        module: "ADDRESS",
-        description: `Deleted address ${addressId} for user ${address?.user || 'unknown'}`,
-      });
-    }
-
+  if (req.user?.id) {
+    await createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: "DELETE",
+      module: "ADDRESS",
+      description: `Deleted address ${addressId}`,
+    });
+  }
   res.json({ message: 'Address deleted' });
 });
 
@@ -178,15 +215,12 @@ router.get("/users/me", async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    
     const { data, error } = await supabase
       .from("users")
       .select("id, first_name, last_name, middle_name, email, contact_number, profile_url, role")
       .eq("id", req.user.id)
       .single();
-    
     if (error) throw error;
-    
     res.json({ user: data });
   } catch (err) {
     console.error("Error fetching current user:", err);
