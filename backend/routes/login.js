@@ -486,7 +486,7 @@ router.post("/verify-otp", async (req, res) => {
   res.json({
     message: "Login successful",
     user: _buildUserPayload(userData),
-    token: accessToken, // ← ADD THIS
+    token: accessToken, 
   });
 });
 
