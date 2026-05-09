@@ -25,7 +25,7 @@ const getInitials = (label) => {
 };
 
 const SellerProfile = () => {
-	const { user } = useAuth();
+	const { user, refreshUser } = useAuth();
 	const displayName = buildDisplayName(user);
 	const initials = getInitials(displayName);
 	const avatarUrl = user?.avatar || user?.profile_url;
@@ -49,6 +49,13 @@ const SellerProfile = () => {
 
 	const closePayoutModal = () => {
 		setIsPayoutOpen(false);
+	};
+	
+	const handleProfileUpdate = () => {
+		// Refresh user data in context
+		if (refreshUser) {
+			refreshUser();
+		}
 	};
 
 	return (
@@ -108,6 +115,7 @@ const SellerProfile = () => {
 				isOpen={isEditOpen}
 				onClose={closeEditModal}
 				user={user}
+				onProfileUpdate={handleProfileUpdate}
 			/>
 
 			<PayoutDetailsModal

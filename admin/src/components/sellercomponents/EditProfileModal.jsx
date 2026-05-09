@@ -1,140 +1,446 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import "../../css/EditProfileModal.css";
 
-const getInitialFormValues = (user) => ({
-  firstName: user?.firstName || user?.first_name || "",
-  lastName: user?.lastName || user?.last_name || "",
-  middleName: user?.middleName || user?.middle_name || "",
-  email: user?.email || "",
-  phone: user?.phone || user?.contact_number || "",
-});
+const getAuthHeaders = () => {
+	try {
+		const sessionData = sessionStorage.getItem('mc_session');
+		if (!sessionData) return {};
+		
+		const session = JSON.parse(sessionData);
+		const token = session.user?.access_token;
+		
+		if (!token) {
+			console.warn('No access token found in session');
+			return {};
+		}
+		
+		return {
+			'Authorization': `Bearer ${token}`,
+			'Content-Type': 'application/json'
+		};
+	} catch (error) {
+		console.error('Error getting auth headers:', error);
+		return {};
+	}
+};
 
-const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
-  const [formValues, setFormValues] = useState(() => getInitialFormValues(user));
-  const [errors, setErrors] = useState({});
+const API_BASE_URL = window.env?.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setFormValues(getInitialFormValues(user));
-    setErrors({});
-  }, [isOpen, user]);
+const EditProfileModal = ({ isOpen, onClose, user, onProfileUpdate }) => {
+	const [activeTab, setActiveTab] = useState("profile");
+	const [loading, setLoading] = useState(false);
+	const [message, setMessage] = useState({ type: "", text: "" });
+	
+	// Personal Information State
+	const [personalInfo, setPersonalInfo] = useState({
+		first_name: "",
+		last_name: "",
+		middle_name: "",
+		contact_number: "",
+		email: ""
+	});
+	
+	// Password Change State
+	const [passwordData, setPasswordData] = useState({
+		current_password: "",
+		new_password: "",
+		confirm_password: ""
+	});
+	
+	// Password validation state
+	const [passwordValidation, setPasswordValidation] = useState({
+		length: false,
+		uppercase: false,
+		lowercase: false,
+		number: false,
+		special: false
+	});
 
-  if (!isOpen) return null;
+	// Fetch user profile when modal opens
+	useEffect(() => {
+		if (isOpen && user?.id) {
+			fetchUserProfile();
+		}
+	}, [isOpen, user?.id]);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormValues((prev) => ({ ...prev, [name]: value }));
-  };
+	const fetchUserProfile = async () => {
+		try {
+			setLoading(true);
+			const headers = getAuthHeaders();
+			const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+				method: 'GET',
+				headers: headers
+			});
 
-  const validateForm = () => {
-    const nextErrors = {};
-    if (!formValues.firstName.trim()) {
-      nextErrors.firstName = "First name is required.";
-    }
-    if (!formValues.lastName.trim()) {
-      nextErrors.lastName = "Last name is required.";
-    }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
+			if (!response.ok) {
+				throw new Error('Failed to fetch user profile');
+			}
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    if (!validateForm()) return;
-    if (onSave) {
-      onSave(formValues);
-    }
-    onClose();
-  };
+			const data = await response.json();
+			if (data.user) {
+				setPersonalInfo({
+					first_name: data.user.first_name || "",
+					last_name: data.user.last_name || "",
+					middle_name: data.user.middle_name || "",
+					contact_number: data.user.contact_number || "",
+					email: data.user.email || user.email || ""
+				});
+			}
+		} catch (error) {
+			console.error('Error fetching profile:', error);
+		} finally {
+			setLoading(false);
+		}
+	};
 
-  return (
-    <div className="ep-modal-overlay" onClick={onClose}>
-      <div className="ep-modal" onClick={(event) => event.stopPropagation()}>
-        <div className="ep-modal-header">
-          <h2 className="ep-modal-title">Edit Profile</h2>
-          <button className="ep-modal-close" type="button" onClick={onClose} aria-label="Close">x</button>
-        </div>
-        <form className="ep-modal-body" onSubmit={handleSubmit}>
-          <div className="ep-modal-grid">
-            <div className="ep-modal-field ep-modal-field--span-2">
-              <label className="ep-modal-label" htmlFor="firstName">First Name *</label>
-              <input
-                className={`ep-modal-input${errors.firstName ? " ep-modal-input--error" : ""}`}
-                type="text"
-                id="firstName"
-                name="firstName"
-                value={formValues.firstName}
-                onChange={handleChange}
-                placeholder="Enter your first name"
-                aria-invalid={Boolean(errors.firstName)}
-              />
-              {errors.firstName && <span className="ep-modal-error">{errors.firstName}</span>}
-            </div>
+	const handlePersonalInfoUpdate = async (e) => {
+		e.preventDefault();
+		setMessage({ type: "", text: "" });
+		
+		try {
+			setLoading(true);
+			const headers = getAuthHeaders();
+			const response = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+				method: 'PUT',
+				headers: headers,
+				body: JSON.stringify({
+					first_name: personalInfo.first_name,
+					last_name: personalInfo.last_name,
+					middle_name: personalInfo.middle_name,
+					contact_number: personalInfo.contact_number
+				})
+			});
 
-            <div className="ep-modal-field ep-modal-field--span-2">
-              <label className="ep-modal-label" htmlFor="lastName">Last Name *</label>
-              <input
-                className={`ep-modal-input${errors.lastName ? " ep-modal-input--error" : ""}`}
-                type="text"
-                id="lastName"
-                name="lastName"
-                value={formValues.lastName}
-                onChange={handleChange}
-                placeholder="Enter your last name"
-                aria-invalid={Boolean(errors.lastName)}
-              />
-              {errors.lastName && <span className="ep-modal-error">{errors.lastName}</span>}
-            </div>
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.message || 'Failed to update profile');
+			}
 
-            <div className="ep-modal-field ep-modal-field--span-2">
-              <label className="ep-modal-label" htmlFor="middleName">Middle Name</label>
-              <input
-                className="ep-modal-input"
-                type="text"
-                id="middleName"
-                name="middleName"
-                value={formValues.middleName}
-                onChange={handleChange}
-                placeholder="Enter your middle name"
-              />
-            </div>
+			const data = await response.json();
+			
+			setMessage({ type: "success", text: "Profile updated successfully!" });
+			
+			// Update local storage session with new user data
+			const sessionData = sessionStorage.getItem('mc_session');
+			if (sessionData) {
+				const session = JSON.parse(sessionData);
+				session.user = {
+					...session.user,
+					first_name: personalInfo.first_name,
+					last_name: personalInfo.last_name,
+					contact_number: personalInfo.contact_number
+				};
+				sessionStorage.setItem('mc_session', JSON.stringify(session));
+			}
+			
+			// Callback to refresh parent component
+			if (onProfileUpdate) {
+				onProfileUpdate();
+			}
+			
+			setTimeout(() => {
+				setMessage({ type: "", text: "" });
+			}, 3000);
+			
+		} catch (error) {
+			console.error('Error updating profile:', error);
+			setMessage({ type: "error", text: error.message });
+		} finally {
+			setLoading(false);
+		}
+	};
 
-            <div className="ep-modal-field ep-modal-field--span-4">
-              <label className="ep-modal-label" htmlFor="email">Email</label>
-              <input
-                className="ep-modal-input"
-                type="email"
-                id="email"
-                name="email"
-                value={formValues.email}
-                readOnly
-                aria-readonly="true"
-                placeholder="Enter your email"
-              />
-            </div>
+	// Validate password strength
+	const validatePassword = (password) => {
+		setPasswordValidation({
+			length: password.length >= 12,
+			uppercase: /[A-Z]/.test(password),
+			lowercase: /[a-z]/.test(password),
+			number: /\d/.test(password),
+			special: /[@$!%*?&]/.test(password)
+		});
+	};
 
-            <div className="ep-modal-field ep-modal-field--span-2">
-              <label className="ep-modal-label" htmlFor="phone">Phone Number</label>
-              <input
-                className="ep-modal-input"
-                type="tel"
-                id="phone"
-                name="phone"
-                value={formValues.phone}
-                onChange={handleChange}
-                placeholder="09XXXXXXXXX"
-              />
-            </div>
-          </div>
+	const handleNewPasswordChange = (e) => {
+		const newPassword = e.target.value;
+		setPasswordData({ ...passwordData, new_password: newPassword });
+		validatePassword(newPassword);
+	};
 
-          <div className="ep-modal-footer">
-            <button className="ep-modal-btn ep-modal-btn--ghost" type="button" onClick={onClose}>Cancel</button>
-            <button className="ep-modal-btn" type="submit">Save Changes</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
+	const handlePasswordChange = async (e) => {
+		e.preventDefault();
+		setMessage({ type: "", text: "" });
+		
+		// Validation
+		if (passwordData.new_password !== passwordData.confirm_password) {
+			setMessage({ type: "error", text: "New passwords do not match!" });
+			return;
+		}
+		
+		// Check all password requirements
+		if (!passwordValidation.length || !passwordValidation.uppercase || 
+		    !passwordValidation.lowercase || !passwordValidation.number || 
+		    !passwordValidation.special) {
+			setMessage({ type: "error", text: "Please meet all password requirements!" });
+			return;
+		}
+		
+		if (!passwordData.current_password) {
+			setMessage({ type: "error", text: "Please enter your current password!" });
+			return;
+		}
+
+		try {
+			setLoading(true);
+			const headers = getAuthHeaders();
+			
+			// FIXED: Changed from /auth/change-password to /change-password
+			const response = await fetch(`${API_BASE_URL}/change-password`, {
+				method: 'POST',
+				headers: headers,
+				body: JSON.stringify({
+					current_password: passwordData.current_password,
+					new_password: passwordData.new_password
+				})
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.message || data.error || 'Failed to change password');
+			}
+
+			setMessage({ type: "success", text: "Password changed successfully! Please login again." });
+			
+			// Clear password fields
+			setPasswordData({
+				current_password: "",
+				new_password: "",
+				confirm_password: ""
+			});
+			
+			// Reset validation
+			setPasswordValidation({
+				length: false,
+				uppercase: false,
+				lowercase: false,
+				number: false,
+				special: false
+			});
+			
+			// Close modal after 2 seconds
+			setTimeout(() => {
+				handleClose();
+			}, 2000);
+			
+		} catch (error) {
+			console.error('Error changing password:', error);
+			setMessage({ type: "error", text: error.message });
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const resetModal = () => {
+		setMessage({ type: "", text: "" });
+		setActiveTab("profile");
+		setPasswordData({
+			current_password: "",
+			new_password: "",
+			confirm_password: ""
+		});
+		setPasswordValidation({
+			length: false,
+			uppercase: false,
+			lowercase: false,
+			number: false,
+			special: false
+		});
+	};
+
+	const handleClose = () => {
+		resetModal();
+		onClose();
+	};
+
+	if (!isOpen) return null;
+
+	return (
+		<div className="modal-overlay" onClick={handleClose}>
+			<div className="modal-container" onClick={(e) => e.stopPropagation()}>
+				<div className="modal-header">
+					<h2>Edit Profile</h2>
+					<button className="modal-close" onClick={handleClose}>×</button>
+				</div>
+
+				<div className="modal-tabs">
+					<button 
+						className={`modal-tab ${activeTab === "profile" ? "active" : ""}`}
+						onClick={() => setActiveTab("profile")}
+					>
+						<span className="modal-tab-icon"></span>
+						Profile Information
+					</button>
+					<button 
+						className={`modal-tab ${activeTab === "password" ? "active" : ""}`}
+						onClick={() => setActiveTab("password")}
+					>
+						<span className="modal-tab-icon"></span>
+						Change Password
+					</button>
+				</div>
+
+				<div className="modal-body">
+					{message.type === "success" && (
+						<div className="modal-alert modal-alert-success">{message.text}</div>
+					)}
+					{message.type === "error" && (
+						<div className="modal-alert modal-alert-error">{message.text}</div>
+					)}
+
+					{activeTab === "profile" && (
+						<form onSubmit={handlePersonalInfoUpdate}>
+							<div className="form-group">
+								<label>First Name *</label>
+								<input
+									type="text"
+									value={personalInfo.first_name}
+									onChange={(e) => setPersonalInfo({...personalInfo, first_name: e.target.value})}
+									required
+									disabled={loading}
+									placeholder="Enter your first name"
+								/>
+							</div>
+
+							<div className="form-group">
+								<label>Middle Name</label>
+								<input
+									type="text"
+									value={personalInfo.middle_name}
+									onChange={(e) => setPersonalInfo({...personalInfo, middle_name: e.target.value})}
+									disabled={loading}
+									placeholder="Enter your middle name"
+								/>
+							</div>
+
+							<div className="form-group">
+								<label>Last Name *</label>
+								<input
+									type="text"
+									value={personalInfo.last_name}
+									onChange={(e) => setPersonalInfo({...personalInfo, last_name: e.target.value})}
+									required
+									disabled={loading}
+									placeholder="Enter your last name"
+								/>
+							</div>
+
+							<div className="form-group">
+								<label>Email Address</label>
+								<input
+									type="email"
+									value={personalInfo.email}
+									disabled
+									className="disabled-input"
+								/>
+								<small>Email cannot be changed</small>
+							</div>
+
+							<div className="form-group">
+								<label>Contact Number</label>
+								<input
+									type="tel"
+									value={personalInfo.contact_number}
+									onChange={(e) => setPersonalInfo({...personalInfo, contact_number: e.target.value})}
+									placeholder="+63 XXX XXX XXXX"
+									disabled={loading}
+								/>
+							</div>
+
+							<div className="modal-actions">
+								<button type="button" className="btn-secondary" onClick={handleClose}>
+									Cancel
+								</button>
+								<button type="submit" className="btn-primary" disabled={loading}>
+									{loading ? "Saving..." : "Save Changes"}
+								</button>
+							</div>
+						</form>
+					)}
+
+					{activeTab === "password" && (
+						<form onSubmit={handlePasswordChange}>
+							<div className="form-group">
+								<label>Current Password *</label>
+								<input
+									type="password"
+									value={passwordData.current_password}
+									onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+									required
+									placeholder="Enter your current password"
+									disabled={loading}
+								/>
+							</div>
+
+							<div className="form-group">
+								<label>New Password *</label>
+								<input
+									type="password"
+									value={passwordData.new_password}
+									onChange={handleNewPasswordChange}
+									required
+									placeholder="Enter new password"
+									disabled={loading}
+								/>
+							</div>
+
+							<div className="form-group">
+								<label>Confirm New Password *</label>
+								<input
+									type="password"
+									value={passwordData.confirm_password}
+									onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+									required
+									placeholder="Confirm your new password"
+									disabled={loading}
+								/>
+							</div>
+
+							<div className="password-hints">
+								<p>Password requirements:</p>
+								<ul>
+									<li className={passwordValidation.length ? "valid" : "invalid"}>
+										{passwordValidation.length ? "✓" : "○"} At least 12 characters
+									</li>
+									<li className={passwordValidation.uppercase ? "valid" : "invalid"}>
+										{passwordValidation.uppercase ? "✓" : "○"} At least 1 uppercase letter
+									</li>
+									<li className={passwordValidation.lowercase ? "valid" : "invalid"}>
+										{passwordValidation.lowercase ? "✓" : "○"} At least 1 lowercase letter
+									</li>
+									<li className={passwordValidation.number ? "valid" : "invalid"}>
+										{passwordValidation.number ? "✓" : "○"} At least 1 number
+									</li>
+									<li className={passwordValidation.special ? "valid" : "invalid"}>
+										{passwordValidation.special ? "✓" : "○"} At least 1 special character (@$!%*?&)
+									</li>
+								</ul>
+							</div>
+
+							<div className="modal-actions">
+								<button type="button" className="btn-secondary" onClick={handleClose}>
+									Cancel
+								</button>
+								<button type="submit" className="btn-primary" disabled={loading}>
+									{loading ? "Updating..." : "Update Password"}
+								</button>
+							</div>
+						</form>
+					)}
+				</div>
+			</div>
+		</div>
+	);
 };
 
 export default EditProfileModal;

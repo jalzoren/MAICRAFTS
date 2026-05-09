@@ -504,4 +504,88 @@ router.put('/users/:id', async (req, res) => {
   res.json({ user: data });
 });
 
+
+// In userRoutes.js - Keep only this version (remove the other one)
+
+// Password change endpoint with strong password requirements
+router.post("/change-password", async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Not authenticated" 
+      });
+    }
+    
+    // Validate input
+    if (!current_password || !new_password) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Current password and new password are required" 
+      });
+    }
+    
+    // Strong password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+    
+    if (!passwordRegex.test(new_password)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Password must meet the following requirements: at least 12 characters, 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@$!%*?&)" 
+      });
+    }
+    
+    // First, verify the current password by attempting to sign in
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: req.user.email,
+      password: current_password,
+    });
+    
+    if (signInError) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Current password is incorrect" 
+      });
+    }
+    
+    // Update password using Supabase auth
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: new_password
+    });
+    
+    if (updateError) {
+      console.error("Supabase password update error:", updateError);
+      return res.status(400).json({ 
+        success: false,
+        message: updateError.message || "Failed to update password" 
+      });
+    }
+    
+    // Log the password change for audit
+    await createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: "UPDATE",
+      module: "USER_PROFILE",
+      description: "Changed password"
+    });
+    
+    res.json({ 
+      success: true,
+      message: "Password updated successfully" 
+    });
+    
+  } catch (error) {
+    console.error("Error changing password:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Internal server error" 
+    });
+  }
+});
+
 export default router;

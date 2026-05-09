@@ -101,7 +101,7 @@
 /* ── Stats Row ── */
 .sd-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 24px;
   margin-bottom: 28px;
 }
@@ -564,7 +564,7 @@
 /* Stats Row - 4 cards */
 .sd-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -658,4 +658,97 @@
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Add to SellerDashboard.css */
+
+/* Recent Orders Table */
+.sd-recent-orders {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.sd-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.sd-orders-table th {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  color: #7a5c3a;
+  font-weight: 600;
+  border-bottom: 1px solid #ead7ae;
+}
+
+.sd-orders-table td {
+  padding: 0.75rem 0.5rem;
+  color: #3e2410;
+  border-bottom: 1px solid #f0e0c0;
+}
+
+.sd-orders-table tr:hover {
+  background: #fffaf2;
+}
+
+.order-id {
+  font-weight: 600;
+  color: #C8962A;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.status-completed {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-shipped {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-preparing {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pending {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+.status-default {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* Chart Placeholder */
+.sd-chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 260px;
+  color: #7a5c3a;
+  font-style: italic;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sd-orders-table {
+    font-size: 0.75rem;
+  }
+  
+  .sd-orders-table th,
+  .sd-orders-table td {
+    padding: 0.5rem 0.25rem;
+  }
 }

@@ -515,3 +515,79 @@ src/css/Products.css */
     height: 40px;
   }
 }
+
+/* Category Select with Add New Feature */
+.pm-category-select-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.pm-add-category-input {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 5px;
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  min-width: 250px;
+}
+
+.pm-add-category-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.pm-add-category-input input:focus {
+  border-color: #E6BB71;
+  box-shadow: 0 0 0 2px rgba(230, 187, 113, 0.1);
+}
+
+.pm-add-category-btn {
+  background: #E6BB71;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s;
+}
+
+.pm-add-category-btn:hover:not(:disabled) {
+  background: #d4a84b;
+}
+
+.pm-add-category-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pm-cancel-category-btn {
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.pm-cancel-category-btn:hover {
+  background: #e2e8f0;
+}
