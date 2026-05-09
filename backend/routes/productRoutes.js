@@ -3,6 +3,12 @@ import express from 'express';
 import multer from 'multer';
 import supabase from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
+import upload, { 
+  scanForVirus, 
+  optimizeImage, 
+  validateImageDimensions, 
+  deleteFile 
+} from '../middleware/upload.js';  // ← IMPORT FROM YOUR upload.js
 
 const router = express.Router();
 
@@ -61,21 +67,6 @@ router.use(async (req, res, next) => {
   next();
 });
 
-// Configure multer for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, WEBP, GIF are allowed.'));
-    }
-  }
-});
-
 // Helper function to get product status based on stock
 const getProductStatus = (stock) => {
   if (stock === 0) return 'OUT OF STOCK';
@@ -83,9 +74,13 @@ const getProductStatus = (stock) => {
   return 'IN STOCK';
 };
 
-// Helper function to upload image to Supabase Storage
+// ✅ FIXED: Upload to Supabase Storage (using disk storage from upload.js)
 const uploadImageToSupabase = async (file, fileName) => {
   try {
+    // Read file from disk (since upload.js uses diskStorage)
+    const fs = await import('fs');
+    const fileBuffer = fs.readFileSync(file.path);
+    
     const { data: buckets } = await supabase.storage.listBuckets();
     const bucketExists = buckets?.some(b => b.name === 'product-images');
     
@@ -97,7 +92,7 @@ const uploadImageToSupabase = async (file, fileName) => {
 
     const { error } = await supabase.storage
       .from('product-images')
-      .upload(`products/${fileName}`, file.buffer, {
+      .upload(`products/${fileName}`, fileBuffer, {
         contentType: file.mimetype,
         cacheControl: '3600',
         upsert: true
@@ -109,6 +104,9 @@ const uploadImageToSupabase = async (file, fileName) => {
       .from('product-images')
       .getPublicUrl(`products/${fileName}`);
 
+    // Clean up local file after upload
+    await deleteFile(file.path);
+    
     return publicUrl;
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -351,7 +349,6 @@ router.get('/categories', async (req, res) => {
       count: data.filter(item => item.category === category).length
     }));
 
-    // ✅ Add audit log for viewing categories
     if (req.user && req.user.id) {
       createAuditLog({
         user_id: req.user.id,
@@ -370,13 +367,18 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// CREATE PRODUCT
+// ✅ FIXED CREATE PRODUCT - Added virus scanning before upload
 router.post('/products', upload.array('images', 10), async (req, res) => {
   try {
     console.log('=== CREATE PRODUCT REQUEST ===');
     const { name, description, price, stock, category, variations, addOns } = req.body;
 
     if (!name) {
+      if (req.files) {
+        for (const file of req.files) {
+          await deleteFile(file.path);
+        }
+      }
       return res.status(400).json({ success: false, error: 'Product name is required' });
     }
 
@@ -407,8 +409,49 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid price value' });
     }
 
+    // ✅ ADDED: Virus scan and optimization BEFORE upload
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
+      console.log(`Processing ${req.files.length} images...`);
+      
+      for (let i = 0; i < req.files.length; i++) {
+        const file = req.files[i];
+        console.log(`Processing image ${i + 1}: ${file.originalname}`);
+        
+        // Virus scan
+        const scanResult = await scanForVirus(file.path);
+        if (scanResult.isInfected) {
+          await deleteFile(file.path);
+          for (let j = 0; j < i; j++) {
+            await deleteFile(req.files[j].path);
+          }
+          return res.status(400).json({ 
+            success: false, 
+            error: `Security threat detected in ${file.originalname}`
+          });
+        }
+        
+        // Validate dimensions
+        const dimensionCheck = await validateImageDimensions(file.path, 2000, 2000);
+        if (!dimensionCheck.valid) {
+          await deleteFile(file.path);
+          return res.status(400).json({
+            success: false,
+            error: dimensionCheck.message
+          });
+        }
+        
+        // Optimize image
+        const optimized = await optimizeImage(file.path);
+        if (!optimized) {
+          await deleteFile(file.path);
+          return res.status(500).json({
+            success: false,
+            error: `Failed to optimize image: ${file.originalname}`
+          });
+        }
+      }
+      
       imageUrls = await uploadMultipleImages(req.files);
       console.log('Images uploaded:', imageUrls.length);
     }
@@ -454,8 +497,7 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       console.log(`✅ Stock history added: +${numericStock} for ${newProduct.name}`);
     }
 
-     // ✅ CREATE AUDIT LOG (await - must complete)
-     if (req.user && req.user.id) {
+    if (req.user && req.user.id) {
       try {
         await createAuditLog({
           user_id: req.user.id,
@@ -471,7 +513,6 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
       }
     }
 
-
     res.status(201).json({ 
       success: true, 
       data: newProduct,
@@ -480,6 +521,11 @@ router.post('/products', upload.array('images', 10), async (req, res) => {
 
   } catch (error) {
     console.error('Error creating product:', error);
+    if (req.files) {
+      for (const file of req.files) {
+        await deleteFile(file.path);
+      }
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -517,6 +563,19 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
+      // Virus scan for new images
+      for (const file of req.files) {
+        const scanResult = await scanForVirus(file.path);
+        if (scanResult.isInfected) {
+          await deleteFile(file.path);
+          return res.status(400).json({ 
+            success: false, 
+            error: `Security threat detected in ${file.originalname}`
+          });
+        }
+        await optimizeImage(file.path);
+      }
+      
       const imageUrls = await uploadMultipleImages(req.files);
       if (imageUrls.length > 0) {
         updateData.image = imageUrls[0];
@@ -533,8 +592,7 @@ router.put('/products/:id', upload.array('images', 10), async (req, res) => {
 
     if (error) throw error;
 
-     // ✅ UPDATE AUDIT LOG (await - must complete)
-     if (req.user && req.user.id) {
+    if (req.user && req.user.id) {
       await createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -576,8 +634,7 @@ router.delete('/products/:id', async (req, res) => {
 
     if (error) throw error;
 
-     // ✅ DELETE AUDIT LOG (await - must complete)
-     if (req.user && req.user.id) {
+    if (req.user && req.user.id) {
       await createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -588,7 +645,6 @@ router.delete('/products/:id', async (req, res) => {
       });
       console.log('✅ DELETE audit log created');
     }
-
 
     res.json({ success: true, message: 'Product deleted successfully' });
 
@@ -640,8 +696,7 @@ router.post('/products/:id/stock', async (req, res) => {
     const changeReason = reason || (change > 0 ? 'Stock added' : 'Stock removed');
     await addStockHistory(id, change, changeReason, req.user?.id, adminName);
 
-     // ✅ STOCK UPDATE AUDIT LOG (await - must complete)
-     if (req.user && req.user.id) {
+    if (req.user && req.user.id) {
       await createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -663,14 +718,13 @@ router.post('/products/:id/stock', async (req, res) => {
   }
 });
 
-// GET STOCK HISTORY - FIXED to return correct format for frontend
+// GET STOCK HISTORY
 router.get('/products/:id/stock-history', async (req, res) => {
   try {
     const { id } = req.params;
     
     console.log(`📜 Fetching stock history for product ${id}`);
 
-    // Get product details
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('id, name')
@@ -689,7 +743,6 @@ router.get('/products/:id/stock-history', async (req, res) => {
       });
     }
 
-    // Get stock history - ORDER BY CREATED_AT ASCENDING to calculate running total correctly
     const { data: historyData, error: historyError } = await supabase
       .from('stock_history')
       .select('*')
@@ -701,8 +754,7 @@ router.get('/products/:id/stock-history', async (req, res) => {
       throw historyError;
     }
 
-     // ✅ VIEW STOCK HISTORY AUDIT (fire and forget - no await)
-     if (req.user && req.user.id) {
+    if (req.user && req.user.id) {
       createAuditLog({
         user_id: req.user.id,
         user_email: req.user.email,
@@ -715,7 +767,6 @@ router.get('/products/:id/stock-history', async (req, res) => {
 
     console.log(`Found ${historyData?.length || 0} stock history records for ${product.name}`);
 
-    // Calculate running total and format for frontend
     let runningTotal = 0;
     const historyWithRunningTotal = (historyData || []).map(record => {
       runningTotal += record.quantity_change;
@@ -729,11 +780,10 @@ router.get('/products/:id/stock-history', async (req, res) => {
       };
       console.log(`  Record: Change=${record.quantity_change}, Running Total=${runningTotal}, Reason=${formatted.reason}`);
       return formatted;
-    }).reverse(); // Most recent first
+    }).reverse();
 
     console.log(`✅ Returning ${historyWithRunningTotal.length} records with running totals`);
 
-    // Return in the format expected by the frontend
     res.json({ 
       success: true, 
       data: {
@@ -756,7 +806,6 @@ router.get('/products/:id/stock-history', async (req, res) => {
 });
 
 // ARCHIVE PRODUCTS
-// ARCHIVE PRODUCTS - FIXED VERSION
 router.post('/products/archive', async (req, res) => {
   try {
     const { productIds } = req.body;
@@ -765,7 +814,6 @@ router.post('/products/archive', async (req, res) => {
       return res.status(400).json({ success: false, error: 'No product IDs provided' });
     }
 
-    // ✅ FIRST: Get product names for audit (BEFORE archiving)
     const { data: productsToArchive, error: fetchError } = await supabase
       .from('products')
       .select('name, id')
@@ -775,7 +823,6 @@ router.post('/products/archive', async (req, res) => {
       console.error('Error fetching products to archive:', fetchError);
     }
 
-    // THEN: Archive the products
     const { data, error } = await supabase
       .from('products')
       .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -784,7 +831,6 @@ router.post('/products/archive', async (req, res) => {
 
     if (error) throw error;
 
-    // ✅ ARCHIVE AUDIT LOG (use productsToArchive that we fetched)
     if (req.user && req.user.id) {
       const productNames = productsToArchive?.map(p => p.name).join(', ') || `${productIds.length} products`;
       await createAuditLog({
@@ -806,85 +852,4 @@ router.post('/products/archive', async (req, res) => {
   }
 });
 
-
-// In productsRoutes.js - Replace your POST route with this
-router.post('/', upload.single('image'), async (req, res) => {
-  let uploadedFilePath = null;
-  
-  try {
-    const { name, description, price, category, stock, sku, variants } = req.body;
-    
-    if (!name || !price || !category) {
-      return res.status(400).json({ success: false, error: 'Name, price, and category are required' });
-    }
-
-    let imageUrl = null;
-    
-    // Handle file upload if present
-    if (req.file) {
-      uploadedFilePath = req.file.path;
-      
-      // 1. Scan for viruses
-      const virusScan = await scanForVirus(uploadedFilePath);
-      if (virusScan.isInfected) {
-        deleteFile(uploadedFilePath);
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Security check failed: File appears to be infected' 
-        });
-      }
-      
-      // 2. Validate dimensions
-      const dimensionCheck = await validateImageDimensions(uploadedFilePath);
-      if (!dimensionCheck.valid) {
-        deleteFile(uploadedFilePath);
-        return res.status(400).json({ success: false, error: dimensionCheck.message });
-      }
-      
-      // 3. Optimize image
-      await optimizeImage(uploadedFilePath);
-      
-      // 4. Generate public URL
-      imageUrl = `/uploads/products/${req.file.filename}`;
-    }
-
-    const productData = {
-      name,
-      description: description || null,
-      price: parseFloat(price),
-      category,
-      stock: parseInt(stock) || 0,
-      sku: sku || null,
-      variants: variants ? JSON.parse(variants) : null,
-      main_image: imageUrl,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-
-    const { data, error } = await supabase
-      .from('products')
-      .insert([productData])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    await createAuditLog({
-      user_id: req.user.id,
-      user_email: req.user.email,
-      user_role: req.user.role,
-      action: 'CREATE',
-      module: 'PRODUCT',
-      description: `Created product: ${name}`,
-    }).catch(() => {});
-
-    res.status(201).json({ success: true, data });
-    
-  } catch (error) {
-    // Clean up uploaded file on error
-    if (uploadedFilePath) deleteFile(uploadedFilePath);
-    console.error('Error creating product:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 export default router;
