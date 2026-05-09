@@ -1,4 +1,4 @@
-// ProductModal.jsx (SELLER SIDE) - FULLY FIXED with Swal for categories
+// ProductModal.jsx (SELLER SIDE) - FULLY FIXED with Secure Uploads & SweetAlert
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import '../../css/ProductModal.css';
@@ -22,19 +22,72 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
   const [newAddOn, setNewAddOn] = useState({ name: '', price: '' });
   const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState(['Satin Flowers', 'Dried Flowers', 'Fresh Flowers', 'Bouquets']);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   
   const hasBundleVariations = variations?.bundles?.length > 0;
+
+  // Fetch categories from API
+  const fetchCategories = async () => {
+    setLoadingCategories(true);
+    try {
+      const sessionData = sessionStorage.getItem('mc_session');
+      let token = null;
+      
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        token = session.user?.access_token;
+      }
+      
+      const response = await fetch('http://localhost:5000/api/categories', {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.length > 0) {
+        const categoryNames = data.data.map(cat => cat.name || cat);
+        setCategories(categoryNames);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCategories();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (product && isEditing) {
       console.log('📦 Editing product:', product);
-      console.log('🔹 add_ons from DB:', product.add_ons);
-      console.log('🔹 addOns (camelCase):', product.addOns);
       let loadedAddOns = [];
       if (product.add_ons && Array.isArray(product.add_ons)) {
         loadedAddOns = product.add_ons;
       } else if (product.addOns && Array.isArray(product.addOns)) {
         loadedAddOns = product.addOns;
+      }
+
+      // Handle images - convert URLs to preview objects
+      let loadedImages = [];
+      if (product.images && Array.isArray(product.images)) {
+        loadedImages = product.images.map((img, idx) => ({
+          url: img,
+          preview: img,
+          isMain: idx === 0,
+          file: null
+        }));
+      } else if (product.mainImage || product.image || product.main_image) {
+        const imgUrl = product.mainImage || product.image || product.main_image;
+        loadedImages = [{
+          url: imgUrl,
+          preview: imgUrl,
+          isMain: true,
+          file: null
+        }];
       }
 
       setFormData({
@@ -45,8 +98,8 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         addOns: loadedAddOns,
         price: product.price || '',
         stock: product.stock || '',
-        images: product.images || [],
-        mainImage: product.mainImage || null
+        images: loadedImages,
+        mainImage: loadedImages.find(img => img.isMain) || null
       });
 
       // Parse saved variations
@@ -66,7 +119,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         console.warn('Could not parse variations, resetting:', e);
       }
       setVariations(parsedVariations);
-    } else {
+    } else if (isOpen) {
       resetForm();
     }
   }, [product, isEditing, isOpen]);
@@ -131,7 +184,6 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     });
 
     if (categoryName) {
-      // Check if category already exists
       if (categories.includes(categoryName)) {
         Swal.fire({
           title: 'Category Exists',
@@ -143,7 +195,6 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
         return;
       }
       
-      // Add new category
       setCategories([...categories, categoryName]);
       setFormData({ ...formData, category: categoryName });
       
@@ -186,22 +237,25 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
     const validFiles = files.filter(file => {
       if (!validTypes.includes(file.type)) {
         Swal.fire('Error', `${file.name} is not a valid image file`, 'error');
         return false;
       }
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > maxSize) {
         Swal.fire('Error', `${file.name} should be less than 5MB`, 'error');
         return false;
       }
       return true;
     });
 
-    const newImages = validFiles.map(file => ({
+    const newImages = validFiles.map((file, idx) => ({
       file,
       preview: URL.createObjectURL(file),
-      isMain: formData.images.length === 0
+      isMain: formData.images.length === 0 && idx === 0,
+      url: null
     }));
 
     setFormData({ ...formData, images: [...formData.images, ...newImages] });
@@ -216,6 +270,9 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     const newImages = formData.images.filter((_, i) => i !== index);
     if (formData.images[index].isMain && newImages.length > 0) {
       newImages[0].isMain = true;
+    }
+    if (formData.images[index].preview && formData.images[index].preview.startsWith('blob:')) {
+      URL.revokeObjectURL(formData.images[index].preview);
     }
     setFormData({ ...formData, images: newImages });
   };
@@ -269,6 +326,17 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
     }
 
     setUploading(true);
+    
+    // Show processing indicator
+    Swal.fire({
+      title: 'Processing...',
+      html: 'Please wait while we process your product:<br><small>• Validating data<br>• Scanning images for viruses<br>• Optimizing images</small>',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
       const submitData = new FormData();
       submitData.append('name', formData.name.trim());
@@ -297,31 +365,33 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
       submitData.append('variations', JSON.stringify(variations));
       submitData.append('addOns', JSON.stringify(formData.addOns));
 
-      // Handle images
-      const mainImageIndex = formData.images.findIndex(img => img.isMain);
-      submitData.append('mainImageIndex', mainImageIndex >= 0 ? mainImageIndex : 0);
-
-      // Collect existing image URLs
-      const existingImageUrls = formData.images
-        .filter(img => !img.file && (img.url || img.preview))
-        .map(img => img.url || img.preview);
-
-      if (existingImageUrls.length > 0) {
-        submitData.append('existingImages', JSON.stringify(existingImageUrls));
-      }
-
-      // Append new image files
+      // Handle images - only append new files
       formData.images.forEach((image) => {
         if (image.file) {
           submitData.append('images', image.file);
         }
       });
 
+      // Send main image index
+      const mainImageIndex = formData.images.findIndex(img => img.isMain);
+      submitData.append('mainImageIndex', mainImageIndex >= 0 ? mainImageIndex.toString() : '0');
+
       await onSubmit(submitData);
+      
+      Swal.close();
+      Swal.fire({
+        title: 'Success!',
+        text: isEditing ? 'Product updated successfully!' : 'Product added successfully!',
+        icon: 'success',
+        confirmButtonColor: '#E6BB71',
+        timer: 1500
+      });
+      
       onClose();
       resetForm();
     } catch (error) {
       console.error('Error submitting product:', error);
+      Swal.close();
       Swal.fire('Error', 'Error submitting product: ' + error.message, 'error');
     } finally {
       setUploading(false);
@@ -365,18 +435,22 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
               />
             </div>
 
-            {/* Category with Swal Add New */}
+            {/* Category with SweetAlert */}
             <div className="form-group">
               <label className="form-label">Category *</label>
-              <select className="form-select" value={formData.category} onChange={handleCategoryChange}>
-                <option value="">Select Category</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                <option value="add-new" style={{ color: '#E6BB71', fontWeight: 'bold', borderTop: '1px solid #e2e8f0' }}>
-                  + Add New Category
-                </option>
-              </select>
+              {loadingCategories ? (
+                <div className="form-input" style={{ backgroundColor: '#f5f5f5' }}>Loading categories...</div>
+              ) : (
+                <select className="form-select" value={formData.category} onChange={handleCategoryChange}>
+                  <option value="">Select Category</option>
+                  {categories.map((cat, index) => (
+                    <option key={index} value={cat}>{cat}</option>
+                  ))}
+                  <option value="add-new" style={{ color: '#E6BB71', fontWeight: 'bold', borderTop: '1px solid #e2e8f0' }}>
+                    + Add New Category
+                  </option>
+                </select>
+              )}
               <small className="field-hint">
                 Select an existing category or click "+ Add New Category" to create one
               </small>
@@ -483,32 +557,32 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
               </div>
             </div>
 
-            {/* Product Images */}
+            {/* Product Images - Secure Upload */}
             <div className="form-group">
-              <label className="form-label">Product Images</label>
+              <label className="form-label">Product Images (Max 5MB each)</label>
               <div className="image-upload-area">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                   multiple
                   onChange={handleImageUpload}
                   className="image-input"
                   id="imageUpload"
                 />
                 <label htmlFor="imageUpload" className="image-upload-label">
-                  📸 Click to upload images
+                  📸 Click to upload images (JPG, PNG, WEBP, GIF only)
                 </label>
                 <div className="image-preview-grid">
                   {formData.images.map((image, index) => (
                     <div key={index} className={`image-preview-item ${image.isMain ? 'main-image' : ''}`}>
-                      <img src={image.preview || image.url || image} alt={`Preview ${index}`} className="preview-image" />
+                      <img src={image.preview || image.url} alt={`Preview ${index}`} className="preview-image" />
                       <div className="image-overlay">
-                        {!image.isMain && (
+                        {!image.isMain && formData.images.length > 1 && (
                           <button onClick={() => setMainImage(index)} className="set-main-btn">
                             Set as Main
                           </button>
                         )}
-                        {image.isMain && <span className="main-badge">Main</span>}
+                        {image.isMain && <span className="main-badge">⭐ Main</span>}
                         <button onClick={() => removeImage(index)} className="remove-image-btn">
                           ✕
                         </button>
@@ -516,6 +590,12 @@ const ProductModal = ({ isOpen, onClose, onSubmit, product = null, isEditing = f
                     </div>
                   ))}
                 </div>
+                {formData.images.length === 0 && (
+                  <small className="field-hint">
+                    Upload product images. First image will be the main product image.
+                    Images will be scanned for viruses and optimized automatically.
+                  </small>
+                )}
               </div>
             </div>
 

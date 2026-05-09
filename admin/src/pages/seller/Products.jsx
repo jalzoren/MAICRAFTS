@@ -11,8 +11,7 @@ import '../../css/Products.css';
 import { useAuth } from "../../context/AuthContext";
 
 const Products = () => {
-  const auth = useAuth();
-  const user = auth?.user;
+  const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
@@ -34,7 +33,7 @@ const Products = () => {
   const [stockHistory, setStockHistory] = useState([]);
   const [categories, setCategories] = useState([]);
 
-  // Helper function to get auth headers - INSIDE component
+  // Helper function to get auth headers
   const getAuthHeaders = () => {
     try {
       const sessionData = sessionStorage.getItem('mc_session');
@@ -49,8 +48,7 @@ const Products = () => {
       }
       
       return {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${token}`
       };
     } catch (error) {
       console.error('Error getting auth headers:', error);
@@ -83,6 +81,12 @@ const Products = () => {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
+      Swal.fire({
+        title: 'Error!',
+        text: 'Failed to load products. Please refresh the page.',
+        icon: 'error',
+        confirmButtonColor: '#E6BB71'
+      });
     } finally {
       setLoading(false);
     }
@@ -90,7 +94,8 @@ const Products = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/stats/summary');
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/products/stats/summary', { headers });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -102,8 +107,6 @@ const Products = () => {
           lowStock: data.data.lowStock || 0,
           outOfStock: data.data.outOfStock || 0
         });
-      } else {
-        console.error('Invalid stats response:', data);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -112,7 +115,8 @@ const Products = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/categories');
+      const headers = getAuthHeaders();
+      const response = await fetch('http://localhost:5000/api/categories', { headers });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -139,7 +143,15 @@ const Products = () => {
         throw new Error('No authentication token found. Please login again.');
       }
       
-      console.log('📦 Creating product with token present');
+      // Show loading indicator for secure file upload
+      Swal.fire({
+        title: 'Creating Product...',
+        html: 'Please wait while we process your product:<br><small>• Scanning for viruses<br>• Validating image dimensions<br>• Optimizing image quality</small>',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
       
       const response = await fetch('http://localhost:5000/api/products', {
         method: 'POST',
@@ -150,7 +162,7 @@ const Products = () => {
       });
       
       const data = await response.json();
-      console.log('Server response:', data);
+      Swal.close();
       
       if (data.success) {
         await fetchProducts();
@@ -167,6 +179,7 @@ const Products = () => {
         throw new Error(data.error || 'Failed to add product');
       }
     } catch (error) {
+      Swal.close();
       console.error('Error adding product:', error);
       Swal.fire({
         title: 'Error!',
@@ -192,7 +205,14 @@ const Products = () => {
         throw new Error('No authentication token found. Please login again.');
       }
       
-      console.log('✏️ Updating product with token present');
+      Swal.fire({
+        title: 'Updating Product...',
+        html: 'Please wait while we update your product:<br><small>• Scanning for viruses<br>• Validating image dimensions<br>• Optimizing image quality</small>',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
       
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'PUT',
@@ -203,7 +223,7 @@ const Products = () => {
       });
       
       const data = await response.json();
-      console.log('Update response:', data);
+      Swal.close();
 
       if (data.success) {
         await fetchProducts();
@@ -220,6 +240,7 @@ const Products = () => {
         throw new Error(data.error);
       }
     } catch (error) {
+      Swal.close();
       console.error('Error updating product:', error);
       Swal.fire({
         title: 'Error!',
@@ -233,8 +254,6 @@ const Products = () => {
 
   const updateStock = async (productId, change, reason = '') => {
     try {
-      console.log('Updating stock for product:', productId, 'Change:', change);
-      
       const sessionData = sessionStorage.getItem('mc_session');
       const session = JSON.parse(sessionData);
       const token = session?.user?.access_token;
@@ -254,7 +273,6 @@ const Products = () => {
       }
       
       const data = await response.json();
-      console.log('Stock update response:', data);
       
       if (data.success) {
         await fetchProducts();
@@ -282,13 +300,11 @@ const Products = () => {
     if (!result.isConfirmed) return;
     
     try {
-      const sessionData = sessionStorage.getItem('mc_session');
-      const session = JSON.parse(sessionData);
-      const token = session?.user?.access_token;
+      const headers = getAuthHeaders();
       
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'DELETE',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: headers
       });
       const data = await response.json();
       if (data.success) {
@@ -337,15 +353,13 @@ const Products = () => {
     if (!result.isConfirmed) return;
     
     try {
-      const sessionData = sessionStorage.getItem('mc_session');
-      const session = JSON.parse(sessionData);
-      const token = session?.user?.access_token;
+      const headers = getAuthHeaders();
       
       const response = await fetch('http://localhost:5000/api/products/archive', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
+          ...headers
         },
         body: JSON.stringify({ productIds: selectedRows })
       });
@@ -373,57 +387,55 @@ const Products = () => {
     }
   };
 
- const fetchStockHistory = async (productId) => {
-  try {
-    setLoading(true);
-    const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`);
-    
-    console.log('Fetching from:', `http://localhost:5000/api/products/${productId}/stock-history`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Stock history response:', data);
-    
-    // Handle the new response format
-    if (data.success && data.data && data.data.history) {
-      setStockHistory(data.data.history);
-      // Update selected product name if needed
-      if (data.data.product && data.data.product.name) {
-        setSelectedProduct(prev => ({
-          ...prev,
-          name: data.data.product.name
-        }));
+  const fetchStockHistory = async (productId) => {
+    try {
+      setLoading(true);
+      const headers = getAuthHeaders();
+      const response = await fetch(`http://localhost:5000/api/products/${productId}/stock-history`, { headers });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      setShowHistoryModal(true);
-    } else if (data.success && Array.isArray(data.data)) {
-      // Fallback for old format
-      setStockHistory(data.data);
-      setShowHistoryModal(true);
-    } else {
-      console.warn('Unexpected data structure:', data);
-      setStockHistory([]);
+      
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        if (data.data.history) {
+          setStockHistory(data.data.history);
+        } else if (Array.isArray(data.data)) {
+          setStockHistory(data.data);
+        } else {
+          setStockHistory([]);
+        }
+        
+        if (data.data.product && data.data.product.name) {
+          setSelectedProduct(prev => ({
+            ...prev,
+            name: data.data.product.name
+          }));
+        }
+        setShowHistoryModal(true);
+      } else {
+        setStockHistory([]);
+        Swal.fire({
+          title: 'Info',
+          text: 'No stock history found for this product',
+          icon: 'info',
+          confirmButtonColor: '#E6BB71'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching stock history:', error);
       Swal.fire({
-        title: 'Info',
-        text: 'No stock history found for this product',
-        icon: 'info',
+        title: 'Error!',
+        text: error.message || 'Error fetching stock history',
+        icon: 'error',
         confirmButtonColor: '#E6BB71'
       });
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching stock history:', error);
-    Swal.fire({
-      title: 'Error!',
-      text: error.message || 'Error fetching stock history',
-      icon: 'error',
-      confirmButtonColor: '#E6BB71'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -441,13 +453,11 @@ const Products = () => {
     });
   };
 
-  // Initialize stats and categories on mount
   useEffect(() => {
     fetchStats();
     fetchCategories();
   }, []);
 
-  // Fetch products when filters change
   useEffect(() => {
     fetchProducts();
   }, [filters]);
@@ -457,7 +467,7 @@ const Products = () => {
   const toggleRow = (id) => setSelectedRows(prev => prev.includes(id) ? prev.filter(r => r !== id) : [...prev, id]);
 
   const getStatusBadgeClass = (status) => {
-    switch(status) {
+    switch(status?.toUpperCase()) {
       case 'IN STOCK':
         return 'pm-badge-in-stock';
       case 'LOW STOCK':
@@ -636,10 +646,10 @@ const Products = () => {
                       onChange={() => toggleRow(product.id)} 
                     />
                   </td>
-                  <td className="pm-td pm-id">{product.id?.slice(0, 8)}...</td>
+                  <td className="pm-td pm-id">{product.id?.slice(0, 8)}...}</td>
                   <td className="pm-td">
                     <img 
-                      src={product.mainImage || product.image} 
+                      src={product.mainImage || product.image || product.main_image} 
                       alt={product.name} 
                       className="pm-product-img" 
                       onError={(e) => {
@@ -657,7 +667,7 @@ const Products = () => {
                   </td>
                   <td className="pm-td">
                     <span className={`pm-badge ${getStatusBadgeClass(product.status)}`}>
-                      {product.status}
+                      {product.status || (product.stock > 20 ? 'IN STOCK' : product.stock > 0 ? 'LOW STOCK' : 'OUT OF STOCK')}
                     </span>
                   </td>
                   <td className="pm-td">{product.category}</td>
@@ -701,11 +711,11 @@ const Products = () => {
                         <FiTrash2 size={16} />
                       </button>
                     </div>
-                   </td>
-                 </tr>
+                  </td>
+                </tr>
               ))}
             </tbody>
-           </table>
+          </table>
         )}
       </div>
 
