@@ -22,6 +22,7 @@ import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
 import productRoutes from './routes/productRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js';
+import changePasswordRoutes from './routes/changepassword.js';
 
 const app = express();
 
@@ -184,6 +185,7 @@ app.use("/api", auditLogsRoute);
 app.use('/api/settings', settingsRoutes);              
 app.use('/api/password-settings', settingsPassword);  
 app.use("/api", setPasswordRoute);
+app.use('/api', changePasswordRoutes);
 
 
 // 404 handler
