@@ -22,6 +22,7 @@ import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
 import productRoutes from './routes/productRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js';
+import { createAuditLog } from './services/auditService.js';
 
 const app = express();
 
@@ -99,6 +100,17 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     const sessionId = event.data.id;
     console.log(`✅ Payment succeeded for session ${sessionId}`);
 
+    // ✅ FIRST: Get order details
+    const { data: order, error: fetchError } = await supabaseAdmin
+      .from('orders')
+      .select('*')
+      .eq('payment_session_id', sessionId)
+      .single();
+
+    if (fetchError) {
+      console.error('Failed to fetch order:', fetchError);
+    }
+
     // Update order status
     const { error } = await supabaseAdmin
       .from('orders')
@@ -109,7 +121,28 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
       console.error('Failed to update order:', error);
       return res.status(500).send('Webhook handling failed');
     }
-  }
+
+
+      // ✅ ADD CHECKOUT AUDIT LOG HERE
+      if (order) {
+        try {
+          await supabaseAdmin
+            .from('audit_logs_central')
+            .insert([{
+              user_id: order.user_id || null,
+              user_email: order.customer_email || 'unknown@email.com',
+              user_role: 'CUSTOMER',
+              action: 'CHECKOUT',
+              module: 'PAYMENT',
+              description: `Payment completed for order ${order.order_number}. Amount: ₱${order.total_amount}. Session: ${sessionId}`,
+              created_at: new Date().toISOString()
+            }]);
+          console.log('✅ CHECKOUT audit log created');
+        } catch (auditError) {
+          console.error('Failed to create checkout audit log:', auditError);
+        }
+      }
+    }
 
   res.sendStatus(200);
 });
