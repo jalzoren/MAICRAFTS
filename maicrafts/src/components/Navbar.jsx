@@ -9,7 +9,7 @@ import { MdInfoOutline } from "react-icons/md";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext"; 
 import { useCart } from "../context/CartContext";
-
+import Swal from 'sweetalert2';
 
 // ─────────────────────────────────────────────
 // Sub-component: Notification Dropdown
@@ -190,10 +190,25 @@ const Navbar = () => {
   }, []);
 
   const handleLogout = () => {
-    logout();
-    setIsProfileOpen(false);
-    window.dispatchEvent(new Event("user-updated"));
-    navigate("/login");
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'You will be logged out of your account.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#4b2e16',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, logout',
+      cancelButtonText: 'Cancel',
+      background: '#E6BB71',
+      color: '#4b2e16',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        logout();
+        setIsProfileOpen(false);
+        window.dispatchEvent(new Event("user-updated"));
+        navigate("/login");
+      }
+    });
   };
 
   // ── Right-side action buttons (Bell, Cart, Profile) ──

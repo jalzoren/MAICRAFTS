@@ -1,4 +1,4 @@
-// Products.jsx (SELLER SIDE - Product Management/Inventory)
+// Products.jsx (SELLER SIDE - Product Management/Inventory) - FIXED IMAGE PREVIEW
 import React, { useState, useEffect } from 'react';
 import { FiEdit2, FiPlusCircle, FiClock, FiTrash2, FiArchive, FiSearch } from 'react-icons/fi';
 import { MdOutlineRemoveCircle } from 'react-icons/md';
@@ -56,6 +56,22 @@ const Products = () => {
     }
   };
 
+  // ✅ FIXED: Helper function to get product image URL
+  const getProductImageUrl = (product) => {
+    if (!product) return null;
+    
+    // Check all possible image fields
+    if (product.mainImage) return product.mainImage;
+    if (product.main_image) return product.main_image;
+    if (product.image) return product.image;
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      return product.images[0];
+    }
+    
+    // Return null if no image found
+    return null;
+  };
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -75,7 +91,17 @@ const Products = () => {
       const data = await response.json();
       
       if (data.success) {
-        setProducts(data.data || []);
+        // ✅ FIXED: Ensure each product has a valid image URL
+        const productsWithImages = (data.data || []).map(product => ({
+          ...product,
+          // Normalize image fields
+          mainImage: getProductImageUrl(product),
+          image: getProductImageUrl(product),
+          main_image: getProductImageUrl(product)
+        }));
+        setProducts(productsWithImages);
+        console.log('Products loaded:', productsWithImages.length);
+        console.log('First product image:', productsWithImages[0]?.mainImage);
       } else {
         throw new Error(data.error || 'Failed to fetch products');
       }
@@ -143,7 +169,6 @@ const Products = () => {
         throw new Error('No authentication token found. Please login again.');
       }
       
-      // Show loading indicator for secure file upload
       Swal.fire({
         title: 'Creating Product...',
         html: 'Please wait while we process your product:<br><small>• Scanning for viruses<br>• Validating image dimensions<br>• Optimizing image quality</small>',
@@ -637,83 +662,90 @@ const Products = () => {
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="pm-row">
-                  <td className="pm-td pm-td-check">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedRows.includes(product.id)} 
-                      onChange={() => toggleRow(product.id)} 
-                    />
-                  </td>
-                  <td className="pm-td pm-id">{product.id?.slice(0, 8)}...}</td>
-                  <td className="pm-td">
-                    <img 
-                      src={product.mainImage || product.image || product.main_image} 
-                      alt={product.name} 
-                      className="pm-product-img" 
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/120x120/c8a97d/fff?text=🌸';
-                      }}
-                    />
-                  </td>
-                  <td className="pm-td">{product.name}</td>
-                  <td className="pm-td pm-desc">{product.description?.substring(0, 60) || '—'}</td>
-                  <td className="pm-td">₱{Number(product.price).toFixed(2)}</td>
-                  <td className="pm-td">
-                    <div className="pm-stock-display">
-                      {product.stock}
-                    </div>
-                  </td>
-                  <td className="pm-td">
-                    <span className={`pm-badge ${getStatusBadgeClass(product.status)}`}>
-                      {product.status || (product.stock > 20 ? 'IN STOCK' : product.stock > 0 ? 'LOW STOCK' : 'OUT OF STOCK')}
-                    </span>
-                  </td>
-                  <td className="pm-td">{product.category}</td>
-                  <td className="pm-td">
-                    <div className="pm-actions">
-                      <button 
-                        className="pm-action-btn pm-edit" 
-                        title="Edit Product" 
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setShowModal(true);
+              {products.map((product) => {
+                // ✅ Get the correct image URL for each product
+                const imageUrl = getProductImageUrl(product);
+                console.log(`Product ${product.name} image URL:`, imageUrl);
+                
+                return (
+                  <tr key={product.id} className="pm-row">
+                    <td className="pm-td pm-td-check">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedRows.includes(product.id)} 
+                        onChange={() => toggleRow(product.id)} 
+                      />
+                    </td>
+                    <td className="pm-td pm-id">{product.id?.slice(0, 8)}...</td>
+                    <td className="pm-td">
+                      <img 
+                        src={imageUrl || 'https://via.placeholder.com/120x120/c8a97d/fff?text=No+Image'}
+                        alt={product.name} 
+                        className="pm-product-img" 
+                        onError={(e) => {
+                          console.error(`Image failed to load for ${product.name}:`, imageUrl);
+                          e.target.src = 'https://via.placeholder.com/120x120/c8a97d/fff?text=🌸';
                         }}
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
-                      <button 
-                        className="pm-action-btn pm-add-stock" 
-                        title="Add Stock" 
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setShowAddStockModal(true);
-                        }}
-                      >
-                        <FiPlusCircle size={16} />
-                      </button>
-                      <button 
-                        className="pm-action-btn pm-history" 
-                        title="View Stock History" 
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          fetchStockHistory(product.id);
-                        }}
-                      >
-                        <FiClock size={16} />
-                      </button>
-                      <button 
-                        className="pm-action-btn pm-delete" 
-                        title="Delete Product" 
-                        onClick={() => handleDeleteProduct(product.id)}
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      />
+                    </td>
+                    <td className="pm-td">{product.name}</td>
+                    <td className="pm-td pm-desc">{product.description?.substring(0, 60) || '—'}</td>
+                    <td className="pm-td">₱{Number(product.price).toFixed(2)}</td>
+                    <td className="pm-td">
+                      <div className="pm-stock-display">
+                        {product.stock}
+                      </div>
+                    </td>
+                    <td className="pm-td">
+                      <span className={`pm-badge ${getStatusBadgeClass(product.status)}`}>
+                        {product.status || (product.stock > 20 ? 'IN STOCK' : product.stock > 0 ? 'LOW STOCK' : 'OUT OF STOCK')}
+                      </span>
+                    </td>
+                    <td className="pm-td">{product.category}</td>
+                    <td className="pm-td">
+                      <div className="pm-actions">
+                        <button 
+                          className="pm-action-btn pm-edit" 
+                          title="Edit Product" 
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowModal(true);
+                          }}
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                        <button 
+                          className="pm-action-btn pm-add-stock" 
+                          title="Add Stock" 
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            setShowAddStockModal(true);
+                          }}
+                        >
+                          <FiPlusCircle size={16} />
+                        </button>
+                        <button 
+                          className="pm-action-btn pm-history" 
+                          title="View Stock History" 
+                          onClick={() => {
+                            setSelectedProduct(product);
+                            fetchStockHistory(product.id);
+                          }}
+                        >
+                          <FiClock size={16} />
+                        </button>
+                        <button 
+                          className="pm-action-btn pm-delete" 
+                          title="Delete Product" 
+                          onClick={() => handleDeleteProduct(product.id)}
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
