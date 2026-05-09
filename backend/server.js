@@ -22,6 +22,7 @@ import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
 import productRoutes from './routes/productRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js';
+import changePasswordRoutes from './routes/changepassword.js';
 import { createAuditLog } from './services/auditService.js';
 import changePasswordRouter from "./routes/changepassword.js";
 

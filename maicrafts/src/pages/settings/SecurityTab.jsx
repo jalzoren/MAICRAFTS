@@ -1,413 +1,17 @@
-// src/settings/SecurityTab.jsx
-import { useState, useEffect, useRef } from "react";
-import { FiCheck, FiEye, FiEyeOff, FiX } from "react-icons/fi";
+// src/pages/settings/SecurityTab.jsx
+import { useState, useRef, useEffect } from "react";
+import { FiCheck, FiEye, FiEyeOff } from "react-icons/fi";
 import { IoMdMail } from "react-icons/io";
 import { SiGoogleauthenticator } from "react-icons/si";
 import Swal from "sweetalert2";
+import ChangePasswordModal from "./ChangePasswordModal";
 import "./css/ChangePassword.css";
 
-
-const getAuthHeaders = () => {
-  try {
-    const sessionData = sessionStorage.getItem('mc_session');
-    if (!sessionData) return {};
-    
-    const session = JSON.parse(sessionData);
-    const token = session.user?.access_token;
-    
-    if (!token) {
-      console.warn('No access token found in session');
-      return {};
-    }
-    
-    return {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    };
-  } catch (error) {
-    console.error('Error getting auth headers:', error);
-    return {};
-  }
-};
-
-// ─────────────────────────────────────────────
-// Password strength helpers
-// ─────────────────────────────────────────────
-const checkStrength = (pw, policy) => {
-  if (!pw || !policy) return "weak";
-
-  let score = 0;
-  let maxScore = 0;
-
-  // length rule
-  maxScore++;
-  if (pw.length >= policy.min_length) score++;
-
-  // uppercase
-  if (policy.require_uppercase) {
-    maxScore++;
-    if ((pw.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count) score++;
-  }
-
-  // lowercase
-  if (policy.require_lowercase) {
-    maxScore++;
-    if ((pw.match(/[a-z]/g) || []).length >= policy.lowercase_min_count) score++;
-  }
-
-  // numbers
-  if (policy.require_number) {
-    maxScore++;
-    if ((pw.match(/\d/g) || []).length >= policy.number_min_count) score++;
-  }
-
-  // special chars
-  if (policy.require_special_char) {
-    maxScore++;
-    const specials = [...pw].filter(ch =>
-      policy.special_char_set.includes(ch)
-    ).length;
-
-    if (specials >= policy.special_char_min_count) score++;
-  }
-
-  const ratio = score / maxScore;
-
-  if (ratio >= 0.8) return "strong";
-  if (ratio >= 0.5) return "medium";
-  return "weak";
-};
-
-const strengthMeta = {
-  weak:   { color: "#c0392b", label: "Weak",   bars: 1 },
-  medium: { color: "#e67e22", label: "Medium", bars: 2 },
-  strong: { color: "#27ae60", label: "Strong", bars: 3 },
-};
-
-// ─────────────────────────────────────────────
-// CHANGE PASSWORD MODAL
-// Appears after EITHER path (current pw or OTP)
-// ─────────────────────────────────────────────
-const ChangePasswordModal = ({ user, onClose, onSuccess, isLoading, setIsLoading, verifiedViaOTP }) => {
-  const [policy, setPolicy] = useState(null); 
-  const [form,   setForm]   = useState({ newPassword: "", confirmPassword: "" });
-  const [show,   setShow]   = useState({ new: false, confirm: false });
-  const [errors, setErrors] = useState({});
-  
-
-  const strength = checkStrength(form.newPassword, policy);
-  const meta     = strengthMeta[strength] || {};
-
-  const requirements = policy
-  ? [
-      {
-        label: `At least ${policy.min_length} characters`,
-        met: form.newPassword.length >= policy.min_length,
-      },
-
-      ...(policy.require_uppercase
-        ? [{
-            label: `${policy.uppercase_min_count} uppercase letter(s)`,
-            met: (form.newPassword.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count,
-          }]
-        : []),
-
-      ...(policy.require_lowercase
-        ? [{
-            label: `${policy.lowercase_min_count} lowercase letter(s)`,
-            met: (form.newPassword.match(/[a-z]/g) || []).length >= policy.lowercase_min_count,
-          }]
-        : []),
-
-      ...(policy.require_number
-        ? [{
-            label: `${policy.number_min_count} number(s)`,
-            met: (form.newPassword.match(/\d/g) || []).length >= policy.number_min_count,
-          }]
-        : []),
-
-      ...(policy.require_special_char
-        ? [{
-            label: `${policy.special_char_min_count} special character(s)`,
-            met: [...form.newPassword].filter(ch =>
-              policy.special_char_set.includes(ch)
-            ).length >= policy.special_char_min_count,
-          }]
-        : []),
-    ]
-  : [];
-
-  const validate = () => {
-    const errs = {};
-  
-    if (!policy) {
-      errs.newPassword = "Password policy not loaded";
-      setErrors(errs);
-      return false;
-    }
-  
-    const pw = form.newPassword;
-  
-    if (!pw) errs.newPassword = "New password is required";
-  
-    if (pw.length < policy.min_length)
-      errs.newPassword = `Minimum ${policy.min_length} characters required`;
-  
-    if (policy.require_uppercase &&
-        (pw.match(/[A-Z]/g) || []).length < policy.uppercase_min_count)
-      errs.newPassword = `At least ${policy.uppercase_min_count} uppercase letter(s) required`;
-  
-    if (policy.require_lowercase &&
-        (pw.match(/[a-z]/g) || []).length < policy.lowercase_min_count)
-      errs.newPassword = `At least ${policy.lowercase_min_count} lowercase letter(s) required`;
-  
-    if (policy.require_number &&
-        (pw.match(/\d/g) || []).length < policy.number_min_count)
-      errs.newPassword = `At least ${policy.number_min_count} number(s) required`;
-  
-    if (policy.require_special_char) {
-      const specials = [...pw].filter(ch =>
-        policy.special_char_set.includes(ch)
-      ).length;
-  
-      if (specials < policy.special_char_min_count)
-        errs.newPassword = `At least ${policy.special_char_min_count} special character(s) required`;
-    }
-  
-    if (!form.confirmPassword)
-      errs.confirmPassword = "Please confirm your password";
-  
-    if (pw !== form.confirmPassword)
-      errs.confirmPassword = "Passwords do not match";
-  
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
- 
-
-  useEffect(() => {
-    const fetchPolicy = async () => {
-      try {
-        const res = await fetch("http://localhost:5000/api/password-settings");
-        const data = await res.json();
-  
-        if (res.ok) {
-          setPolicy(data);
-        }
-      } catch (err) {
-        console.error("Failed to load policy", err);
-      }
-    };
-  
-    fetchPolicy();
-  }, []);
-
-  const handleSave = async () => {
-    if (!validate()) return;
-
-    setIsLoading(true);
-    try {
-      const authHeaders = getAuthHeaders();
-
-      let endpoint, body;
-
-      if (verifiedViaOTP) {
-        // User went through OTP path
-        const otp    = sessionStorage.getItem("changePasswordOTP");
-        const method = sessionStorage.getItem("changePasswordMethod");
-
-        endpoint = method === "email"
-          ? "http://localhost:5000/api/reset-password"
-          : "http://localhost:5000/api/change-password";
-
-        body = method === "email"
-          ? { email: user.email, otp, newPassword: form.newPassword }
-          : { email: user.email, newPassword: form.newPassword };
-      } else {
-        // User verified with current password
-        endpoint = "http://localhost:5000/api/change-password";
-        body     = { email: user.email, newPassword: form.newPassword };
-      }
-
-      const res  = await fetch(endpoint, {
-        method: "POST",
-        headers: authHeaders,
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        Swal.fire({ title: "Error", text: data.message || "Failed to update password.", icon: "error", background: "#E6BB71", color: "#4b2e16", confirmButtonColor: "#4b2e16" });
-        return;
-      }
-
-      // Clean up session storage
-      ["changePasswordOTP", "changePasswordMethod", "changePasswordVerified"].forEach((k) =>
-        sessionStorage.removeItem(k)
-      );
-
-      Swal.fire({
-        title: "Password Updated!",
-        text: "Your password has been changed successfully.",
-        icon: "success",
-        background: "#E6BB71",
-        color: "#4b2e16",
-        confirmButtonColor: "#4b2e16",
-        timer: 3000,
-        timerProgressBar: true,
-      }).then(() => onSuccess());
-
-    } catch {
-      Swal.fire({ title: "Network Error", text: "Please try again.", icon: "error", background: "#E6BB71", color: "#4b2e16", confirmButtonColor: "#4b2e16" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isPolicyValid = () => {
-    if (!policy) return false;
-  
-    const pw = form.newPassword;
-  
-    return (
-      pw.length >= policy.min_length &&
-      (!policy.require_uppercase || (pw.match(/[A-Z]/g) || []).length >= policy.uppercase_min_count) &&
-      (!policy.require_lowercase || (pw.match(/[a-z]/g) || []).length >= policy.lowercase_min_count) &&
-      (!policy.require_number || (pw.match(/\d/g) || []).length >= policy.number_min_count) &&
-      (!policy.require_special_char ||
-        [...pw].filter(ch => policy.special_char_set.includes(ch)).length >= policy.special_char_min_count)
-    );
-  };
-
-  // Close on backdrop click
-  const handleBackdrop = (e) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
-  return (
-    <div className="cpw-overlay" onClick={handleBackdrop}>
-      <div className="cpw-modal">
-
-        {/* Header */}
-        <div className="cpw-header">
-          <h2 className="cpw-title">CHANGE PASSWORD</h2>
-          <button className="cpw-close" onClick={onClose} aria-label="Close">
-            <FiX />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="cpw-body">
-          <p className="cpw-notice">You may be signed out of your account on some devices</p>
-
-          {/* New Password */}
-          <div className="cpw-field">
-            <label className="cpw-label">NEW PASSWORD</label>
-            <div className={`cpw-input-wrap ${errors.newPassword ? "cpw-input-wrap--error" : ""}`}>
-              <input
-                type={show.new ? "text" : "password"}
-                className="cpw-input"
-                value={form.newPassword}
-                onChange={(e) => {
-                  setForm((p) => ({ ...p, newPassword: e.target.value }));
-                  if (errors.newPassword) setErrors((p) => ({ ...p, newPassword: "" }));
-                }}
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                className="cpw-eye"
-                onClick={() => setShow((p) => ({ ...p, new: !p.new }))}
-              >
-                {show.new ? <FiEye /> : <FiEyeOff />}
-              </button>
-            </div>
-            {errors.newPassword && <p className="cpw-error">{errors.newPassword}</p>}
-
-            {/* Strength bar */}
-            {form.newPassword && (
-              <div className="cpw-strength">
-                <div className="cpw-strength-bars">
-                  {[1, 2, 3].map((n) => (
-                    <span
-                      key={n}
-                      className="cpw-strength-bar"
-                      style={{ background: n <= (meta.bars || 0) ? meta.color : "#e0d5c5" }}
-                    />
-                  ))}
-                </div>
-                <span className="cpw-strength-label" style={{ color: meta.color }}>
-                  {meta.label}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Confirm Password */}
-          <div className="cpw-field">
-            <label className="cpw-label">CONFIRM NEW PASSWORD</label>
-            <div className={`cpw-input-wrap ${errors.confirmPassword ? "cpw-input-wrap--error" : ""}`}>
-              <input
-                type={show.confirm ? "text" : "password"}
-                className="cpw-input"
-                value={form.confirmPassword}
-                onChange={(e) => {
-                  setForm((p) => ({ ...p, confirmPassword: e.target.value }));
-                  if (errors.confirmPassword) setErrors((p) => ({ ...p, confirmPassword: "" }));
-                }}
-                disabled={isLoading}
-              />
-              <button
-                type="button"
-                className="cpw-eye"
-                onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))}
-              >
-                {show.confirm ? <FiEye /> : <FiEyeOff />}
-              </button>
-            </div>
-            {errors.confirmPassword && <p className="cpw-error">{errors.confirmPassword}</p>}
-
-            {/* Match indicator */}
-            {form.newPassword && form.confirmPassword && (
-              <p className={`cpw-match ${form.newPassword === form.confirmPassword ? "cpw-match--ok" : "cpw-match--err"}`}>
-                {form.newPassword === form.confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
-              </p>
-            )}
-          </div>
-
-          {/* Requirements */}
-          <ul className="cpw-requirements">
-            {requirements.map(({ label, met }) => (
-              <li key={label} className={`cpw-req ${met ? "cpw-req--met" : ""}`}>
-                · {label}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Footer */}
-        <div className="cpw-footer">
-          <button className="cpw-btn cpw-btn--cancel" onClick={onClose} disabled={isLoading}>
-            CANCEL
-          </button>
-          <button className="cpw-btn cpw-btn--save" onClick={handleSave}  disabled={isLoading || !isPolicyValid()}>
-            {isLoading ? <span className="sec-spinner" /> : "SAVE"}
-          </button>
-        </div>
-
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────
-// STEP: Verify Current Password (default view)
-// ─────────────────────────────────────────────
-const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, setIsLoading }) => {
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [showPw, setShowPw]                   = useState(false);
-  const [error, setError]                     = useState("");
+// ── StepVerifyCurrentPassword ─────────────────────────────────────────────────
+const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, setIsLoading, setCurrentPassword }) => {
+  const [currentPassword, setCurrentPasswordLocal] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [error,  setError]  = useState("");
 
   const handleNext = async () => {
     if (!currentPassword) { setError("Please enter your current password"); return; }
@@ -416,26 +20,24 @@ const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, s
     setError("");
 
     try {
-      // Verify current password by attempting login with it
-      const sessionData = sessionStorage.getItem('mc_session');
+      const sessionData = sessionStorage.getItem("mc_session");
       const token = sessionData ? JSON.parse(sessionData).user?.access_token : null;
 
-      const res  = await fetch("http://localhost:5000/api/verify-current-password", {
+      const res = await fetch("http://localhost:5000/api/verify-current-password", {
         method: "POST",
-         headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
         body: JSON.stringify({ email: user.email, password: currentPassword }),
       });
+
       const data = await res.json();
 
-      if (!res.ok) {
-        setError(data.message || "Incorrect password. Please try again.");
-        return;
-      }
+      if (!res.ok) { setError(data.message || "Incorrect password. Please try again."); return; }
 
-      onNext(); // Password verified → open modal
+      setCurrentPassword(currentPassword);
+      onNext();
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -443,15 +45,11 @@ const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, s
     }
   };
 
-  const handleKeyDown = (e) => { if (e.key === "Enter") handleNext(); };
-
   return (
     <div className="mypw-card">
       <div className="mypw-card-header">MY PASSWORD</div>
       <div className="mypw-card-body">
-        <p className="mypw-desc">
-          Want to change Password? To continue, first verify it's you.
-        </p>
+        <p className="mypw-desc">Want to change Password? To continue, first verify it's you.</p>
 
         <div className="mypw-row">
           <div className="mypw-field">
@@ -462,15 +60,11 @@ const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, s
                 className="mypw-input"
                 placeholder="Current Password"
                 value={currentPassword}
-                onChange={(e) => { setCurrentPassword(e.target.value); setError(""); }}
-                onKeyDown={handleKeyDown}
+                onChange={(e) => { setCurrentPasswordLocal(e.target.value); setError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleNext()}
                 disabled={isLoading}
               />
-              <button
-                type="button"
-                className="mypw-eye"
-                onClick={() => setShowPw((p) => !p)}
-              >
+              <button type="button" className="mypw-eye" onClick={() => setShowPw(p => !p)}>
                 {showPw ? <FiEye /> : <FiEyeOff />}
               </button>
             </div>
@@ -478,48 +72,36 @@ const StepVerifyCurrentPassword = ({ user, onNext, onTryAnotherWay, isLoading, s
           </div>
 
           <div className="mypw-actions">
-            <button
-              className="mypw-btn mypw-btn--next"
-              onClick={handleNext}
-              disabled={isLoading}
-            >
+            <button className="mypw-btn mypw-btn--next" onClick={handleNext} disabled={isLoading}>
               {isLoading ? <span className="sec-spinner" /> : "Next"}
             </button>
-            <button
-              className="mypw-btn mypw-btn--alt"
-              onClick={onTryAnotherWay}
-              disabled={isLoading}
-            >
+            <button className="mypw-btn mypw-btn--alt" onClick={onTryAnotherWay} disabled={isLoading}>
               Try Another Way
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────
-// STEP 1 of OTP path — Choose Method
-// ─────────────────────────────────────────────
+// ── StepChooseMethod ──────────────────────────────────────────────────────────
 const StepChooseMethod = ({ user, onMethodChosen, onBack, isLoading }) => {
   const maskedEmail = user.email?.replace(/(.{2})(.*)(@.*)/, "$1***$3") || "your email";
 
-  // ✅ Only include Authenticator if user has 2FA enabled
   const METHODS = [
     {
-      key: "email",
+      key:   "email",
       label: "Email OTP",
-      desc: `Send a 6-digit code to ${maskedEmail}`,
-      icon: <IoMdMail size={22} />,
+      desc:  `Send a 6-digit code to ${maskedEmail}`,
+      icon:  <IoMdMail size={22} />,
     },
     ...(user.is_2fa_enabled
       ? [{
-          key: "authenticator",
+          key:   "authenticator",
           label: "Google Authenticator",
-          desc: "Use your Google Authenticator app to verify",
-          icon: <SiGoogleauthenticator size={22} />,
+          desc:  "Use your Google Authenticator app to verify",
+          icon:  <SiGoogleauthenticator size={22} />,
         }]
       : []),
   ];
@@ -531,8 +113,9 @@ const StepChooseMethod = ({ user, onMethodChosen, onBack, isLoading }) => {
         <h3 className="sec-step-title">Choose Verification Method</h3>
         <p className="sec-step-desc">Verify your identity before changing your password.</p>
       </div>
+
       <div className="method-cards">
-        {METHODS.map((m) => (
+        {METHODS.map(m => (
           <button key={m.key} className="method-card" onClick={() => onMethodChosen(m.key)} disabled={isLoading}>
             <span className="method-icon">{m.icon}</span>
             <div className="method-info">
@@ -543,6 +126,7 @@ const StepChooseMethod = ({ user, onMethodChosen, onBack, isLoading }) => {
           </button>
         ))}
       </div>
+
       <div className="sec-step-actions" style={{ marginTop: "1rem" }}>
         <button className="sec-back-btn" onClick={onBack}>← Back to Password</button>
       </div>
@@ -550,9 +134,7 @@ const StepChooseMethod = ({ user, onMethodChosen, onBack, isLoading }) => {
   );
 };
 
-// ─────────────────────────────────────────────
-// STEP 2 of OTP path — Enter & Verify OTP
-// ─────────────────────────────────────────────
+// ── StepVerifyOTP ─────────────────────────────────────────────────────────────
 const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoading }) => {
   const [otp,       setOtp]       = useState(["", "", "", "", "", ""]);
   const [errors,    setErrors]    = useState({});
@@ -563,7 +145,7 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
   useEffect(() => {
     if (method === "email") sendEmailOTP();
     const interval = setInterval(() => {
-      setTimer((prev) => { if (prev <= 1) { setCanResend(true); return 0; } return prev - 1; });
+      setTimer(prev => { if (prev <= 1) { setCanResend(true); return 0; } return prev - 1; });
     }, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -598,9 +180,11 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
   };
 
   const handleVerify = async () => {
-    if (otp.some((d) => !d)) { setErrors({ otp: "Please enter all 6 digits" }); return; }
+    if (otp.some(d => !d)) { setErrors({ otp: "Please enter all 6 digits" }); return; }
+
     const otpCode = otp.join("");
     setIsLoading(true);
+
     try {
       const endpoint = method === "email"
         ? "http://localhost:5000/api/verify-reset-otp"
@@ -611,6 +195,7 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
 
       const res  = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
+
       if (!res.ok) { setErrors({ otp: data.message || "Invalid code. Please try again." }); return; }
 
       sessionStorage.setItem("changePasswordOTP",      otpCode);
@@ -643,12 +228,12 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
 
       <div className="otp-group">
         {otp.map((digit, i) => (
-          <input key={i} ref={(el) => (inputRefs.current[i] = el)}
+          <input key={i} ref={el => (inputRefs.current[i] = el)}
             type="text" inputMode="numeric" maxLength="1"
             className={`otp-box ${digit ? "otp-box--filled" : ""} ${errors.otp ? "otp-box--error" : ""}`}
             value={digit}
-            onChange={(e) => handleChange(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
+            onChange={e => handleChange(i, e.target.value)}
+            onKeyDown={e => handleKeyDown(i, e)}
             disabled={isLoading}
           />
         ))}
@@ -665,8 +250,8 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
       )}
 
       <div className="sec-step-actions">
-        <button className="sec-back-btn" onClick={onBack} disabled={isLoading}>← Back</button>
-        <button className="sec-verify-btn" onClick={handleVerify} disabled={isLoading}>
+        <button className="sec-back-btn"   onClick={onBack}        disabled={isLoading}>← Back</button>
+        <button className="sec-verify-btn" onClick={handleVerify}  disabled={isLoading}>
           {isLoading ? <span className="sec-spinner" /> : "Verify Code →"}
         </button>
       </div>
@@ -674,48 +259,24 @@ const StepVerifyOTP = ({ method, user, onVerified, onBack, isLoading, setIsLoadi
   );
 };
 
-// ─────────────────────────────────────────────
-// MAIN SecurityTab
-// ─────────────────────────────────────────────
+// ── SecurityTab (main) ────────────────────────────────────────────────────────
 const OTP_STEPS = ["choose", "otp"];
 
 const SecurityTab = ({ user }) => {
-  // Main navigation state
-  // "verify"  → show MY PASSWORD card (default)
-  // "choose"  → OTP path: choose method
-  // "otp"     → OTP path: enter code
-  // modal is separate boolean
-  const [screen,     setScreen]     = useState("verify");
-  const [method,     setMethod]     = useState(null);
-  const [isLoading,  setIsLoading]  = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [verifiedViaOTP, setVerifiedViaOTP] = useState(false);
+  const [screen,          setScreen]          = useState("verify");
+  const [method,          setMethod]          = useState(null);
+  const [isLoading,       setIsLoading]       = useState(false);
+  const [isModalOpen,     setIsModalOpen]     = useState(false);
+  const [verifiedViaOTP,  setVerifiedViaOTP]  = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
 
-  // "Next" on current password verified → open modal (no OTP)
-  const handleCurrentPasswordOK = () => {
-    setVerifiedViaOTP(false);
-    setIsModalOpen(true);
-  };
+  const handleCurrentPasswordOK = () => { setVerifiedViaOTP(false); setIsModalOpen(true); };
+  const handleTryAnotherWay     = () => setScreen("choose");
+  const handleMethodChosen      = (m) => { setMethod(m); setScreen("otp"); };
+  const handleOTPVerified       = () => { setVerifiedViaOTP(true); setIsModalOpen(true); };
+  const handleBackFromChoose    = () => { setScreen("verify"); setMethod(null); };
+  const handleBackFromOTP       = () => setScreen("choose");
 
-  // "Try Another Way" → go to OTP choose method screen
-  const handleTryAnotherWay = () => setScreen("choose");
-
-  // Method chosen on OTP path
-  const handleMethodChosen = (m) => { setMethod(m); setScreen("otp"); };
-
-  // OTP verified → open modal (via OTP)
-  const handleOTPVerified = () => {
-    setVerifiedViaOTP(true);
-    setIsModalOpen(true);
-  };
-
-  // Back from choose method → back to verify current password
-  const handleBackFromChoose = () => { setScreen("verify"); setMethod(null); };
-
-  // Back from OTP → back to choose method
-  const handleBackFromOTP = () => { setScreen("choose"); };
-
-  // Modal closed / success → reset everything
   const handleModalClose = () => {
     setIsModalOpen(false);
     setScreen("verify");
@@ -723,8 +284,7 @@ const SecurityTab = ({ user }) => {
     setVerifiedViaOTP(false);
   };
 
-  // Progress bar only visible on OTP path
-  const showProgress = screen === "choose" || screen === "otp";
+  const showProgress  = screen === "choose" || screen === "otp";
   const progressIndex = OTP_STEPS.indexOf(screen);
 
   return (
@@ -732,7 +292,6 @@ const SecurityTab = ({ user }) => {
       <section className="settings-section">
         <h2 className="section-heading">Change Password</h2>
 
-        {/* Default: verify current password */}
         {screen === "verify" && (
           <StepVerifyCurrentPassword
             user={user}
@@ -740,12 +299,13 @@ const SecurityTab = ({ user }) => {
             onTryAnotherWay={handleTryAnotherWay}
             isLoading={isLoading}
             setIsLoading={setIsLoading}
+            setCurrentPassword={setCurrentPassword}
           />
         )}
 
-        {/* OTP path: progress bar + step */}
         {showProgress && (
           <>
+            {/* Progress indicator */}
             <div className="sec-progress">
               {["Choose Method", "Verify Identity"].map((label, i) => {
                 const isDone   = i < progressIndex;
@@ -787,7 +347,7 @@ const SecurityTab = ({ user }) => {
         )}
       </section>
 
-      {/* Change Password Modal — rendered after either path */}
+      {/* Modal — rendered after either verification path */}
       {isModalOpen && (
         <ChangePasswordModal
           user={user}
@@ -796,6 +356,7 @@ const SecurityTab = ({ user }) => {
           isLoading={isLoading}
           setIsLoading={setIsLoading}
           verifiedViaOTP={verifiedViaOTP}
+          currentPassword={currentPassword}
         />
       )}
     </div>
