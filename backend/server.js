@@ -100,7 +100,6 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     const sessionId = event.data.id;
     console.log(`✅ Payment succeeded for session ${sessionId}`);
 
-    // ✅ FIRST: Get order details
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
       .select('*')
