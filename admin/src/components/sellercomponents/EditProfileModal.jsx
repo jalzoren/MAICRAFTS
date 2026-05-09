@@ -56,12 +56,35 @@ const EditProfileModal = ({ isOpen, onClose, user, onProfileUpdate }) => {
 		special: false
 	});
 
+	const [policy, setPolicy] = useState(null);
+
 	// Fetch user profile when modal opens
 	useEffect(() => {
 		if (isOpen && user?.id) {
 			fetchUserProfile();
 		}
 	}, [isOpen, user?.id]);
+
+
+	useEffect(() => {
+		const fetchPolicy = async () => {
+			try {
+				const response = await fetch(
+					"http://localhost:5000/api/password-settings"
+				);
+	
+				const data = await response.json();
+	
+				if (response.ok) {
+					setPolicy(data);
+				}
+			} catch (error) {
+				console.error("Failed to load password policy:", error);
+			}
+		};
+	
+		fetchPolicy();
+	}, []);
 
 	const fetchUserProfile = async () => {
 		try {
@@ -152,12 +175,27 @@ const EditProfileModal = ({ isOpen, onClose, user, onProfileUpdate }) => {
 
 	// Validate password strength
 	const validatePassword = (password) => {
+		if (!policy) return;
+	
 		setPasswordValidation({
-			length: password.length >= 12,
-			uppercase: /[A-Z]/.test(password),
-			lowercase: /[a-z]/.test(password),
-			number: /\d/.test(password),
-			special: /[@$!%*?&]/.test(password)
+			length: password.length >= policy.min_length,
+	
+			uppercase: !policy.require_uppercase ||
+				(password.match(/[A-Z]/g) || []).length >=
+				policy.uppercase_min_count,
+	
+			lowercase: !policy.require_lowercase ||
+				(password.match(/[a-z]/g) || []).length >=
+				policy.lowercase_min_count,
+	
+			number: !policy.require_number ||
+				(password.match(/\d/g) || []).length >=
+				policy.number_min_count,
+	
+			special: !policy.require_special_char ||
+				[...password].filter(ch =>
+					policy.special_char_set.includes(ch)
+				).length >= policy.special_char_min_count
 		});
 	};
 
@@ -410,20 +448,37 @@ const EditProfileModal = ({ isOpen, onClose, user, onProfileUpdate }) => {
 								<p>Password requirements:</p>
 								<ul>
 									<li className={passwordValidation.length ? "valid" : "invalid"}>
-										{passwordValidation.length ? "✓" : "○"} At least 12 characters
+										{passwordValidation.length ? "✓" : "○"} 
+										At least {policy?.min_length || 0} characters
 									</li>
-									<li className={passwordValidation.uppercase ? "valid" : "invalid"}>
-										{passwordValidation.uppercase ? "✓" : "○"} At least 1 uppercase letter
-									</li>
-									<li className={passwordValidation.lowercase ? "valid" : "invalid"}>
-										{passwordValidation.lowercase ? "✓" : "○"} At least 1 lowercase letter
-									</li>
-									<li className={passwordValidation.number ? "valid" : "invalid"}>
-										{passwordValidation.number ? "✓" : "○"} At least 1 number
-									</li>
-									<li className={passwordValidation.special ? "valid" : "invalid"}>
-										{passwordValidation.special ? "✓" : "○"} At least 1 special character (@$!%*?&)
-									</li>
+
+									{policy?.require_uppercase && (
+										<li className={passwordValidation.uppercase ? "valid" : "invalid"}>
+											{passwordValidation.uppercase ? "✓" : "○"} 
+											At least {policy.uppercase_min_count} uppercase letter(s)
+										</li>
+									)}
+
+									{policy?.require_lowercase && (
+										<li className={passwordValidation.lowercase ? "valid" : "invalid"}>
+											{passwordValidation.lowercase ? "✓" : "○"} 
+											At least {policy.lowercase_min_count} lowercase letter(s)
+										</li>
+									)}
+
+									{policy?.require_number && (
+										<li className={passwordValidation.number ? "valid" : "invalid"}>
+											{passwordValidation.number ? "✓" : "○"} 
+											At least {policy.number_min_count} number(s)
+										</li>
+									)}
+
+									{policy?.require_special_char && (
+										<li className={passwordValidation.special ? "valid" : "invalid"}>
+											{passwordValidation.special ? "✓" : "○"} 
+											At least {policy.special_char_min_count} special character(s)
+										</li>
+									)}
 								</ul>
 							</div>
 
