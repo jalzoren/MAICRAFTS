@@ -506,7 +506,7 @@ router.put('/users/:id', async (req, res) => {
 
 
 // In userRoutes.js - Keep only this version (remove the other one)
-
+/*
 // Password change endpoint with strong password requirements
 router.post("/change-password", async (req, res) => {
   try {
@@ -587,5 +587,6 @@ router.post("/change-password", async (req, res) => {
     });
   }
 });
+*/
 
 export default router;

@@ -56,11 +56,6 @@ const STRENGTH_META = {
   strong: { color: "#27ae60", label: "Strong", bars: 3 },
 };
 
-const verifiedViaOTP = props.verifiedViaOTP === true; // ensure boolean
-if (!verifiedViaOTP && !currentPassword) {
-  Swal.fire("Error", "Current password is required.", "error");
-  return;
-}
 // ── ChangePasswordModal ───────────────────────────────────────────────────────
 const ChangePasswordModal = ({
   user,
@@ -75,6 +70,25 @@ const ChangePasswordModal = ({
   const [form,   setForm]   = useState({ newPassword: "", confirmPassword: "" });
   const [show,   setShow]   = useState({ new: false, confirm: false });
   const [errors, setErrors] = useState({});
+
+   // ✅ MOVED INSIDE THE COMPONENT - This is now in the correct place
+   const verifiedViaOTPBoolean = verifiedViaOTP === true;
+  
+   // ✅ MOVED INSIDE THE COMPONENT - Add validation effect
+   useEffect(() => {
+     if (!verifiedViaOTPBoolean && !currentPassword) {
+       Swal.fire({
+         title: "Error", 
+         text: "Current password is required.", 
+         icon: "error",
+         background: "#E6BB71", 
+         color: "#4b2e16", 
+         confirmButtonColor: "#4b2e16"
+       });
+       onClose(); // Close the modal if validation fails
+     }
+   }, [verifiedViaOTPBoolean, currentPassword, onClose]);
+ 
 
   const strength = checkStrength(form.newPassword, policy);
   const meta     = STRENGTH_META[strength] || {};
@@ -141,56 +155,117 @@ const ChangePasswordModal = ({
   };
 
   // ── Submit ────────────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!validate()) return;
+  // In ChangePasswordModal.jsx, update the handleSave function:
+// ── Submit ────────────────────────────────────────────────────────────────
+const handleSave = async () => {
+  if (!validate()) return;
 
-    setIsLoading(true);
-    try {
-      let endpoint, body;
+  setIsLoading(true);
+  try {
+    let endpoint, body;
 
-      if (verifiedViaOTP) {
-        const otp    = sessionStorage.getItem("changePasswordOTP");
-        const method = sessionStorage.getItem("changePasswordMethod");
+    if (verifiedViaOTP) {
+      const otp    = sessionStorage.getItem("changePasswordOTP");
+      const method = sessionStorage.getItem("changePasswordMethod");
 
-        endpoint = method === "email"
-          ? "http://localhost:5000/api/reset-password"
-          : "http://localhost:5000/api/change-password";
+      endpoint = method === "email"
+        ? "http://localhost:5000/api/reset-password"
+        : "http://localhost:5000/api/change-password";
 
-        body = method === "email"
-          ? { email: user.email, otp, newPassword: form.newPassword, verifiedViaOTP: true }
-          : { email: user.email, newPassword: form.newPassword, verifiedViaOTP: true };
-      } else {
-        endpoint = "http://localhost:5000/api/change-password";
-        body     = { email: user.email, newPassword: form.newPassword, verifiedViaOTP: false, currentPassword };
-        console.log("🔍 Sending payload:", body);
-      }
+      body = method === "email"
+        ? { email: user.email, otp, newPassword: form.newPassword, verifiedViaOTP: true }
+        : { email: user.email, newPassword: form.newPassword, verifiedViaOTP: true };
+    } else {
+      endpoint = "http://localhost:5000/api/change-password";
 
-      const res  = await fetch(endpoint, { method: "POST", headers: getAuthHeaders(), body: JSON.stringify(body) });
-      const data = await res.json();
+      // Debug logging
+      console.log("📝 Current password value:", currentPassword);
+      console.log("📝 Current password type:", typeof currentPassword);
+      console.log("📝 User email:", user?.email);
+      console.log("📝 New password:", form.newPassword);
 
-      if (!res.ok) {
-        Swal.fire({ title: "Error", text: data.message || "Failed to update password.", icon: "error",
-          background: "#E6BB71", color: "#4b2e16", confirmButtonColor: "#4b2e16" });
+      // Make sure currentPassword is included and has a value
+      if (!currentPassword) {
+        Swal.fire({ 
+          title: "Error", 
+          text: "Current password is missing. Please go back and enter it again.", 
+          icon: "error",
+          background: "#E6BB71", 
+          color: "#4b2e16", 
+          confirmButtonColor: "#4b2e16"
+        });
+        setIsLoading(false);
         return;
       }
 
-      ["changePasswordOTP", "changePasswordMethod", "changePasswordVerified"].forEach(k =>
-        sessionStorage.removeItem(k)
-      );
-
-      Swal.fire({
-        title: "Password Updated!", text: "Your password has been changed successfully.",
-        icon: "success", background: "#E6BB71", color: "#4b2e16", confirmButtonColor: "#4b2e16",
-        timer: 3000, timerProgressBar: true,
-      }).then(() => onSuccess());
-
-    } catch {
-      Swal.fire({ title: "Network Error", text: "Please try again.", icon: "error",
-        background: "#E6BB71", color: "#4b2e16", confirmButtonColor: "#4b2e16" });
-    } finally {
-      setIsLoading(false);
+      body = { 
+        email: user.email, 
+        currentPassword: currentPassword,  // ← camelCase for changepassword.js
+        newPassword: form.newPassword,     // ← camelCase for changepassword.js
+        verifiedViaOTP: false
+      };
+      console.log("🔍 Sending payload:", body);
     }
-  };
+
+    const res = await fetch(endpoint, { 
+      method: "POST", 
+      headers: getAuthHeaders(), 
+      body: JSON.stringify(body) 
+    });
+    
+    const data = await res.json();
+    
+    console.log("📥 Response status:", res.status);
+    console.log("📥 Response data:", data);
+
+    if (!res.ok) {
+      Swal.fire({ 
+        title: "Error", 
+        text: data.message || data.error || "Failed to update password.", 
+        icon: "error",
+        background: "#E6BB71", 
+        color: "#4b2e16", 
+        confirmButtonColor: "#4b2e16"
+      });
+      return;
+    }
+
+    // Clear OTP session data if any
+    ["changePasswordOTP", "changePasswordMethod", "changePasswordVerified"].forEach(k =>
+      sessionStorage.removeItem(k)
+    );
+
+    // ✅ Success Swal - then close modal
+    await Swal.fire({
+      title: "Password Updated!",
+      text: "Your password has been changed successfully.",
+      icon: "success",
+      background: "#E6BB71",
+      color: "#4b2e16",
+      confirmButtonColor: "#4b2e16",
+      timer: 2000,
+      timerProgressBar: true,
+      showConfirmButton: true
+    });
+    
+    // Close modal after Swal is dismissed
+    onSuccess();
+    onClose();
+
+  } catch (error) {
+    console.error("Password change error:", error);
+    Swal.fire({ 
+      title: "Network Error", 
+      text: "Please try again.", 
+      icon: "error",
+      background: "#E6BB71", 
+      color: "#4b2e16", 
+      confirmButtonColor: "#4b2e16"
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleBackdrop = (e) => { if (e.target === e.currentTarget) onClose(); };
 

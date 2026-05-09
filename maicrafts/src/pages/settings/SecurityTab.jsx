@@ -347,6 +347,11 @@ const SecurityTab = ({ user }) => {
         )}
       </section>
 
+      {/* Debug: Check what's being passed */}
+      {console.log("🔍 Parent component - currentPassword:", currentPassword)}
+      {console.log("🔍 Parent component - currentPassword type:", typeof currentPassword)}
+      {console.log("🔍 Parent component - verifiedViaOTP:", verifiedViaOTP)}
+
       {/* Modal — rendered after either verification path */}
       {isModalOpen && (
         <ChangePasswordModal
