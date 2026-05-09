@@ -58,16 +58,23 @@ const Users = () => {
       
       if (!response.ok) throw new Error(data.error || 'Failed to fetch users');
       
+      // Transform users including customer role
       const transformedUsers = data.map(user => ({
         id: user.id,
         username: user.email?.split('@')[0] || '',
         fullName: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email,
         email: user.email,
-        role: user.role,
+        role: user.role || 'customer', // Default to customer if no role
         status: user.is_active ? 'active' : 'inactive',
         joinDate: user.created_at ? new Date(user.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         isLocked: !user.is_active
       }));
+      
+      console.log('Users by role:', {
+        customers: transformedUsers.filter(u => u.role === 'customer').length,
+        sellers: transformedUsers.filter(u => u.role === 'seller').length,
+        super_admins: transformedUsers.filter(u => u.role === 'super_admin').length
+      });
       
       setUsers(transformedUsers);
     } catch (err) {
@@ -154,15 +161,20 @@ const fetchLockedAccountsCount = async () => {
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  const getRoleBadgeClass = (role) => {
-    const normalizedRole = role?.toLowerCase();
-    switch(normalizedRole) {
-      case 'admin': return 'role-badge admin';
-      case 'seller': return 'role-badge editor';
-      case 'super_admin': return 'role-badge admin';
-      default: return 'role-badge';
-    }
-  };
+    const getRoleBadgeClass = (role) => {
+      const normalizedRole = role?.toLowerCase();
+      switch(normalizedRole) {
+        case 'admin':
+        case 'super_admin':
+          return 'role-badge admin';
+        case 'seller':
+          return 'role-badge editor';
+        case 'customer':
+          return 'role-badge customer';
+        default:
+          return 'role-badge';
+      }
+    };
 
   const getStatusBadgeClass = (status, isLocked) => {
     if (isLocked) return 'status-badge locked';
@@ -500,7 +512,7 @@ const fetchLockedAccountsCount = async () => {
                   className="role-filter-select"
                 >
                   <option value="all">All Roles ({getRoleCount('all')})</option>
-                  <option value="admin">Admin ({getRoleCount('admin')})</option>
+                  <option value="customer">Customer ({getRoleCount('customer')})</option>
                   <option value="seller">Seller ({getRoleCount('seller')})</option>
                   <option value="super_admin">Super Admin ({getRoleCount('super_admin')})</option>
                 </select>
@@ -518,7 +530,6 @@ const fetchLockedAccountsCount = async () => {
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active Only</option>
-                  <option value="locked">Locked Only</option>
                 </select>
               </div>
             </div>
@@ -556,13 +567,17 @@ const fetchLockedAccountsCount = async () => {
                               onChange={(e) => setEditingRole(e.target.value)}
                               className="role-dropdown"
                             >
+                              <option value="customer">Customer</option>
                               <option value="seller">Seller</option>
                               <option value="admin">Admin</option>
                               <option value="super_admin">Super Admin</option>
                             </select>
                           ) : (
                             <span className={getRoleBadgeClass(user.role)}>
-                              {user.role === 'seller' ? 'Seller' : user.role === 'admin' ? 'Admin' : user.role === 'super_admin' ? 'Super Admin' : user.role}
+                              {user.role === 'customer' ? 'Customer' : 
+                              user.role === 'seller' ? 'Seller' : 
+                              user.role === 'super_admin' ? 'Super Admin' : 
+                              user.role === 'admin' ? 'Admin' : user.role}
                             </span>
                           )}
                         </td>
@@ -588,13 +603,6 @@ const fetchLockedAccountsCount = async () => {
                               </>
                             ) : (
                               <>
-                                <button 
-                                  className={`action-btn ${user.isLocked ? 'unlock' : 'lock'}`} 
-                                  onClick={() => handleLockUnlockUser(user.id)}
-                                  title={user.isLocked ? 'Unlock Account' : 'Lock Account'}
-                                >
-                                  {user.isLocked ? <FiUnlock /> : <FiLock />}
-                                </button>
                                 <button className="action-btn edit" onClick={() => {
                                   setEditingUserId(user.id);
                                   setEditingRole(user.role);

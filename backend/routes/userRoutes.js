@@ -13,7 +13,6 @@ const router = express.Router();
 // ========== AUTH MIDDLEWARE ==========
 router.use(async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  console.log('🔐 [userRoutes] Auth Header:', authHeader ? 'Present' : 'Missing');
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     req.user = null;
@@ -72,16 +71,30 @@ router.use(async (req, res, next) => {
 
 // ADMIN AND SELLER ENDPOINTS -----------------------------------------------------
 // GET all admin and seller users
+// In userRoutes.js - Replace your existing GET /users endpoint
+
+// GET all users (customers, sellers, admins, super_admins)
 router.get("/users", async (req, res) => {
   try {
+    // Remove any role filtering - fetch ALL users
     const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .order("created_at", { ascending: false });  
+      .from("users")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    // ✅ ONLY ADDED THIS AUDIT
+    // Debug log to see what's being fetched
+    console.log(`Fetched ${data?.length || 0} users`);
+    console.log('Roles found:', [...new Set(data?.map(u => u.role) || [])]);
+
+    // Optional: Add filtering if needed for specific roles
+    // If you want ONLY customer, seller, and super_admin (exclude others):
+    const filteredData = data?.filter(user => 
+      ['customer', 'seller', 'super_admin'].includes(user.role?.toLowerCase())
+    ) || data;
+
+    // Audit log
     if (req.user?.id) {
       createAuditLog({
         user_id: req.user.id,
@@ -89,11 +102,11 @@ router.get("/users", async (req, res) => {
         user_role: req.user.role,
         action: "VIEW",
         module: "USER_MANAGEMENT",
-        description: `Viewed users list (${data?.length || 0} users)`,
+        description: `Viewed users list (${filteredData?.length || 0} users)`,
       }).catch(err => console.error('Audit log error:', err));
     }
 
-    res.json(data);
+    res.json(filteredData);
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ error: "Failed to fetch users" });

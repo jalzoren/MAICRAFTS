@@ -874,6 +874,24 @@
   background-color: #ffe5e5;
 }
 
+.role-badge.customer {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #bbdefb;
+}
+
+/* Optional: Keep existing styles for other roles */
+.role-badge.editor {
+  background-color: #fff3e0;
+  color: #ed6c02;
+}
+
+.role-badge.admin {
+  background-color: #f3e5f5;
+  color: #9c27b0;
+}
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .stats-cards-container {
@@ -896,3 +914,4 @@
     grid-template-columns: 1fr;
   }
 }
+
