@@ -351,7 +351,6 @@ const AdminDashboard = () => {
     return (
       <div className="dashboard-loading">
         <div className="loading-spinner"></div>
-        <p>Loading dashboard...</p>
       </div>
     );
   }

@@ -282,7 +282,6 @@ const OrderManagement = () => {
           <h1 className="page-header__title">Order Management</h1>
           <p className="page-header__breadcrumb">Seller Dashboard / Order Management</p>
         </div>
-        <div className="loading-spinner">Loading orders...</div>
       </div>
     );
   }

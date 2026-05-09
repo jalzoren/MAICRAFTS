@@ -632,8 +632,7 @@ const Products = () => {
       <div className="pm-table-wrap">
         {loading ? (
           <div className="pm-loading-state">
-            <div className="pm-spinner"></div>
-            <p>Loading products...</p>
+           
           </div>
         ) : products.length === 0 ? (
           <div className="pm-empty-state">
