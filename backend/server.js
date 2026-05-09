@@ -22,7 +22,9 @@ import setPasswordRoute from "./routes/set-password.js";
 import consentRoutes from './routes/consentRoutes.js';
 import productRoutes from './routes/productRoutes.js'
 import paymentRoutes from './routes/paymentRoutes.js';
+import changePasswordRoutes from './routes/changepassword.js';
 import { createAuditLog } from './services/auditService.js';
+import changePasswordRouter from "./routes/changepassword.js";
 
 const app = express();
 
@@ -100,7 +102,6 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     const sessionId = event.data.id;
     console.log(`✅ Payment succeeded for session ${sessionId}`);
 
-    // ✅ FIRST: Get order details
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -217,6 +218,7 @@ app.use("/api", auditLogsRoute);
 app.use('/api/settings', settingsRoutes);              
 app.use('/api/password-settings', settingsPassword);  
 app.use("/api", setPasswordRoute);
+app.use("/api", changePasswordRouter); 
 
 
 // 404 handler
