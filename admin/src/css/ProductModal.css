@@ -550,3 +550,146 @@
   }
 }
 
+/* SweetAlert2 Custom Styling */
+.swal2-popup {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.swal2-title {
+  color: #1e293b;
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 0.5rem 0 1rem;
+}
+
+.swal2-html-container {
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.swal2-input,
+.swal2-textarea {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.swal2-input:focus,
+.swal2-textarea:focus {
+  border-color: #E6BB71;
+  box-shadow: 0 0 0 3px rgba(230, 187, 113, 0.1);
+  outline: none;
+}
+
+.swal2-input::placeholder,
+.swal2-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.swal2-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.swal2-confirm {
+  background: #E6BB71 !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 10px 24px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal2-confirm:hover {
+  background: #d4a84b !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(230, 187, 113, 0.3);
+}
+
+.swal2-confirm:active {
+  transform: translateY(0);
+}
+
+.swal2-cancel {
+  background: #f1f5f9 !important;
+  color: #64748b !important;
+  border: none !important;
+  border-radius: 10px !important;
+  padding: 10px 24px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal2-cancel:hover {
+  background: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+.swal2-icon.swal2-success {
+  border-color: #E6BB71 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(230, 187, 113, 0.3) !important;
+}
+
+.swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #E6BB71 !important;
+}
+
+.swal2-icon.swal2-error {
+  border-color: #e74c3c !important;
+}
+
+.swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: #e74c3c !important;
+}
+
+.swal2-icon.swal2-warning {
+  border-color: #f39c12 !important;
+  color: #f39c12 !important;
+}
+
+.swal2-icon.swal2-info {
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
+.swal2-icon.swal2-question {
+  border-color: #E6BB71 !important;
+  color: #E6BB71 !important;
+}
+
+.swal2-validation-message {
+  background: #fef2f2;
+  color: #e74c3c;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+
+.swal2-loader {
+  border-color: #E6BB71 transparent #E6BB71 transparent !important;
+}
+
+/* Loading state */
+.swal2-popup.swal2-loading {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Timer progress bar */
+.swal2-timer-progress-bar {
+  background: #E6BB71 !important;
+}
+
+/* Custom styling

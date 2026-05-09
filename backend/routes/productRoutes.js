@@ -806,4 +806,85 @@ router.post('/products/archive', async (req, res) => {
   }
 });
 
+
+// In productsRoutes.js - Replace your POST route with this
+router.post('/', upload.single('image'), async (req, res) => {
+  let uploadedFilePath = null;
+  
+  try {
+    const { name, description, price, category, stock, sku, variants } = req.body;
+    
+    if (!name || !price || !category) {
+      return res.status(400).json({ success: false, error: 'Name, price, and category are required' });
+    }
+
+    let imageUrl = null;
+    
+    // Handle file upload if present
+    if (req.file) {
+      uploadedFilePath = req.file.path;
+      
+      // 1. Scan for viruses
+      const virusScan = await scanForVirus(uploadedFilePath);
+      if (virusScan.isInfected) {
+        deleteFile(uploadedFilePath);
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Security check failed: File appears to be infected' 
+        });
+      }
+      
+      // 2. Validate dimensions
+      const dimensionCheck = await validateImageDimensions(uploadedFilePath);
+      if (!dimensionCheck.valid) {
+        deleteFile(uploadedFilePath);
+        return res.status(400).json({ success: false, error: dimensionCheck.message });
+      }
+      
+      // 3. Optimize image
+      await optimizeImage(uploadedFilePath);
+      
+      // 4. Generate public URL
+      imageUrl = `/uploads/products/${req.file.filename}`;
+    }
+
+    const productData = {
+      name,
+      description: description || null,
+      price: parseFloat(price),
+      category,
+      stock: parseInt(stock) || 0,
+      sku: sku || null,
+      variants: variants ? JSON.parse(variants) : null,
+      main_image: imageUrl,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('products')
+      .insert([productData])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    await createAuditLog({
+      user_id: req.user.id,
+      user_email: req.user.email,
+      user_role: req.user.role,
+      action: 'CREATE',
+      module: 'PRODUCT',
+      description: `Created product: ${name}`,
+    }).catch(() => {});
+
+    res.status(201).json({ success: true, data });
+    
+  } catch (error) {
+    // Clean up uploaded file on error
+    if (uploadedFilePath) deleteFile(uploadedFilePath);
+    console.error('Error creating product:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 export default router;
