@@ -59,7 +59,7 @@ router.use(async (req, res, next) => {
 const PAYMONGO_SECRET = process.env.PAYMONGO_SECRET_KEY; 
 const PAYMONGO_API = 'https://api.paymongo.com/v1';
 
-// Helper: Create a checkout session
+// Create a checkout session
 const createCheckoutSession = async (amount, description, successUrl, failedUrl) => {
   const auth = Buffer.from(`${PAYMONGO_SECRET}:`).toString('base64');
   
@@ -72,7 +72,7 @@ const createCheckoutSession = async (amount, description, successUrl, failedUrl)
         line_items: [
           {
             currency: 'PHP',
-            amount: Math.round(amount * 100), // PayMongo uses centavos
+            amount: Math.round(amount * 100), 
             description: description,
             name: 'MAICRAFTS Order',
             quantity: 1,
@@ -105,7 +105,7 @@ router.post('/create-checkout-session', async (req, res) => {
     const description = `Order #${order_id}`;
     const session = await createCheckoutSession(amount, description, success_url, failed_url);
 
-    // Store the payment_session_id with the order (so webhook can update it later)
+    // Store the payment_session_id with the order
     const { error: updateError } = await supabase
       .from('orders')
       .update({ payment_session_id: session.id })
@@ -113,7 +113,6 @@ router.post('/create-checkout-session', async (req, res) => {
 
     if (updateError) {
       console.error('Failed to update order with session ID:', updateError);
-      // Continue anyway; webhook may still work if we use order_id mapping (but safer to store)
     }
 
      // ✅ AUDIT LOG ONLY (await - important for payment creation)
@@ -127,7 +126,7 @@ router.post('/create-checkout-session', async (req, res) => {
         description: `Initiated payment checkout for order ${order_id}, amount ₱${amount}`,
       });
     }  else {
-      // Fallback for guest checkout (if you allow guest payments)
+
       await createAuditLog({
         user_id: null,
         user_email: req.body.email || 'guest@checkout',
