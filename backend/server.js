@@ -62,6 +62,8 @@ app.use((req, res, next) => {
 
 // Use express.raw to get the raw body for signature verification
 app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+
+  // 1. Extract timestamp and signature from header
   const signatureHeader = req.headers['paymongo-signature'];
   if (!signatureHeader) {
     console.error('Missing paymongo-signature header');
@@ -78,7 +80,7 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     return res.status(400).send('Bad Request');
   }
 
-  // Re-create the signature using your webhook secret
+   // 2. Compute expected signature
   const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
   const payload = req.body.toString(); // raw body string
   const signedPayload = `${timestamp}.${payload}`;
@@ -97,10 +99,10 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
   const event = JSON.parse(payload);
   console.log('Verified webhook event:', event);
 
-  // Process the event (same as before)
+  // Process the event
   if (event.data?.attributes?.type === 'checkout_session.payment_paid') {
     const sessionId = event.data.id;
-    console.log(`✅ Payment succeeded for session ${sessionId}`);
+    console.log(`Payment succeeded for session ${sessionId}`);
 
     const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
@@ -124,7 +126,7 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     }
 
 
-      // ✅ ADD CHECKOUT AUDIT LOG HERE
+      //  ADD CHECKOUT AUDIT LOG HERE
       if (order) {
         try {
           await supabaseAdmin
