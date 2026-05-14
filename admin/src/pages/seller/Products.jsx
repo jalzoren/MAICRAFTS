@@ -733,13 +733,7 @@ const Products = () => {
                         >
                           <FiClock size={16} />
                         </button>
-                        <button 
-                          className="pm-action-btn pm-delete" 
-                          title="Delete Product" 
-                          onClick={() => handleDeleteProduct(product.id)}
-                        >
-                          <FiTrash2 size={16} />
-                        </button>
+                        {/* Delete button removed from UI; backend call retained in codebase */}
                       </div>
                     </td>
                   </tr>
