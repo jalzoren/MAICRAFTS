@@ -26,7 +26,7 @@ router.get("/verify-email", async (req, res) => {
       .eq("token", token)
       .maybeSingle();
 
-      console.log('🔍 Verification record found:', verification ? 'YES' : 'NO');
+      console.log('Verification record found:', verification ? 'YES' : 'NO');
 
     if (error) {
       console.error(error);
@@ -137,7 +137,7 @@ router.get("/verify-email", async (req, res) => {
       description: `Email verified and account activated successfully`,
     });
 
-    console.log(`✅ Email verified for user: ${user?.email}`);
+    console.log(`Email verified for user: ${user?.email}`);
 
     return res.redirect(`${CLIENT_URL}/login?success=verified`);
     
