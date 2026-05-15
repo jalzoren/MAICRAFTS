@@ -148,7 +148,7 @@ const Checkout = () => {
     setIsPlacingOrder(true);
     try {
       const headers = getAuthHeaders();
-      // 1. Create order in your database
+      // 1. Create order in database
       const orderData = {
         user_id: user?.id || null,
         user_email: user?.email || null,
