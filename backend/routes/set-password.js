@@ -9,7 +9,6 @@ const router = express.Router();
 router.post("/set-password", async (req, res) => {
   const { email, password, captcha } = req.body;
 
-  // 1. VALIDATION
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password required" });
   }
@@ -18,7 +17,6 @@ router.post("/set-password", async (req, res) => {
     return res.status(400).json({ error: "Captcha required" });
   }
 
-  // 2. VERIFY CAPTCHA
   try {
     const response = await axios.post(
       "https://www.google.com/recaptcha/api/siteverify",
@@ -38,12 +36,10 @@ router.post("/set-password", async (req, res) => {
     return res.status(500).json({ error: "Captcha error" });
   }
 
-  // 3. GENERATE OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 60 * 1000);
 
   try {
-    // 4. STORE OTP IN DB
     const { error: otpError } = await supabase
       .from("email_otps")
       .insert({
@@ -56,7 +52,6 @@ router.post("/set-password", async (req, res) => {
       return res.status(500).json({ error: "Failed to store OTP" });
     }
 
-    // 5. SEND EMAIL
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 587,
@@ -137,7 +132,6 @@ router.post("/resend-otp", async (req, res) => {
     return res.status(400).json({ error: "Email required" });
   }
 
-  // 🔒 OPTIONAL: Rate limit (recommended)
   const { data: lastOtp } = await supabase
     .from("email_otps")
     .select("created_at")

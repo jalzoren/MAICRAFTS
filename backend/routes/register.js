@@ -7,61 +7,6 @@ import { createAuditLog } from "../services/auditService.js";
 
 const router = express.Router();
 
-/**
- * STEP 1: SEND OTP ONLY (NO USER YET)
- */
-router.post("/register", async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
-
-  try {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 60 * 1000);
-
-    await supabase.from("email_otps").insert({
-      email,
-      otp,
-      expires_at: expiresAt,
-    });
-
-    await createAuditLog({
-      user_id: null,
-      user_email: email,
-      user_role: "CUSTOMER",
-      action: "CREATE",
-      module: "AUTH",
-      description: `OTP sent to ${email}`,
-    });
-
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"Maicrafts" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: "Your OTP Code",
-      html: `<h2>Your OTP is <b>${otp}</b></h2>`,
-    });
-
-    return res.json({ message: "OTP sent to email" });
-  } catch (err) {
-    return res.status(500).json({ error: "Server error" });
-  }
-});
-
-/**
- * STEP 2: VERIFY OTP → THEN CREATE USER
- */
 router.post("/verify-otp", async (req, res) => {
   const { email, otp, password, first_name, last_name } = req.body;
 
@@ -70,7 +15,6 @@ router.post("/verify-otp", async (req, res) => {
   }
 
   try {
-    // 1. Check OTP
     const { data, error } = await supabase
       .from("email_otps")
       .select("*")
@@ -98,10 +42,8 @@ router.post("/verify-otp", async (req, res) => {
       description: "OTP successfully verified",
     });
 
-    // 2. Delete OTP
     await supabase.from("email_otps").delete().eq("id", data.id);
 
-    // 3. CREATE USER ONLY AFTER OTP SUCCESS
     const { data: authUser, error: authError } =
       await supabase.auth.admin.createUser({
         email,
@@ -133,7 +75,6 @@ router.post("/verify-otp", async (req, res) => {
       description: "Customer account created after OTP verification",
     });
 
-    // 4. Send activation email
     const token = uuidv4();
 
     await supabase.from("email_verifications").insert({
