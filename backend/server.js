@@ -70,6 +70,8 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     return res.status(401).send('Unauthorized');
   }
 
+  console.log('Signature header present:', signatureHeader);
+
   // Parse the signature header: format "t=timestamp, te=signature"
   const parts = signatureHeader.split(',');
   const timestamp = parts.find(p => p.startsWith('t='))?.slice(2);
@@ -82,7 +84,7 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
 
    // 2. Compute expected signature
   const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
-  const payload = req.body.toString(); // raw body string
+  const payload = req.body.toString();
   const signedPayload = `${timestamp}.${payload}`;
   const generatedSignature = crypto
     .createHmac('sha256', secret)
@@ -90,10 +92,17 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     .digest('hex');
 
   // Use constant-time comparison to avoid timing attacks
-  if (!crypto.timingSafeEqual(Buffer.from(generatedSignature), Buffer.from(receivedSignature))) {
-    console.error('Invalid signature');
-    return res.status(401).send('Unauthorized');
+  const isValid = crypto.timingSafeEqual(
+    Buffer.from(generatedSignature),
+    Buffer.from(receivedSignature)
+  );
+
+  if (!isValid) {
+    console.error('Signature mismatch – webhook rejected');
+    return res.status(401).send('Invalid signature');
   }
+  console.log('Signature verified successfully');
+  
 
   // Signature is valid – now parse the JSON body
   const event = JSON.parse(payload);
@@ -126,7 +135,7 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
     }
 
 
-      //  ADD CHECKOUT AUDIT LOG HERE
+      // CHECKOUT AUDIT LOG HERE
       if (order) {
         try {
           await supabaseAdmin

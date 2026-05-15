@@ -78,7 +78,7 @@ const createCheckoutSession = async (amount, description, successUrl, failedUrl)
             quantity: 1,
           },
         ],
-        payment_method_types: ['gcash', 'paymaya'], // GCash and Maya
+        payment_method_types: ['gcash', 'paymaya', 'billease', 'card', 'grab_pay', 'shopee_pay'], 
         success_url: successUrl,
         failed_url: failedUrl,
       },
@@ -115,7 +115,7 @@ router.post('/create-checkout-session', async (req, res) => {
       console.error('Failed to update order with session ID:', updateError);
     }
 
-     // ✅ AUDIT LOG ONLY (await - important for payment creation)
+     //  AUDIT LOG ONLY (await - important for payment creation)
      if (req.user?.id) {
       await createAuditLog({
         user_id: req.user.id,
@@ -137,6 +137,7 @@ router.post('/create-checkout-session', async (req, res) => {
       });
     }
 
+    // checkout url
     res.json({
       success: true,
       checkout_url: session.attributes.checkout_url,
@@ -145,7 +146,7 @@ router.post('/create-checkout-session', async (req, res) => {
   } catch (error) {
     console.error('PayMongo error:', error.response?.data || error.message);
 
-    // ✅ ERROR AUDIT LOG
+    //  ERROR AUDIT LOG
     if (req.user?.id) {
       await createAuditLog({
         user_id: req.user.id,
