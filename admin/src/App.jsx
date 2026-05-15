@@ -15,6 +15,7 @@ import Settings from "./pages/admin/Settings";
 import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
 import "./App.css";
 
+// App.jsx - SessionHandler (CLEAN VERSION)
 const SessionHandler = () => {
   const { setUserFromUrl } = useAuth();
   const location = useLocation();
@@ -27,34 +28,18 @@ const SessionHandler = () => {
     const sessionParam = params.get("session");
     const tokenParam = params.get("token");
     
-    console.log('========== ADMIN SESSION HANDLER ==========');
-    
     if (sessionParam) {
       try {
         const user = JSON.parse(decodeURIComponent(sessionParam));
-        console.log('✅ User received:', user.email);
+        console.log('📥 Session data extracted from URL:', user.email);
         
-        // CHANGE: Use sessionStorage instead of localStorage
-        const session = {
-          user: {
-            ...user,
-            access_token: tokenParam || 'from-url-token'
-          },
-          loginAt: new Date().toISOString()
-        };
-        
-        sessionStorage.setItem('mc_session', JSON.stringify(session));
-        console.log('✅ Session saved to sessionStorage');
-        
+        // DON'T save to sessionStorage here
+        // Let AuthContext handle the storage
         setUserFromUrl(user, tokenParam);
         setProcessed(true);
         
-        // Clear URL and reload
+        // Clear URL
         window.history.replaceState({}, '', location.pathname);
-        
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
         
       } catch (err) {
         console.error('Failed to parse session:', err);
@@ -66,7 +51,7 @@ const SessionHandler = () => {
   }, [location, processed, setUserFromUrl]);
 
   return null;
-};
+}; 
 
 const AppLayout = () => {
   const { user, loading, sessionReady } = useAuth();
