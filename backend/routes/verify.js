@@ -8,13 +8,8 @@ const router = express.Router();
 router.get("/verify-email", async (req, res) => {
   const { token } = req.query;
 
-  console.log('🔍 ========== VERIFICATION ATTEMPT ==========');
-  console.log('🔍 Token received:', token);
-  console.log('🔍 Full URL:', req.protocol + '://' + req.get('host') + req.originalUrl);
-
-
    if (!token) {
-    console.log('❌ No token provided');
+    console.log('No token provided');
     return res.status(400).send("Token is required");
   }
 

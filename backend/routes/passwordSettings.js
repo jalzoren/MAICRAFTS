@@ -7,7 +7,7 @@ const router = express.Router();
 // ========== AUTH MIDDLEWARE ==========
 router.use(async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  console.log('🔐 [passwordSettings] Auth Header:', authHeader ? 'Present' : 'Missing');
+  console.log('[passwordSettings] Auth Header:', authHeader ? 'Present' : 'Missing');
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     req.user = null;
@@ -41,7 +41,7 @@ router.use(async (req, res, next) => {
         name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
       };
       
-      console.log('✅ [passwordSettings] Authenticated user:', {
+      console.log('[passwordSettings] Authenticated user:', {
         id: req.user.id,
         email: req.user.email,
         role: req.user.role
@@ -85,7 +85,6 @@ router.get("/", async (req, res) => {
 
     if (error) throw error;
 
-      // ✅ VIEW AUDIT LOG (fire and forget)
       if (req.user?.id) {
         createAuditLog({
           user_id: req.user.id,
@@ -112,7 +111,7 @@ router.post("/", async (req, res) => {
       const { error } = await supabase
         .from("password_settings")
         .upsert({
-          id: 1, // 🔥 important
+          id: 1, 
           min_length: s.minLength,
           require_uppercase: s.requireUppercase,
           uppercase_min_count: s.uppercaseMinCount,
@@ -128,7 +127,6 @@ router.post("/", async (req, res) => {
   
       if (error) throw error;
 
-        // ✅ UPDATE AUDIT LOG
     if (req.user?.id) {
       // Build description of changes
       const changes = [];
@@ -147,14 +145,14 @@ router.post("/", async (req, res) => {
         module: "SETTINGS",
         description: `Updated password complexity settings. Changes: ${changes.join(', ') || 'All settings updated'}`,
       });
-      console.log('✅ Password settings audit log created');
+      console.log('Password settings audit log created');
     }
   
       res.json({ success: true });
     } catch (err) {
       console.error("POST error:", err.message);
 
-      // ✅ ERROR AUDIT LOG
+      // ERROR AUDIT LOG
     if (req.user?.id) {
       await createAuditLog({
         user_id: req.user.id,
