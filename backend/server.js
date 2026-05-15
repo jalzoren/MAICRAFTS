@@ -104,7 +104,7 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
   console.log('Signature verified successfully');
   
 
-  // Signature is valid – now parse the JSON body
+  // Signature is valid 
   const event = JSON.parse(payload);
   console.log('Verified webhook event:', event);
 
