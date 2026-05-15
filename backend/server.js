@@ -5,6 +5,7 @@ import cors from 'cors';
 import crypto from 'crypto';                
 import { supabaseAdmin } from './supabaseClient.js';
 import cookieParser from 'cookie-parser';
+import sanitizeRequest from './middleware/sanitize.js';
 import authRoutes from './routes/register.js';
 import verifyEmailRouter from "./routes/verify.js";
 import loginRoutes from './routes/login.js';
@@ -165,6 +166,7 @@ app.use(cookieParser());
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(sanitizeRequest);
 
 // Request logging
 app.use((req, res, next) => {

@@ -25,6 +25,7 @@
     "sharp": "^0.34.5",
     "speakeasy": "^2.0.0",
     "uuid": "^13.0.0",
-    "virustotal-api": "^1.1.7"
+    "virustotal-api": "^1.1.7",
+    "xss": "^1.0.15"
   }
 }
