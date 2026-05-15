@@ -3,6 +3,7 @@ import express from 'express';
 import axios from 'axios';
 import supabase from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
+import { decrypt } from '../utils/encryption.js';
 
 const router = express.Router();
 
@@ -217,11 +218,14 @@ router.get("/users/me", async (req, res) => {
     }
     const { data, error } = await supabase
       .from("users")
-      .select("id, first_name, last_name, middle_name, email, contact_number, profile_url, role")
+      .select("id, first_name, last_name, middle_name, email, contact_number_encrypted, profile_url, role")
       .eq("id", req.user.id)
       .single();
     if (error) throw error;
+    data.contact_number = decrypt(data.contact_number_encrypted);
+    delete data.contact_number_encrypted;
     res.json({ user: data });
+
   } catch (err) {
     console.error("Error fetching current user:", err);
     res.status(500).json({ error: "Failed to fetch user" });

@@ -4,6 +4,7 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import supabase from '../supabaseClient.js';
 import { recordAuditLog } from '../utils/auditLogger.js';
+import { decrypt } from '../utils/encryption.js';
 
 const router = express.Router();
 const tempSetup = {};
@@ -335,6 +336,7 @@ router.post("/", async (req, res) => {
 
     await resetLoginAttempts(username);
 
+    //login query
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -458,10 +460,16 @@ router.post("/verify-otp", async (req, res) => {
     delete tempSetup[username];
 
     const { data: userData } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, middle_name, email, contact_number, role, profile_url')
-      .eq('email', username)
-      .single();
+  .from('users')
+  .select('id, first_name, last_name, middle_name, email, contact_number_encrypted, role, profile_url')
+  .eq('email', username)
+  .single();
+
+  // Decrypt phone number
+  if (userData) {
+    userData.contact_number = decrypt(userData.contact_number_encrypted);
+    delete userData.contact_number_encrypted;
+  }
 
     queueLoginAuditLog(userData, "User completed login and 2FA setup.");
 
@@ -476,10 +484,16 @@ router.post("/verify-otp", async (req, res) => {
 
   delete tempSetup[username];
   const { data: userData } = await supabase
-    .from('users')
-    .select('id, first_name, last_name, middle_name, email, contact_number, role, profile_url')
-    .eq('email', username)
-    .single();
+  .from('users')
+  .select('id, first_name, last_name, middle_name, email, contact_number_encrypted, role, profile_url')
+  .eq('email', username)
+  .single();
+
+  // Decrypt phone number
+  if (userData) {
+    userData.contact_number = decrypt(userData.contact_number_encrypted);
+    delete userData.contact_number_encrypted;
+  }
 
   queueLoginAuditLog(userData, "User logged in successfully.");
 

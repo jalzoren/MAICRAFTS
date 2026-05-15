@@ -1,3 +1,4 @@
+// EditProfileModal.jsx
 import React, { useState, useEffect } from "react";
 import "../../css/EditProfileModal.css";
 

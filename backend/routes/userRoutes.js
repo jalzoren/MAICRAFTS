@@ -6,6 +6,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 import { sendWelcomeEmail } from "../utils/mailer.js";
 import crypto from "crypto";
 import { createAuditLog } from "../services/auditService.js";
+import { encrypt, decrypt } from '../utils/encryption.js';
 
 const router = express.Router();
 
@@ -456,13 +457,18 @@ router.post('/users/:id/avatar', upload.single('avatar'), async (req, res) => {
 router.get('/users/:id', async (req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, first_name, last_name, middle_name, email, contact_number, profile_url')
+    .select('id, first_name, last_name, middle_name, email, contact_number_encrypted, profile_url')
     .eq('id', req.params.id)
     .single();
 
   if (error) return res.status(404).json({ message: 'User not found' });
 
-  // ✅ ONLY ADDED THIS AUDIT
+  // Decrypt phone number before sending
+  const plainPhone = decrypt(data.contact_number_encrypted);
+  const userData = { ...data, contact_number: plainPhone };
+  delete userData.contact_number_encrypted; // never expose the encrypted value
+
+  //  ONLY ADDED THIS AUDIT
   if (req.user?.id && req.user.id !== req.params.id) {
     createAuditLog({
       user_id: req.user.id,
@@ -474,12 +480,13 @@ router.get('/users/:id', async (req, res) => {
     }).catch(err => console.error('Audit log error:', err));
   }
 
-  res.json({ user: data });
+  res.json({ user: userData }); 
 });
 
 // PUT update user profile
 router.put('/users/:id', async (req, res) => {
   const { first_name, last_name, middle_name, contact_number } = req.body;
+
   
   // ✅ ONLY ADDED THIS - get old data for audit
   const { data: oldUserData } = await supabase
@@ -488,14 +495,28 @@ router.put('/users/:id', async (req, res) => {
     .eq('id', req.params.id)
     .single();
   
+  // Encrypt the phone number
+  const encryptedPhone = encrypt(contact_number);
+  
   const { data, error } = await supabase
     .from('users')
-    .update({ first_name, last_name, middle_name, contact_number, updated_at: new Date() })
+    .update({ 
+      first_name, 
+      last_name, 
+      middle_name, 
+      contact_number_encrypted: encryptedPhone,
+      updated_at: new Date() 
+    })
     .eq('id', req.params.id)
-    .select('id, first_name, last_name, middle_name, email, contact_number, profile_url')
+    .select('id, first_name, last_name, middle_name, email, contact_number_encrypted, profile_url')
     .single();
 
   if (error) return res.status(500).json({ message: error.message });
+
+  // Decrypt for the response (frontend expects plain text)
+  const plainPhone = decrypt(data.contact_number_encrypted);
+  const userData = { ...data, contact_number: plainPhone };
+  delete userData.contact_number_encrypted;
   
   // ✅ ONLY ADDED THIS AUDIT
   if (req.user?.id && req.user.id === req.params.id) {
@@ -514,7 +535,7 @@ router.put('/users/:id', async (req, res) => {
     }).catch(err => console.error('Audit log error:', err));
   }
   
-  res.json({ user: data });
+  res.json({ user: userData }); 
 });
 
 
