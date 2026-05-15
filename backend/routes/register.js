@@ -75,6 +75,9 @@ router.post("/verify-otp", async (req, res) => {
       description: "Customer account created after OTP verification",
     });
 
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours
+
     const token = uuidv4();
 
     await supabase.from("email_verifications").insert({
@@ -82,6 +85,8 @@ router.post("/verify-otp", async (req, res) => {
       user_id: userId,
       token,
       created_at: new Date(),
+      is_used: false, // Explicitly set to false
+      expires_at: expiresAt.toISOString(), // Explicitly set expiration
     });
 
     await createAuditLog({

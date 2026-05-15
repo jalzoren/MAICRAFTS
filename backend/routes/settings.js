@@ -40,7 +40,7 @@ router.use(async (req, res, next) => {
         name: dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : user.user_metadata?.name || user.email
       };
       
-      console.log('✅ [settingsRoutes] Authenticated user:', {
+      console.log('[settingsRoutes] Authenticated user:', {
         id: req.user.id,
         email: req.user.email,
         role: req.user.role
