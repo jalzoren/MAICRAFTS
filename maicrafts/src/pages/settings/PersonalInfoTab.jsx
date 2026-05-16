@@ -59,8 +59,8 @@ const EMPTY_ADDR = {
   postal_code: "", home_address: "", is_default: false,
 };
 
-const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
-  const [form, setForm]       = useState(initial || EMPTY_ADDR);
+const AddressModal = ({ mode, initial, userId, user, onSave, onClose }) => {
+	const [form, setForm]       = useState(initial ? { ...EMPTY_ADDR, ...initial, first: initial.first || user?.firstName || "", last: initial.last || user?.lastName || "", phone: initial.phone || user?.phone || "" } : { ...EMPTY_ADDR, first: user?.firstName || "", last: user?.lastName || "", phone: user?.phone || "" });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError]     = useState("");
   const overlayRef = useRef(null);
@@ -85,6 +85,16 @@ const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
     return null;
   };
 
+  useEffect(() => {
+    const base = initial ? { ...EMPTY_ADDR, ...initial } : { ...EMPTY_ADDR };
+    setForm({
+      ...base,
+      first: initial?.first ?? user?.firstName ?? "",
+      last: initial?.last ?? user?.lastName ?? "",
+      phone: initial?.phone ?? user?.phone ?? "",
+    });
+  }, [initial, user]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const err = validate();
@@ -92,7 +102,7 @@ const AddressModal = ({ mode, initial, userId, onSave, onClose }) => {
 
     setIsSaving(true);
     try {
-      const headers = getAuthHeaders(); // ← Add this
+      const headers = getAuthHeaders();
       const isEdit = mode === "edit";
       const endpoint = isEdit
         ? `http://localhost:5000/api/address/${initial.address_id}`
@@ -454,6 +464,7 @@ const PersonalInfoTab = ({ user }) => {
           mode={modalState.mode}
           initial={modalState.initial}
           userId={user.id}
+          user={user}
           onSave={handleAddrSave}
           onClose={() => setModalState(null)}
         />

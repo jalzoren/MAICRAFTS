@@ -3,6 +3,7 @@ import express from 'express';
 import axios from "axios";
 import { supabase, supabaseAdmin } from '../supabaseClient.js';
 import { createAuditLog } from '../services/auditService.js';
+import { decrypt } from '../utils/encryption.js';
 
 const router = express.Router();
 
