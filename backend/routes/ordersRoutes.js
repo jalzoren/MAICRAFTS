@@ -326,12 +326,12 @@ router.post('/orders', async (req, res) => {
     if (user_id) {
       const { data: userData, error: userError } = await supabaseAdmin
         .from('users')
-        .select('first_name, last_name, contact_number, email')
+        .select('first_name, last_name, contact_number_encrypted, email')
         .eq('id', user_id)
         .single();
       if (!userError && userData) {
         customerName = [userData.first_name, userData.last_name].filter(Boolean).join(' ');
-        phoneNumber = userData.contact_number;
+        phoneNumber = decrypt(userData.contact_number_encrypted);
         if (!email) email = userData.email;
       }
     }
